@@ -64,6 +64,9 @@ Changed (behavior)
 - `/set x %*` with empty arguments sets x to the empty string while a typed `/set x ` lists it,
   as in tf: the engine decides from the unexpanded line (`Interp.rawSetValue`).
 
+Fixed
+- `${world_*}` expands to nothing (no "macro not defined") when there is no current world; `/limit -m` error has tf's two spaces.
+
 Added
 - Native `/_echo`, `/true`, `/false` and `/:` (tf defines them as stdlib macros); `/echo` was already native.
 - `diag_test.go`: pins the most common messages without needing real tf.

@@ -617,6 +617,9 @@ func (in *Interp) runSub(kind byte, arg string) string {
 	if m, ok := in.findMacro(arg); ok {
 		return m.Body
 	}
+	if strings.HasPrefix(arg, "world_") && validWorldField(arg[6:]) {
+		return "" // no current world: tf expands the world macros to nothing
+	}
 	in.echo("% macro not defined: " + arg)
 	return ""
 }

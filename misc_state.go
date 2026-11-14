@@ -237,7 +237,7 @@ func (in *Interp) matchStyleName(cmd string, arg string) (string, bool) {
 			return n, true
 		}
 	}
-	in.warn(`%s -m: Invalid -m value "%s". Valid values are: simple (0), glob (1), regexp (2), substr (3)`, cmd, arg)
+	in.warn(`%s -m: Invalid -m value "%s".  Valid values are: simple (0), glob (1), regexp (2), substr (3)`, cmd, arg)
 	return "", false
 }
 
