@@ -11,6 +11,28 @@ Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 
 ## Unreleased
 
+## v0.0.3 (2026-11-14) — history, worlds, logging and other state builtins
+
+State that needs no terminal now lives in core (docs in `docs/engine/state-builtins.md`)
+- History: `/recordline`, `/recall` (all range forms and options), `/histsize`; input,
+  local, global and per-world histories fed by `RecordInput`, `RecordLocalLine`,
+  `RecordWorldLine`; read back with `History`, `HistoryLines`, `RecallInput`.
+- `/limit`, `/relimit`, `/unlimit` (`Limited`, `LimitActive`, a `limit` event).
+- `/log` with `log_prefix`, `wraplog`, `ansi_log`; `LogLine`, `nlog()`; policy-checked.
+- World database: `addworld()`, `/unworld`, `/renameworld`, `/listworlds`,
+  `/saveworld`, `world_info()`, temporary worlds, `world_*` variables and
+  `${world_name}`; `SetCurrentWorld`, `Worlds`, `DefineWorld`.
+- Connections: `/connect`, `/dc`, `/fg`, `/listsockets`, `is_connected()`,
+  `is_open()`, `fg_world()`, `idle()`, `sidle()`, `nactive()` over optional host
+  interfaces (`SocketHost`, `ConnectHost`, `FgHost`, `IdleHost`, `RebootHost`,
+  `LimitHost`); a host without `WorldHost` behaves as having no sockets.
+- `/save`, `/edit`, `/undefn`, `/liststreams`, `/watchdog`, `/watchname`,
+  `/features`, `/help`, `/core`, `/reboot`.
+- `nactive()` uses sockets when the host has a `SocketHost`, else the paging state.
+
+Known gaps: `/edit $text`; `%wraplog` breaks at blanks (tf uses ICU); `/features`
+reports optional features off unless the client calls `SetFeature`.
+
 ## v0.0.2 (2026-11-14) — extension tables, parsed handlers, terminal builtins
 
 Added
