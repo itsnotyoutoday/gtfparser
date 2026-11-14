@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 	"strings"
 )
 
@@ -564,7 +565,17 @@ func (p *exprParser) number() (eval, error) {
 			}
 		}
 	}
-	v := parseNumPrefix(p.s[st:p.pos])
+	lit := p.s[st:p.pos]
+	if strings.Contains(lit, ":") {
+		h := lit[:strings.IndexByte(lit, ':')]
+		if _, err := strconv.ParseInt(h, 10, 64); err != nil {
+			return nil, errors.New("time value too large")
+		}
+	}
+	v := parseNumPrefix(lit)
+	if v.k == kReal && math.IsInf(v.f, 0) {
+		return nil, errors.New("numeric value too large")
+	}
 	return func() (Value, error) { return v, nil }, nil
 }
 

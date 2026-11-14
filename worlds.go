@@ -224,6 +224,12 @@ func (in *Interp) newWorld(name, typ, host, port, char, pass, mfile, flags, myho
 		in.warn("illegal world name: %s", name)
 		return nil
 	}
+	if pass != "" && in.loadName != "" && in.loadWarned != in.loadName {
+		if st, err := os.Stat(in.loadName); err == nil && st.Mode().Perm()&0o044 != 0 {
+			in.loadWarned = in.loadName
+			in.warn("Warning: file contains passwords and is readable by others.")
+		}
+	}
 	var w *World
 	redef := false
 	switch {

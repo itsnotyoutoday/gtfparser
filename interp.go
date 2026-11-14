@@ -75,6 +75,7 @@ type Interp struct {
 	subWarned, dollarWarned bool   // one-time expression warnings (tf's statics)
 	fnParent                string // the command that was running when the current builtin function was called
 	inEval                  int    // depth of /eval (see warnEval)
+	loadWarned              string // file already warned about for readable passwords
 	quietLoad               int    // depth of /load -q (suppresses 'Loading commands from')
 	loadName                string // file being loaded, and the lines of the logical line being run
 	loadStart               int
@@ -615,6 +616,7 @@ func (in *Interp) runSub(kind byte, arg string) string {
 	if m, ok := in.findMacro(arg); ok {
 		return m.Body
 	}
+	in.echo("% macro not defined: " + arg)
 	return ""
 }
 
