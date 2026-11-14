@@ -219,7 +219,7 @@ func (in *Interp) matchStyle(cmd, style, pat string) (func(string) bool, bool) {
 	case "substr":
 		return func(s string) bool { return strings.Contains(s, pat) }, true
 	case "regexp":
-		re, err := compileRegexp(pat)
+		re, err := in.compileRe(pat)
 		if err != nil {
 			in.warn("%s: %v", cmd, err)
 			return nil, false

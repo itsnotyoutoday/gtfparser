@@ -19,6 +19,17 @@ var (
 	rxCache = map[string]*rx{}
 )
 
+// compileRe is compileRegexp plus tf's warning about the '{' whose meaning
+// changed in version 5.0 (given each time a pattern is compiled).
+func (in *Interp) compileRe(pat string) (*rx, error) {
+	if i := firstUnescaped(pat, '{'); i >= 0 && i+1 < len(pat) && (pat[i+1] >= '0' && pat[i+1] <= '9' || pat[i+1] == ',') {
+		if in.globals["warn_curly_re"].String() != "off" {
+			in.warn("Warning: regexp contains '{', which has a new meaning in version 5.0.  (This warning can be disabled with '/set warn_curly_re=off'.)")
+		}
+	}
+	return compileRegexp(pat)
+}
+
 func compileRegexp(pat string) (*rx, error) {
 	rxMu.Lock()
 	r0, ok := rxCache[pat]

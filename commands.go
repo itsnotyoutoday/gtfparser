@@ -111,32 +111,123 @@ func nameValue(args string) (name, val string, has bool) {
 	return name, strings.TrimLeft(args[i:], " \t"), true
 }
 
+// varNameEnd is spanvar(): the length of the variable name at the start of s.
+func varNameEnd(s string) int {
+	i := 0
+	for i < len(s) && (s[i] == '_' || s[i] >= 'a' && s[i] <= 'z' || s[i] >= 'A' && s[i] <= 'Z' || i > 0 && s[i] >= '0' && s[i] <= '9') {
+		i++
+	}
+	return i
+}
+
+// setDelim is setdelim() in variable.c: it reads what follows the name in
+// /set and /let. kind: -1 invalid, 0 no value, 1 a value (val).
+func (in *Interp) setDelim(rest string) (kind int, val string) {
+	switch {
+	case rest == "":
+		return 0, ""
+	case rest[0] == ' ' || rest[0] == '\t':
+		rest = strings.TrimLeft(rest, " \t")
+		if rest == "" {
+			return 0, ""
+		}
+		if rest[0] == '=' {
+			in.warn("Warning: '=' following space is part of value.")
+		}
+		return 1, rest
+	case rest[0] == '=':
+		return 1, rest[1:]
+	}
+	return -1, ""
+}
+
+// varNameSpecial matches the names tf's looks_like_special_sub accepts.
+func varNameSpecial(n string) bool {
+	switch {
+	case n == "R", n == "PL", n == "PR":
+		return true
+	case len(n) > 0 && (n[0] == 'L' || n[0] == 'P'):
+		for _, c := range n[1:] {
+			if c < '0' || c > '9' {
+				return false
+			}
+		}
+		return n[0] == 'L' || len(n) > 1
+	}
+	return false
+}
+
+func (in *Interp) setArgs(cmd, args string) (name, val string, kind int) {
+	args = strings.TrimLeft(args, " \t")
+	n := varNameEnd(args)
+	name = args[:n]
+	kind, val = in.setDelim(args[n:])
+	if kind == -1 {
+		j := 0
+		for j < len(args) && args[j] != ' ' && args[j] != '\t' && args[j] != '=' {
+			j++
+		}
+		old := in.curCmd
+		in.curCmd = cmd // an invalid name falls through to the command proper, which is named
+		in.warn("illegal variable name: %s", args[:j])
+		in.curCmd = old
+	}
+	return
+}
+
 func cmdSet(in *Interp, args string) Value {
-	name, val, has := nameValue(args)
-	if name == "" {
+	if strings.TrimSpace(args) == "" {
 		return Int(0)
 	}
-	if !has {
-		v, ok := in.lookup(name)
-		if ok {
+	name, val, kind := in.setArgs("SET", args)
+	switch kind {
+	case -1:
+		return Int(0)
+	case 0:
+		if v, ok := in.globals[name]; ok {
 			in.echo("% " + name + "=" + v.String())
+			return Int(1)
 		}
-		return Bool(ok)
+		in.echo("% " + name + " not set globally")
+		return Int(0)
 	}
 	return Bool(in.setGlobal(name, Str(val)))
 }
 
 func cmdLet(in *Interp, args string) Value {
-	name, val, has := nameValue(args)
-	if name == "" || !has {
+	if strings.TrimSpace(args) == "" {
 		return Int(0)
+	}
+	name, val, kind := in.setArgs("LET", args)
+	if kind == -1 {
+		return Int(0)
+	}
+	if kind == 0 {
+		if v, ok := in.fr.vars[name]; ok {
+			in.echo("% " + name + "=" + v.String())
+			return Int(1)
+		}
+		in.echo("% " + name + " not set locally")
+		return Int(0)
+	}
+	if _, has := in.fr.vars[name]; !has {
+		if _, g := in.globals[name]; g {
+			in.FireHookArgs("SHADOW", name)
+		}
 	}
 	in.fr.vars[name] = Str(val)
 	return Int(1)
 }
 
 func cmdUnset(in *Interp, args string) Value {
-	name, _ := firstWord(args)
+	name := strings.TrimSpace(args)
+	if sp, ok := specialVars[name]; ok && sp.kind == "pos" {
+		in.warn("%s must be a positive integer, so can not be unset.", name)
+		return Int(0)
+	}
+	if _, ok := in.globals[name]; !ok {
+		return Int(0)
+	}
 	delete(in.globals, name)
 	return Int(1)
 }
@@ -433,14 +524,13 @@ var errLoadAborted = errors.New("load aborted")
 
 // /export name... marks variables for export to child processes (/sh, /quote !).
 func cmdExport(in *Interp, args string) Value {
-	ok := false
-	for _, n := range strings.Fields(args) {
-		if _, has := in.lookup(n); has {
-			in.exported[n] = true
-			ok = true
-		}
+	n := strings.TrimSpace(args)
+	if _, has := in.globals[n]; !has {
+		in.warn("%s not defined.", n)
+		return Int(0)
 	}
-	return Bool(ok)
+	in.exported[n] = true
+	return Int(1)
 }
 
 // childEnv is the environment given to shell commands: the process

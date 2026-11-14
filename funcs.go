@@ -103,7 +103,7 @@ func minmax(a []Value, max bool) (Value, error) {
 // fnRegmatch implements regmatch(pattern, string): on a match it sets the
 // %P0.. substitutions for the current scope.
 func fnRegmatch(in *Interp, a []Value) (Value, error) {
-	re, err := compileRegexp(str(a, 0))
+	re, err := in.compileRe(str(a, 0))
 	if err != nil {
 		in.warn("regmatch: %v", err)
 		return Int(0), nil

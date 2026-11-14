@@ -18,6 +18,7 @@ type exprParser struct {
 	s    string
 	pos  int
 	kind string // "expression" (default) or "condition": the noun in syntax errors
+	warns []string // compile-time warnings, shown each time the expression runs
 }
 
 // syntaxError is a compile-time (parse) error of an expression.
@@ -31,8 +32,9 @@ type overflowError struct{ label string }
 func (e *overflowError) Error() string { return e.label + " operator: arithmetic overflow" }
 
 type exprEntry struct {
-	f   eval
-	err error
+	f     eval
+	err   error
+	warns []string
 }
 
 // EvalExpr evaluates a TF expression.
@@ -54,11 +56,14 @@ func (in *Interp) evalExpr(src string) (Value, error) {
 				err = p.syntaxErr("end of expression")
 			}
 		}
-		e = &exprEntry{f: f, err: err}
+		e = &exprEntry{f: f, err: err, warns: p.warns}
 		if len(in.exprCache) >= cacheMax {
 			in.exprCache = map[string]*exprEntry{}
 		}
 		in.exprCache[src] = e
+	}
+	for _, w := range e.warns {
+		in.warn("Warning: %s", w)
 	}
 	if e.err != nil {
 		return Int(0), e.err
@@ -263,6 +268,20 @@ func (p *exprParser) binLevel(ops []string, next func() (eval, error)) (eval, er
 			return l, nil
 		}
 		p.take(op)
+		if op == "/" {
+			// "1 /echo": a command name after '/' suggests a missing "%;"
+			p.ws()
+			if p.pos < len(p.s) && isIdentStart(p.s[p.pos]) {
+				st := p.pos
+				for st < len(p.s) && isIdentChar(p.s[st]) {
+					st++
+				}
+				nm := p.s[p.pos:st]
+				if ctlKeywords[strings.ToLower(nm)] || tfCmdSet[strings.ToLower(nm)] || p.in.macroNamed(nm) {
+					p.warns = append(p.warns, fmt.Sprintf("possibly missing '%%;' or ')' before /%s", nm))
+				}
+			}
+		}
 		r, err := next()
 		if err != nil {
 			return nil, err
@@ -283,6 +302,12 @@ func (p *exprParser) binLevel(ops []string, next func() (eval, error)) (eval, er
 			}
 			if id != "" {
 				a, _ = p.in.lookup(id)
+			}
+			if op0 == "=/" || op0 == "!/" {
+				if gerr := globCheck(b.String()); gerr != nil {
+					p.in.warn("%v", gerr) // tf: a bad pattern matches nothing, for =/ and !/ alike
+					return Int(0), nil
+				}
 			}
 			return binary(op0, a, b)
 		}
@@ -452,9 +477,18 @@ func (p *exprParser) parsePrimary0() (eval, error) {
 	case c == '%':
 		// macro-style substitution inside an expression
 		n, text := p.in.expandOne(p.s[p.pos:])
+		if n > 1 && !p.in.subWarned || n > 1 && p.in.flag("pedantic") {
+			p.in.subWarned = true
+			sub := p.s[p.pos : p.pos+n]
+			p.warns = append(p.warns, fmt.Sprintf("\"%s\" substitution in expression is legal, but can be confusing.  Try using \"{%s}\" instead.", sub, strings.TrimSuffix(strings.TrimPrefix(sub[1:], "{"), "}")))
+		}
 		p.pos += n
 		return func() (Value, error) { return Str(text()), nil }, nil
 	case c == '$':
+		if p.pos+1 < len(p.s) && p.s[p.pos+1] == '[' && (!p.in.dollarWarned || p.in.flag("pedantic")) {
+			p.in.dollarWarned = true
+			p.warns = append(p.warns, "$[...] substitution in expression is legal, but redundant.  Try using (...) instead.")
+		}
 		n, text := p.in.expandOne(p.s[p.pos:])
 		if n == 0 {
 			return nil, errors.New("expression: stray '$'")
@@ -467,7 +501,10 @@ func (p *exprParser) parsePrimary0() (eval, error) {
 			return p.call(id)
 		}
 		return func() (Value, error) {
-			v, _ := p.in.lookup(id)
+			v, ok := p.in.lookup(id)
+			if !ok && varNameSpecial(id) {
+				p.in.warn("Warning: \"%s\" in an expression is a variable reference, and is not the same as special substitution \"{%s}\".", id, id)
+			}
 			return v, nil
 		}, nil
 	}
@@ -862,4 +899,9 @@ func reduce(op string, a, b Value, binary bool) (Value, error) {
 		return Int(0), &overflowError{op}
 	}
 	return Real(r), nil
+}
+
+func (in *Interp) macroNamed(name string) bool {
+	_, ok := in.macros[name]
+	return ok
 }
