@@ -1,6 +1,7 @@
 package gtfparser
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -263,5 +264,23 @@ func TestDiagnosticLineRanges(t *testing.T) {
 	}
 	if strings.Join(w, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("got %q", w)
+	}
+}
+
+// cAtoi saturates at 2^31 like C's atoi on the reference build, and must not overflow where int is 32 bits
+// (the engine has to compile for linux/386 and linux/arm).
+func TestCAtoiSaturates(t *testing.T) {
+	want := int64(1 << 31)
+	if math.MaxInt < want {
+		want = math.MaxInt
+	}
+	if got := cAtoi("99999999999999999999"); int64(got) != want {
+		t.Errorf("cAtoi big = %d, want %d", got, want)
+	}
+	if got := cAtoi("  -12x"); got != -12 {
+		t.Errorf("cAtoi(-12x) = %d", got)
+	}
+	if got := cAtoi("+7"); got != 7 {
+		t.Errorf("cAtoi(+7) = %d", got)
 	}
 }

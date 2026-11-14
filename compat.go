@@ -1,6 +1,9 @@
 package gtfparser
 
-import "strings"
+import (
+	"math"
+	"strings"
+)
 
 // funcArity is the argument-count range tf enforces for each builtin
 // function when an expression is compiled (funclist.h); -1 is unbounded.
@@ -126,9 +129,9 @@ func cAtoi(s string) int {
 		neg = s[i] == '-'
 		i++
 	}
-	n := 0
+	var n int64 // wide, so the saturation at 2^31 below fits where int is 32 bits
 	for ; i < len(s) && s[i] >= '0' && s[i] <= '9'; i++ {
-		n = n*10 + int(s[i]-'0')
+		n = n*10 + int64(s[i]-'0')
 		if n > 1<<31 {
 			n = 1 << 31
 		}
@@ -136,7 +139,10 @@ func cAtoi(s string) int {
 	if neg {
 		n = -n
 	}
-	return n
+	if n > math.MaxInt { // 32-bit platforms
+		n = math.MaxInt
+	}
+	return int(n)
 }
 
 // cmdFuncName is the lower-case name of the tf builtin command that name

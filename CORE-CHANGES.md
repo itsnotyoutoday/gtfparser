@@ -9,6 +9,12 @@ mid-task.
 Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 `Breaking` (and what a client must do).
 
+## v0.0.9 (2026-11-14) — builds on 32-bit platforms
+
+Fixed
+- The module did not compile where `int` is 32 bits (linux/386, linux/arm): `cAtoi` saturated at `1<<31` in an `int`.
+  It now accumulates in 64 bits and clamps. Behaviour on 64-bit platforms is unchanged.
+
 ## v0.0.8 (2026-11-14) — stdlib.tf's library commands move into the engine
 
 ### core: 73 library commands are native
