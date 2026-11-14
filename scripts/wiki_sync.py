@@ -18,7 +18,7 @@ REPO = 'itsnotyoutoday/gtfparser'
 BLOB = f'https://github.com/{REPO}/blob/main/'
 GUIDE_ORDER = ['Home', 'Getting-Started', 'Embedding-Guide', 'Extending-the-Engine', 'Use-Cases',
                'Safety-and-Sandboxing', 'Concurrency-and-Performance', 'Testing-and-Compatibility',
-               'Architecture', 'FAQ']
+               'Deliberate-Differences', 'Diagnostics', 'Architecture', 'FAQ']
 SECTIONS = [('language', 'Language', 'Language guide'), ('reference', 'Reference', 'Built-in reference'),
             ('engine', 'Engine', 'Engine notes')]
 
@@ -31,7 +31,7 @@ def wiki_name(rel):
                 return {'language': 'Language-Guide', 'reference': 'Built-in-Reference', 'engine': 'Engine-Notes'}[folder]
             tail = ['Known-Differences' if x == 'FINDINGS' else x for x in parts[1:]]
             return prefix + '-' + '-'.join(tail)
-    return '-'.join(parts)
+    return '-'.join(w[:1].upper() + w[1:] for w in '-'.join(parts).split('-'))
 
 def collect(docs):
     pages = {}
