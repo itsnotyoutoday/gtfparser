@@ -1,0 +1,440 @@
+key	kind	file	line	func	template	context	trigger	status	case	note
+attr.388	E	attr.c	388	parse_attrs	invalid display attribute '%c'	eprefix	invalid display attribute	testable	attr.388	
+attr.411	I	attr.c	411	ch_attr	ch_attr: variable '%s' has type %04x	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+attr.638	E	attr.c	638	decode_attr	unmatched @{	eprefix	unmatched @{	testable	attr.638	
+command.128	E	command.c	128	handle_substitute_func	not called from trigger	eprefix	/substitute outside a trigger	testable	command.128	
+command.246	E	command.c	246	handle_reboot_command	unexpected argument: %s	eprefix	/reboot with an argument	testable	command.246	
+command.270	E	command.c	270	handle_sh_command	restricted	eprefix	/sh under /restrict shell	testable	command.270	
+command.283	H	command.c	283	handle_sh_command	Executing %s: %s	none		untestable		/sh waits for a keypress on the terminal ("Press any key to continue tf.")
+command.292	H	command.c	292	handle_sh_command	Executing %s: %s	none		untestable		interactive /sh (no argument) needs a terminal
+command.305	O	command.c	305	handle_version_command	%s.	none	/version	testable	command.305	
+command.306	O	command.c	306	handle_version_command	%s.	none	/version, copyright line	testable	command.306	
+command.307	O	command.c	307	handle_version_command	%s	none	/version, contrib line	testable	command.307	
+command.308	O	command.c	308	handle_version_command	%s	none	/version, mods line	testable	command.308	
+command.309	O	command.c	309	handle_version_command	Built for %s	none	/version, platform line	testable	command.309	
+command.316	I	command.c	316	handle_core_command	command: /core %s	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+command.343	E	command.c	343	handle_lcd_command	restricted	eprefix	/lcd under /restrict file	testable	command.343	
+command.349	E	command.c	349	handle_lcd_command	%s: %s	eprefix	/lcd to a nonexistent directory	testable	command.349	
+command.354	O	command.c	354	handle_lcd_command	Current directory is %s	none	/lcd prints the current directory	testable	command.354	
+command.357	O	command.c	357	handle_lcd_command	Current directory is %s	none		untestable		getwd() fallback, only compiled when getcwd() is missing
+command.389	E	command.c	389	handle_echo_func	illegal destination '%c'	eprefix	echo() with an illegal destination	testable	command.389	
+command.417	E	command.c	417	handle_restrict_command	restricted	eprefix		untestable		only reachable in squat sandbox mode (scripts uploaded by a remote client)
+command.424	O	command.c	424	handle_restrict_command	restriction level: %S	none	/restrict shows the level	testable	command.424	
+command.558	W	command.c	558	do_file_load	invalid directory in TFPATH: %S	eprefix		untestable		needs an invalid TFPATH environment variable (the harness fixes the environment)
+command.566	W	command.c	566	do_file_load	invalid TFLIBDIR: %s	eprefix		untestable		needs an invalid TFLIBDIR environment variable (the harness fixes the environment)
+command.576	E	command.c	576	do_file_load	%s: %s	eprefix	/load of a file that does not exist	testable	command.576	
+command.597	E	command.c	597	do_file_load	file load interrupted.	eprefix		untestable		needs a user interrupt (^C) while a file loads
+command.610	T	command.c	610	do_file_load	%s: line %d: Warning: possibly missing trailing \\%A	custom	indented line after a command in a loaded file	testable	command.610	
+command.625	W	command.c	625	do_file_load	whitespace following final '\\'	eprefix	whitespace after a final backslash	testable	command.625	
+command.642	E	command.c	642	do_file_load	(This line was implicitly treated as an /addworld because it occurred before the first '/' line and did not start with a '/', ';', or '#'.)	eprefix		untestable		only in "tinytalk" mode (world-definition lines before the first "/" line of an old-style file); a -f script never enters it
+command.648	E	command.c	648	do_file_load	Invalid command. Aborting.	eprefix	a line that does not start with "/" in a loaded file	testable	command.648	
+command.656	T	command.c	656	do_file_load	%s: line %d: last command is incomplete because of trailing \\	custom	loaded file ending in a backslash	testable	command.656	
+command.715	E	command.c	715	handle_save_command	restricted	eprefix	/save under /restrict file	testable	command.715	
+command.719	E	command.c	719	handle_save_command	missing filename	eprefix	/save with no filename and no default macro	testable	command.719	
+command.736	E	command.c	736	handle_load_command	restricted	eprefix	/load under /restrict file	testable	command.736	
+command.749	E	command.c	749	handle_load_command	missing filename	eprefix	/load with no filename	testable	command.749	
+command.828	O	command.c	828	handle_hook_command	Hooks %sabled	none	/hook shows state	testable	command.828	
+command.852	E	command.c	852	handle_unbind_command	No binding for %s	eprefix	/unbind of an unbound key	testable	command.852	
+dstring.187	I	dstring.c	187	dSfree	dSfree: links==%d, data="%.32b"	eprefix		untestable		internal consistency check / memory allocation
+expand.243	E	expand.c	243	execute_command	/%s is disabled in this copy of tf	eprefix		untestable		builtin commands disabled at compile time; this build has none
+expand.253	E	expand.c	253	execute_macro	%s: no such command or macro	eprefix	unknown command (hook NOMACRO text)	testable	expand.253	
+expand.317	E	expand.c	317	handle_command	%s: not a builtin command	eprefix	/@name that is not a builtin	testable	expand.317	
+expand.348	E	expand.c	348	stringvec	Not enough memory for %d word vector	eprefix		untestable		out-of-memory condition
+expand.358	E	expand.c	358	stringvec	Not enough memory for %d word vector	eprefix		untestable		out-of-memory condition
+expand.376	E	expand.c	376	compile_tf	out of memory	eprefix		untestable		out-of-memory condition
+expand.393	E	expand.c	393	compile_tf	expression syntax error: expected end of expression, found %s.	eprefix	trailing junk after an expression	testable	expand.393	
+expand.401	E	expand.c	401	compile_tf	macro syntax error: expected end of statement, found %s.	eprefix		untestable		no script found that reaches this production
+expand.466	T	expand.c	466	do_mecho	%S%.*s%A	custom		untestable		macro-echo tracing (/set mecho) did not print anything headless
+expand.506	E	expand.c	506	prog_interpret	Macro execution interrupted.	eprefix		untestable		needs a user interrupt (^C) during macro execution
+expand.510	E	expand.c	510	prog_interpret	instruction count exceeded %max_instr (%d).	eprefix	instruction count exceeded	testable	expand.510	
+expand.598	T	expand.c	598	prog_interpret	%S%s%S%A	custom		untestable		macro-echo tracing; compiled out (#if 0)
+expand.754	T	expand.c	754	prog_interpret	macro not defined: %S	custom	${name} of an undefined macro	testable	expand.754	
+expand.763	T	expand.c	763	prog_interpret	%S$%S --> %s%A	custom		untestable		macro-echo tracing (/set mecho) did not print anything headless
+expand.776	W	expand.c	776	prog_interpret	"%%{%s}" is a variable substitution, and is not the same as special substitution "%%{%.*s}".	eprefix		untestable		no script found that reaches this warning
+expand.909	I	expand.c	909	prog_interpret	invalid opcode 0x%04X at %d	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+expand.925	E	expand.c	925	prog_interpret	expression stack underflow or dirty (%+d)	eprefix		untestable		internal expression-stack consistency check
+expand.930	I	expand.c	930	prog_interpret	invalid frame	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+expand.955	E	expand.c	955	prog_run	recursion count exceeded %max_recur (%d)	eprefix	recursion count exceeded	testable	expand.955	
+expand.1029	T	expand.c	1029	do_mprefix	%S/%s%A	custom		untestable		macro-echo tracing (/set mecho) did not print anything headless
+expand.1300	E	expand.c	1300	unexpected	unexpected /%s in IF body	eprefix	unexpected /done in an /if body	testable	expand.1300	
+expand.1303	E	expand.c	1303	unexpected	unexpected /%s in WHILE body	eprefix	unexpected /endif in a /while body	testable	expand.1303	
+expand.1306	E	expand.c	1306	unexpected	unexpected /%s in %s block	eprefix	unexpected /endif outside any block	testable	expand.1306	
+expand.1360	E	expand.c	1360	list	condition syntax error: expected operator or ')', found %s.	eprefix	junk in an /if condition	testable	expand.1360	
+expand.1366	W	expand.c	1366	list	"%2.2s" following "/%s (...)" sends blank line to server, which is probably not what was intended.	eprefix	%; right after an /if condition	testable	expand.1366	
+expand.1373	W	expand.c	1373	list	statement starting with %s in /%s condition sends text to server, which is probably not what was intended.	eprefix	text statement in an /if condition	testable	expand.1373	
+expand.1387	E	expand.c	1387	list	macro syntax error: expected /do, found %s.	eprefix		untestable		no script found that reaches this production
+expand.1390	E	expand.c	1390	list	macro syntax error: expected /done, found %s.	eprefix	/while without /done	testable	expand.1390	
+expand.1418	E	expand.c	1418	list	/BREAK syntax error: expected positive integer, found %s.	eprefix	/break with a non-number	testable	expand.1418	
+expand.1466	E	expand.c	1466	list	macro syntax error: expected /then, found %s.	eprefix		untestable		no script found that reaches this production
+expand.1469	E	expand.c	1469	list	macro syntax error: expected /endif, found %s.	eprefix	/if without /endif	testable	expand.1469	
+expand.1506	W	expand.c	1506	list	"%2.2s" following "/%s" sends blank line to server, which is probably not what was intended.	eprefix	%; right after /else	testable	expand.1506	
+expand.1566	E	expand.c	1566	list	/%s may be called only directly from a macro, not in $() command substitution.	eprefix	/return inside $() substitution	testable	expand.1566	
+expand.1597	E	expand.c	1597	list	expression syntax error: expected end of expression, found %s.	eprefix	expression followed by junk in a macro	testable	expand.1597	
+expand.1627	E	expand.c	1627	list	Piping input to a server command is not allowed.	eprefix	piping into a server command	testable	expand.1627	
+expand.1638	E	expand.c	1638	list	Piping output of a server command is not allowed.	eprefix	piping out of a server command	testable	expand.1638	
+expand.1641	E	expand.c	1641	list	Piping output of a special command is not allowed.	eprefix		untestable		no script found that reaches this production
+expand.1665	E	expand.c	1665	list	macro syntax error: expected %s, found %s.  (Possibly missing '%;')	eprefix	missing %; between statements	testable	expand.1665	
+expand.1675	E	expand.c	1675	list	'%|' must be followed by another command.	eprefix	%| with nothing after it	testable	expand.1675	
+expand.1810	E	expand.c	1810	expand	%s: not a builtin command	eprefix	/@name that is not a builtin (in /eval)	testable	expand.1810	
+expand.1932	E	expand.c	1932	exprsub	unmatched $[	eprefix	unmatched $[	testable	expand.1932	
+expand.1934	E	expand.c	1934	exprsub	expression syntax error: expected operator or ']', found %s.	eprefix	$[ ] with trailing junk	testable	expand.1934	
+expand.1965	E	expand.c	1965	cmdsub	unmatched (	eprefix	unmatched $(	testable	expand.1965	
+expand.2015	E	expand.c	2015	macsub	unmatched ${	eprefix	unmatched ${	testable	expand.2015	
+expand.2144	E	expand.c	2144	varsub	illegal character '-' in substitution	eprefix	illegal "-" in a substitution	testable	expand.2144	
+expand.2204	E	expand.c	2204	varsub	unmatched { or bad substitution	eprefix	unmatched %{	testable	expand.2204	
+expand.2205	E	expand.c	2205	varsub	unmatched { or illegal character '%c'	eprefix	%{ with an illegal character	testable	expand.2205	
+expand.2213	W	expand.c	2213	varsub	"%%%.*s" substitution in expression is legal, but can be confusing.  Try using "{%.*s}" instead.	eprefix	%{x} inside an expression	testable	expand.2213	
+expr.345	W	expr.c	345	freeval_fl	%s	eprefix		untestable		dead code (#if 0)
+expr.386	E	expr.c	386	valint	real value too large to convert to integer	eprefix	mod(1e300,1): real too large for an integer argument	testable	expr.386	
+expr.413	E	expr.c	413	valtime	real value too large to convert to time	eprefix	ftime() with a real time argument too large	testable	expr.413	
+expr.519	I	expr.c	519	valstr	valstr: impossible type %d	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+expr.542	E	expr.c	542	pushval	expression stack overflow	eprefix	expression nested deeper than the 512-slot value stack	testable	expr.542	
+expr.597	I	expr.c	597	reduce	stack underflow, op=%s, n=%d	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+expr.600	I	expr.c	600	reduce	stack underflow, op=0x%04X, n=%d	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+expr.621	E	expr.c	621	reduce	%s operator: arithmetic overflow	eprefix	float overflow in a binary operator	testable	expr.621	
+expr.634	E	expr.c	634	reduce	impossible result type %d	eprefix		untestable		impossible result type (internal consistency check)
+expr.650	E	expr.c	650	reduce	%s operator: arithmetic overflow	eprefix	float overflow in an assignment operator	testable	expr.650	
+expr.669	E	expr.c	669	reduce	integer overflow in --%s	eprefix		untestable		needs a variable holding the most negative integer; integer literals that large parse as reals
+expr.677	E	expr.c	677	reduce	integer overflow in ++%s	eprefix		untestable		needs a variable holding the largest integer; integer literals that large parse as reals
+expr.702	I	expr.c	702	reduce	internal error: reduce: bad op 0x%04X	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+expr.709	E	expr.c	709	reduce	illegal object of assignment	eprefix	assignment to something that is not a variable	testable	expr.709	
+expr.755	W	expr.c	755	reduce_arithmetic	invalid operation %s on absolute time values.	eprefix	arithmetic on two absolute times	testable	expr.755	
+expr.762	W	expr.c	762	reduce_arithmetic	invalid operation %s on absolute time value.	eprefix	unary minus on an absolute time	testable	expr.762	
+expr.773	W	expr.c	773	reduce_arithmetic	regmatch() may return >= 1 for success.	eprefix	regmatch() compared to 1	testable	expr.773	
+expr.813	E	expr.c	813	reduce_arithmetic	division by zero	eprefix	division by zero	testable	expr.813	
+expr.865	I	expr.c	865	reduce_arithmetic	impossible type %d in reduce_arithmetic	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+expr.917	E	expr.c	917	function_switch	restricted	eprefix	addworld() under /restrict world	testable	expr.917	
+expr.934	E	expr.c	934	function_switch	invalid flag %c	eprefix	addworld() with an unknown flag letter	testable	expr.934	
+expr.1089	E	expr.c	1089	function_switch	%S: %s	eprefix	fwrite() to an unwritable path	testable	expr.1089	
+expr.1107	E	expr.c	1107	function_switch	tferr can not be closed.	eprefix	tfclose("e")	testable	expr.1107	
+expr.1130	E	expr.c	1130	function_switch	arg %d: illegal object of assignment	eprefix	tfread() into a non-variable	testable	expr.1130	
+expr.1168	E	expr.c	1168	function_switch	unknown key name "%S"	eprefix	keycode() of an unknown key name	testable	expr.1168	
+expr.1173	E	expr.c	1173	function_switch	division by zero	eprefix	mod() by zero	testable	expr.1173	
+expr.1199	E	expr.c	1199	function_switch	illegal flag '%c'	eprefix	moresize() with an illegal flag	testable	expr.1199	
+expr.1355	E	expr.c	1355	function_switch	illegal field name '%s'	eprefix	world_info() with an unknown field name	testable	expr.1355	
+expr.1604	E	expr.c	1604	function_switch	getopts may only be called from a command.	eprefix	getopts() outside a command	testable	expr.1604	
+expr.1613	E	expr.c	1613	function_switch	%s: invalid option specifier: %c	eprefix	getopts() with an invalid option specifier	testable	expr.1613	
+expr.1657	W	expr.c	1657	function_switch	read() is deprecated.  Use tfread() instead.	eprefix	deprecated read()	testable	expr.1657	
+expr.1705	E	expr.c	1705	function_switch	not supported	eprefix		untestable		unimplemented function opcode (internal)
+expr.1739	E	expr.c	1739	do_function	argument outside of domain	eprefix		untestable		needs libm to set errno (EDOM); macOS libm does not, glibc does
+expr.1743	E	expr.c	1743	do_function	result outside of range	eprefix		untestable		needs libm to set errno (ERANGE); macOS libm does not, glibc does
+expr.1757	E	expr.c	1757	do_function	%s: no such function	eprefix	call of an undefined function	testable	expr.1757	
+expr.1841	E	expr.c	1841	conditional_expr	expression syntax error: expected ':' after '?...', found %s.	eprefix	?: without the colon	testable	expr.1841	
+expr.1904	E	expr.c	1904	relational_expr	suggestion: use == instead of =	eprefix	"=" under /set pedantic	testable	expr.1904	
+expr.1985	E	expr.c	1985	unary_expr	function name must be an identifier.	eprefix	call of a non-identifier	testable	expr.1985	
+expr.1995	E	expr.c	1995	unary_expr	%s: not a function	eprefix	exit() is not a function	testable	expr.1995	
+expr.2007	E	expr.c	2007	unary_expr	expression syntax error: expected ',' or ')' after function argument, found %s.	eprefix	function arguments not separated by commas	testable	expr.2007	
+expr.2015	E	expr.c	2015	unary_expr	%s: found %d arguments, expected %d	eprefix	too few arguments to a builtin function (exact count)	testable	expr.2015	
+expr.2022	E	expr.c	2022	unary_expr	%s: command called as function must have 0 or 1 argument	eprefix	command called as a function with 2 arguments	testable	expr.2022	
+expr.2049	E	expr.c	2049	primary_expr	%S in string literal	eprefix	unterminated string literal	testable	expr.2049	
+expr.2066	W	expr.c	2066	primary_expr	possibly missing '%%;' or ')' before /%s	eprefix	statement start after an expression	testable	expr.2066	
+expr.2072	W	expr.c	2072	primary_expr	$[...] substitution in expression is legal, but redundant.  Try using (...) instead.	eprefix	$[...] inside an expression	testable	expr.2072	
+expr.2085	E	expr.c	2085	primary_expr	expression syntax error: expected ')' after '(...', found %s.	eprefix	missing ")" after "(..."	testable	expr.2085	
+expr.2090	E	expr.c	2090	primary_expr	expression syntax error: expected operand, found %s.	eprefix	missing operand	testable	expr.2090	
+help.47	E	help.c	47	handle_help_command	%s: %s	eprefix		untestable		help file missing (installation dependent)
+help.56	E	help.c	56	handle_help_command	%s: %s	eprefix		untestable		help file unreadable (installation dependent)
+help.102	O	help.c	102	handle_help_command	Help on subject %s not found.	none	/help for an unknown topic	testable	help.102	
+history.349	E	history.c	349	do_recall	missing arguments	eprefix	/recall with no arguments	testable	history.349	
+history.355	E	history.c	355	do_recall	syntax error in recall range	eprefix		untestable		no input reaches this parsenumber failure ("-x" is taken as an option)
+history.373	E	history.c	373	do_recall	syntax error in recall range	eprefix	/recall with a number that is too large	testable	history.373	
+history.395	E	history.c	395	do_recall	syntax error in recall range	eprefix	/recall range end too large	testable	history.395	
+history.412	E	history.c	412	do_recall	extra characters after recall range: %s	eprefix	extra text after a /recall range	testable	history.412	
+history.447	E	history.c	447	do_recall	history scan interrupted at #%d, %S	eprefix		untestable		needs a user interrupt (^C)
+history.567	O	history.c	567	do_watch	%s %sabled.	none	/watchdog shows its state	testable	history.567	
+history.572	O	history.c	572	do_watch	%s disabled.	none	/watchdog off	testable	history.572	
+history.583	O	history.c	583	do_watch	%s enabled, searching for %d out of %d lines	none	/watchdog enabled with a window	testable	history.583	
+history.618	O	history.c	618	is_watchname	Watchname: gagging "%S"	none		untestable		needs text arriving from a world (socket)
+history.673	O	history.c	673	listlog	Logging world %s output to %s	none	/log lists world logging	testable	history.673	
+history.719	E	history.c	719	next_hist_opt	only one of the -ligw options may be used.	eprefix	two history-selecting options	testable	history.719	
+history.777	E	history.c	777	handle_log_command	restricted	eprefix	/log under /restrict file	testable	history.777	
+history.790	O	history.c	790	handle_log_command	Logging input to %s	none	/log lists input logging	testable	history.790	
+history.792	O	history.c	792	handle_log_command	Logging local output to %s	none	/log lists local logging	testable	history.792	
+history.795	O	history.c	795	handle_log_command	Logging global output to %s	none	/log lists global logging	testable	history.795	
+history.834	E	history.c	834	handle_log_command	%s: %s	eprefix	/log to an unwritable path	testable	history.834	
+history.843	H	history.c	843	handle_log_command	Logging to file %s	none	/log to a file reports it	testable	history.843	
+history.868	E	history.c	868	handle_histsize_command	not enough memory for %d lines.	eprefix		untestable		out-of-memory condition
+history.874	O	history.c	874	handle_histsize_command	%s history capacity %s %ld lines.	none	/histsize shows capacity	testable	history.874	
+keyboard.89	E	keyboard.c	89	bind_key	'%S' is %s an existing keybinding.	eprefix	key binding that extends an existing binding	testable	keyboard.89	
+keyboard.326	E	keyboard.c	326	handle_dokey_command	No editing function %s	eprefix	/dokey with an unknown editing function	testable	keyboard.326	
+keyboard.499	T	keyboard.c	499	handle_input_line	%S%S%A	custom		untestable		echo of keyboard input (/set kecho); needs interactive input
+lua.262	E	lua.c	262	handle_calllua_command	restricted	eprefix		untestable		lua support is not compiled into the reference tf build (no /calllua, /loadlua, /purgelua)
+lua.336	E	lua.c	336	handle_loadlua_command	restricted	eprefix		untestable		lua support is not compiled into the reference tf build (no /calllua, /loadlua, /purgelua)
+lua.366	E	lua.c	366	handle_purgelua_command	restricted	eprefix		untestable		lua support is not compiled into the reference tf build (no /calllua, /loadlua, /purgelua)
+macro.161	E	macro.c	161	hookname2int	invalid hook event "%s"; see "/help /connect"	eprefix	/def -h with the misspelled legacy event CONNETFAIL	testable	macro.161	
+macro.163	E	macro.c	163	hookname2int	invalid hook event "%s"	eprefix	/def -h with an unknown hook event	testable	macro.163	
+macro.213	E	macro.c	213	macro_spec	macro_spec: not enough memory	eprefix		untestable		out-of-memory condition
+macro.255	E	macro.c	255	macro_spec	-m option conflicts with earlier -m or -P	eprefix	two different -m options	testable	macro.255	
+macro.282	W	macro.c	282	macro_spec	/def -B is deprecated.  See /help keys.	eprefix	deprecated /def -B	testable	macro.282	
+macro.305	E	macro.c	305	macro_spec	No world %s	eprefix	/def -w with an unknown world	testable	macro.305	
+macro.332	E	macro.c	332	macro_spec	-P can be given only once per macro.	eprefix	-P given twice	testable	macro.332	
+macro.335	E	macro.c	335	macro_spec	"-P" requires "-mregexp -t<pattern>"	eprefix	-P with a non-regexp -m	testable	macro.335	
+macro.346	E	macro.c	346	macro_spec	-P: out of memory	eprefix		untestable		out-of-memory condition
+macro.371	E	macro.c	371	macro_spec	-P: number must be non-negative	eprefix	negative -P subexpression number	testable	macro.371	
+macro.650	E	macro.c	650	match_exact	%s on "%s" was not defined.	eprefix	/edit $text of a hook that does not exist	testable	macro.650	
+macro.668	E	macro.c	668	add_new_macro	add_new_macro: not enough memory	eprefix		untestable		out-of-memory condition
+macro.723	E	macro.c	723	bind_key_macro	%ARecommendation: leave "%S" defined and define a macro named "%s" instead.	eprefix		untestable		needs an invisible /key_ macro (internal key macros)
+macro.729	E	macro.c	729	bind_key_macro	Redefined %s %S	eprefix	redefining a key binding	testable	macro.729	
+macro.732	E	macro.c	732	bind_key_macro	Binding %S already exists.	eprefix	key binding already exists with redef off	testable	macro.732	
+macro.782	W	macro.c	782	add_numbered_macro	new macro (#%d) does not have a name.	eprefix	unnamed trigger under pedantic	testable	macro.782	
+macro.807	W	macro.c	807	rebind_key_macros	no code for key "%s"	eprefix		untestable		rebinding of key macros; no script found that reaches it
+macro.810	E	macro.c	810	rebind_key_macros	Redefined %s %s	eprefix		untestable		rebinding of key macros; no script found that reaches it
+macro.846	E	macro.c	846	complete_macro	illegal macro name "%s".	eprefix	illegal macro name	testable	macro.846	
+macro.854	E	macro.c	854	complete_macro	"%s" is a reserved word.	eprefix	reserved word as macro name	testable	macro.854	
+macro.860	E	macro.c	860	complete_macro	warning: macro "%s" conflicts with the builtin command.	eprefix	macro named like a builtin	testable	macro.860	
+macro.900	E	macro.c	900	complete_macro	"-P" requires "-mregexp -t<pattern>"	eprefix	-P without -mregexp (at completion)	testable	macro.900	
+macro.911	E	macro.c	911	complete_macro	-P%d: trigger has only %d subexpressions	eprefix	-P subexpression beyond the pattern's groups	testable	macro.911	
+macro.924	E	macro.c	924	complete_macro	unknown key name "%s".	eprefix	key name that does not exist	testable	macro.924	
+macro.930	W	macro.c	930	complete_macro	no code for key "%s".	eprefix	key name with no code	testable	macro.930	
+macro.943	E	macro.c	943	complete_macro	macro %s already exists	eprefix	redefinition with redef off	testable	macro.943	
+macro.950	E	macro.c	950	complete_macro	Redefined %s %s	eprefix		untestable		the "Redefined macro" message is not printed in this build for ordinary redefinitions
+macro.984	E	macro.c	984	handle_edit_command	You must specify a macro.	eprefix	/edit with no macro name	testable	macro.984	
+macro.991	E	macro.c	991	handle_edit_command	macro %s does not exist	eprefix	/edit of an undefined macro	testable	macro.991	
+macro.1134	E	macro.c	1134	remove_macro_by_name	Macro "%s" was not defined.	eprefix	/undef of an undefined macro	testable	macro.1134	
+macro.1198	E	macro.c	1198	find_num_macro	no macro with number %d	eprefix	/undef of a macro number that does not exist	testable	macro.1198	
+macro.1463	E	macro.c	1463	save_macros	%s: %s	eprefix	/save to an unwritable path	testable	macro.1463	
+macro.1468	O	macro.c	1468	save_macros	%sing macros to %s	none	/save reports the file	testable	macro.1468	
+macro.1758	O	macro.c	1758	find_and_run_matches	One of the following macros would %sbe applied:	none	/trigger -n lists the macros it would run	testable	macro.1758	
+macro.1770	O	macro.c	1770	find_and_run_matches	%c %10d %s	none	/trigger -n lists a named macro	testable	macro.1770	
+macro.1773	O	macro.c	1773	find_and_run_matches	%c %10d #%d	none		untestable		no script found that reaches the unnamed-macro listing branch
+macro.1819	O	macro.c	1819	find_and_run_matches	%s would have %s %d macro%s.	none	/trigger -n summary	testable	macro.1819	
+macro.1920	E	macro.c	1920	test_max_counter	%s rate exceeded %%%s (%d) in less than %ds.  Setting %%%s off.	eprefix	trigger rate limit	testable	macro.1920	
+macro.1957	T	macro.c	1957	run_match	%S%s%s: /%s %S%A	custom		untestable		macro-echo tracing (/set mecho) did not print anything headless
+output.531	W	output.c	531	init_term	unsetting invalid TERMCAP variable%s.	eprefix		untestable		terminal setup at startup (TERMCAP); the harness fixes the environment
+output.536	W	output.c	536	init_term	unsetting the TERMCAP environment variable because it looks like it has been truncated by your broken *csh shell.  To force TF to use TERMCAP, restart TF with the TF_FORCE_TERMCAP environment variable set.	eprefix		untestable		terminal setup at startup (TERMCAP); the harness fixes the environment
+output.546	W	output.c	546	init_term	TERM undefined.	eprefix		untestable		terminal setup at startup (TERM undefined); the harness fixes the environment
+output.548	W	output.c	548	init_term	"%s" terminal unsupported.	eprefix		untestable		terminal setup at startup (unsupported TERM); the harness fixes the environment
+output.759	E	output.c	759	setup_screen	Visual mode is not supported on this terminal.	eprefix		untestable		visual mode needs a capable terminal
+output.762	E	output.c	762	setup_screen	Screen is too small for visual mode.	eprefix		untestable		visual mode needs a capable terminal
+output.1328	E	output.c	1328	clear_display_screen	%S	eprefix	unterminated quote in a status field spec	testable	output.1328	
+output.1364	E	output.c	1364	clear_display_screen	garbage in status field: %.8s	eprefix	garbage after a status field spec	testable	output.1364	
+output.1504	E	output.c	1504	find_statusfield_by_template	%s: no such field	eprefix	/status_rm of a field that does not exist	testable	output.1504	
+output.1526	W	output.c	1526	ch_status_int	the default value of %s has changed between tf version 4 and 5.	eprefix	status_int_* changed default	testable	output.1526	
+output.1595	E	output.c	1595	status_add	Only one variable width status field is allowed.	eprefix	two variable-width status fields	testable	output.1595	
+output.1613	W	output.c	1613	status_add	total status width (%d) is wider than screen (%d)	eprefix	status wider than the screen	testable	output.1613	
+output.1717	W	output.c	1717	ch_status_fields	setting status_fields directly is deprecated, and may clobber useful new features introduced in version 5.  The recommended way to change status fields is with /status_add, /status_rm, or /status_edit. (This warning can be disabled with "/set warn_status=off".)	eprefix	setting status_fields directly	testable	output.1717	
+output.1802	E	output.c	1802	handle_status_edit_command	Only one variable width status field per row is allowed.	eprefix		untestable		needs a variable-width status field already in the row; no script found
+output.2167	E	output.c	2167	ch_status_height	%s must be <= %d	eprefix	status_height above the maximum	testable	output.2167	
+output.2178	E	output.c	2178	ch_expnonvis	expnonvis mode is not supported on this terminal.	eprefix	expnonvis on a terminal without support	testable	output.2178	
+output.3200	E	output.c	3200	tog_keypad	don't know how to enable keypad on %s terminal	eprefix	keypad on a terminal that cannot	testable	output.3200	
+pattern.101	I	pattern.c	101	regsubstr	invalid subexp %d	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+pattern.155	W	pattern.c	155	tf_reg_compile_fl	regexp contains '{', which has a new meaning in version 5.0.  (This warning can be disabled with '/set warn_curly_re=off'.)	eprefix	regexp containing "{"	testable	pattern.155	
+pattern.199	E	pattern.c	199	tf_reg_compile_fl	regexp error: character %d: %s	eprefix	bad regexp	testable	pattern.199	
+pattern.297	W	pattern.c	297	init_pattern_mflag	leading ".*" in a regexp is inefficient.	eprefix		untestable		dead code (#if 0)
+pattern.335	E	pattern.c	335	patmatch	internal error: pat->mflag == %d	eprefix		untestable		internal consistency check
+pattern.505	E	pattern.c	505	smatch	smatch: unmatched '{'	eprefix		untestable		unreachable: smatch_check() rejects the pattern first (see pattern.583)
+pattern.546	E	pattern.c	546	smatch_check	glob error: unmatched '['	eprefix	unmatched "[" in a glob	testable	pattern.546	
+pattern.553	E	pattern.c	553	smatch_check	glob error: nested '{'	eprefix	nested "{" in a glob	testable	pattern.553	
+pattern.558	E	pattern.c	558	smatch_check	glob error: '%c' before '{' can never match	eprefix	char before "{" in a glob	testable	pattern.558	
+pattern.566	E	pattern.c	566	smatch_check	glob error: '%c' after '}' can never match	eprefix	char after "}" in a glob	testable	pattern.566	
+pattern.576	E	pattern.c	576	smatch_check	glob error: space inside '{...}' can never match	eprefix	space inside "{...}"	testable	pattern.576	
+pattern.583	E	pattern.c	583	smatch_check	glob error: unmatched '{'	eprefix	unmatched "{" in a glob	testable	pattern.583	
+process.199	E	process.c	199	newproc	not enough memory for new process	eprefix		untestable		out-of-memory condition
+process.246	E	process.c	246	newproc	synchronous process interrupted.	eprefix		untestable		needs a user interrupt (^C) of a synchronous process
+process.338	E	process.c	338	handle_kill_command	no process %d	eprefix	/kill of a nonexistent process	testable	process.338	
+process.468	T	process.c	468	do_quote	%S%S%A	custom		untestable		tracing of /quote lines; needs a running /quote process with echo
+process.557	E	process.c	557	handle_quote_command	missing command character	eprefix	/quote without a command character	testable	process.557	
+process.580	E	process.c	580	handle_quote_command	files restricted	eprefix	/quote of a file under /restrict file	testable	process.580	
+process.585	E	process.c	585	handle_quote_command	%s: %s	eprefix	/quote of a nonexistent file	testable	process.585	
+process.599	E	process.c	599	handle_quote_command	%s: %s	eprefix		untestable		popen() failure for /quote !cmd
+process.648	E	process.c	648	handle_repeat_command	-S i would cause an infinite busy loop.	eprefix	/repeat -S with a zero interval	testable	process.648	
+process.657	E	process.c	657	handle_repeat_command	invalid repeat count (%d)	eprefix	/repeat with a negative count	testable	process.657	
+process.661	E	process.c	661	handle_repeat_command	invalid repeat count (%.5s)	eprefix	/repeat with a non-numeric count	testable	process.661	
+process.665	E	process.c	665	handle_repeat_command	repeat count followed by garbage (%.5s)	eprefix	/repeat count followed by garbage	testable	process.665	
+process.670	E	process.c	670	handle_repeat_command	missing command	eprefix	/repeat without a command	testable	process.670	
+restart.414	E	restart.c	414	restart_exec	restart argv not initialized	eprefix		untestable		needs a live socket / OS failure / external bridge
+restart.421	E	restart.c	421	restart_exec	mkstemp: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+restart.427	E	restart.c	427	restart_exec	fdopen: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+restart.441	E	restart.c	441	restart_exec	failed to write restart state	eprefix		untestable		needs a live socket / OS failure / external bridge
+restart.451	E	restart.c	451	restart_exec	failed to finalize restart state	eprefix		untestable		needs a live socket / OS failure / external bridge
+restart.466	E	restart.c	466	restart_exec	execvp: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+restart.482	E	restart.c	482	restart_resume	%s: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+restart.578	E	restart.c	578	restart_resume	failed to restore restart state from %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+restart.597	E	restart.c	597	restart_exec	online reboot is only supported on unix builds	eprefix		untestable		needs a live socket / OS failure / external bridge
+restart.604	E	restart.c	604	restart_resume	online reboot is only supported on unix builds	eprefix		untestable		needs a live socket / OS failure / external bridge
+signals.594	E	signals.c	594	process_signals	TIOCGWINSZ ioctl: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+signals.637	E	signals.c	637	shell	%s	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.553	H	socket.c	553	latin1_fallback_cb	Unable to connect to %s: %s %s: %s	none		untestable		needs a live socket / OS failure / external bridge
+socket.566	H	socket.c	566	latin1_fallback_cb	Connection to %s closed: %s: %s	none		untestable		needs a live socket / OS failure / external bridge
+socket.576	E	socket.c	576	ssl_err	%s: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.662	E	socket.c	662	ssl_verify_callback	ssl: ssl_options null	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.678	H	socket.c	678	ssl_verify_callback	SSL: cert verify depth exceeded: allowed=%d actual=%d	none		untestable		needs a live socket / OS failure / external bridge
+socket.684	H	socket.c	684	ssl_verify_callback	SSL: cert verify error: err=%d '%s' depth:%d cn:%s	none		untestable		needs a live socket / OS failure / external bridge
+socket.688	H	socket.c	688	ssl_verify_callback	SSL: chain: depth:%d cn:%s	none		untestable		needs a live socket / OS failure / external bridge
+socket.697	E	socket.c	697	ssl_verify_callback	issuer= %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.731	E	socket.c	731	init_ssl	ssl: SSL_CTX_load_verify_locations: nothing loaded	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.733	E	socket.c	733	init_ssl	ssl: SSL_CTX_load_verify_locations: ssl_ca_file=%s	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.734	E	socket.c	734	init_ssl	ssl: SSL_CTX_load_verify_locations: ssl_ca_dir=%s	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.858	I	socket.c	858	main_loop	socks_with_lines (%d) is not correct (%d)!	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+socket.1180	W	socket.c	1180	tog_keepalive	setsockopt KEEPALIVE: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.1264	E	socket.c	1264	fg_sock	illegal reentry	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.1361	E	socket.c	1361	handle_fg_command	no socket named '%s'	eprefix	/fg of an unknown socket	testable	socket.1361	
+socket.1386	E	socket.c	1386	openworld	%s: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.1394	E	socket.c	1394	openworld	arbitrary connections restricted	eprefix	/connect to an arbitrary host under /restrict world	testable	socket.1394	
+socket.1408	E	socket.c	1408	alloc_sock	socket to %s already exists	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.1422	E	socket.c	1422	alloc_sock	opensock: not enough memory	eprefix		untestable		out-of-memory condition
+socket.1604	H	socket.c	1604	opensock	Hostname lookup for %s in progress.	none		untestable		needs a live socket / OS failure / external bridge
+socket.1653	H	socket.c	1653	ai_connect	Trying to connect to %s: %s.	none		untestable		needs a live socket / OS failure / external bridge
+socket.1690	H	socket.c	1690	ICONFAIL	Connection to %s failed: %s: %s	none		untestable		needs a live socket / OS failure / external bridge
+socket.1717	T	socket.c	1717	openconn	waitpid %ld: %s	custom		untestable		needs a live socket / OS failure / external bridge
+socket.1734	T	socket.c	1734	openconn	waitpid: %ld: %s	custom		untestable		needs a live socket / OS failure / external bridge
+socket.1795	E	socket.c	1795	openconn	Can't make socket nonblocking: F_GETFL fcntl: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.1798	E	socket.c	1798	openconn	Can't make socket nonblocking: F_SETFL fcntl: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.1808	W	socket.c	1808	openconn	setsockopt KEEPALIVE: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.2264	H	socket.c	2264	establish	Connected to %s using cipher %s.	none		untestable		needs a live socket / OS failure / external bridge
+socket.2268	H	socket.c	2268	establish	Connected to %s.	none		untestable		needs a live socket / OS failure / external bridge
+socket.2434	H	socket.c	2434	ssl_check_cert_verify	SSL: cert verified: OK ret=%ld	none		untestable		needs a live socket / OS failure / external bridge
+socket.2438	H	socket.c	2438	ssl_check_cert_verify	SSL: cert verify failed: ERROR err=%ld	none		untestable		needs a live socket / OS failure / external bridge
+socket.2508	T	socket.c	2508	killsock	waitpid: %ld: %s	custom		untestable		needs a live socket / OS failure / external bridge
+socket.2524	I	socket.c	2524	nukesock	socket %s has unprocessed lines	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+socket.2628	E	socket.c	2628	handle_dc_command	no current socket	eprefix	/dc with no current socket	testable	socket.2628	
+socket.2640	E	socket.c	2640	handle_dc_command	Not connected to %s	eprefix	/dc of an unconnected world	testable	socket.2640	
+socket.2730	E	socket.c	2730	handle_listsockets_command	invalid sort criterion	eprefix	/listsockets with a bad sort criterion	testable	socket.2730	
+socket.2744	E	socket.c	2744	handle_listsockets_command	Not connected to any sockets.	eprefix	/listsockets with no sockets	testable	socket.2744	
+socket.2866	E	socket.c	2866	handle_send_function	invalid flag %c	eprefix	send() with an invalid flag	testable	socket.2866	
+socket.2955	E	socket.c	2955	handle_fake_recv_function	invalid flag %c	eprefix	fake_recv() with an invalid flag	testable	socket.2955	
+socket.2964	E	socket.c	2964	handle_fake_recv_function	no open world %s	eprefix	fake_recv() to an unknown world	testable	socket.2964	
+socket.3006	E	socket.c	3006	transmit	%s: send: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.3052	E	socket.c	3052	send_line	Not connected.	eprefix	sending text with no connection	testable	socket.3052	
+socket.3155	E	socket.c	3155	send_line	Broken characters found. Line not sent.	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.3245	H	socket.c	3245	handle_socket_lines	Trigger in world %s	none		untestable		needs a live socket / OS failure / external bridge
+socket.3338	H	socket.c	3338	world_output	Activity in world %s	none		untestable		needs a live socket / OS failure / external bridge
+socket.3629	E	socket.c	3629	new_zstream	unable to start compressed stream: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+socket.4310	H	socket.c	4310	is_bamf	Bamfing to %s	none		untestable		needs a live socket / OS failure / external bridge
+socket.4471	E	socket.c	4471	named_or_current_world	No world %s	eprefix	/connect to an unknown world	testable	socket.4471	
+socket.4836	E	socket.c	4836	squat_sock_gate	world %s is controlled by a remote client (use "/control %s tf" to take it back)	eprefix		untestable		needs a live socket / OS failure / external bridge
+squat.865	O	squat.c	865	notice	squat: %s	none		untestable		needs a live socket / OS failure / external bridge
+squat.991	O	squat.c	991	cmd_ctrl_set	squat: %s wants %s control of %s (%s): /control allow  or  /control deny  (%d s)	none		untestable		needs a live socket / OS failure / external bridge
+squat.1322	O	squat.c	1322	handle_message	squat: pairing code  %s	none		untestable		needs a live socket / OS failure / external bridge
+squat.1323	O	squat.c	1323	handle_message	squat: expires       %s	none		untestable		needs a live socket / OS failure / external bridge
+squat.1324	O	squat.c	1324	handle_message	squat: fingerprint   %s	none		untestable		needs a live socket / OS failure / external bridge
+squat.1325	O	squat.c	1325	handle_message	squat: connect to    %s	none		untestable		needs a live socket / OS failure / external bridge
+squat.1331	O	squat.c	1331	handle_message	squat: device %s  %-16s %-9s last seen %s	none		untestable		needs a live socket / OS failure / external bridge
+squat.1575	O	squat.c	1575	cand_commit	squat: a bridge (pid %ld) attached	none		untestable		needs a live socket / OS failure / external bridge
+squat.1677	O	squat.c	1677	squat_detach	squat: %s	none		untestable		needs a live socket / OS failure / external bridge
+squat.1706	O	squat.c	1706	squat_stop	squat: %s	none	/squat off when off	testable	squat.1706	
+squat.1744	E	squat.c	1744	squat_start	squat is already on	eprefix		untestable		needs a live socket / OS failure / external bridge
+squat.1746	E	squat.c	1746	squat_start	squat: not allowed in restricted mode	eprefix		untestable		needs a live socket / OS failure / external bridge
+squat.1752	O	squat.c	1752	squat_start	squat: warning: /set background=on is needed to see other worlds	none		untestable		needs a live socket / OS failure / external bridge
+squat.1799	E	squat.c	1799	squat_start	squat: socketpair: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+squat.1804	E	squat.c	1804	squat_start	squat: fork: %s	eprefix		untestable		needs a live socket / OS failure / external bridge
+squat.1861	O	squat.c	1861	squat_start	squat: starting %s (log: %s)	none		untestable		needs a live socket / OS failure / external bridge
+squat.1889	E	squat.c	1889	handle_squat_command	restricted	eprefix		untestable		needs a live socket / OS failure / external bridge
+squat.1901	O	squat.c	1901	handle_squat_command	squat: %s%s	none	/squat status	testable	squat.1901	
+squat.1904	O	squat.c	1904	handle_squat_command	squat: rendezvous %s	none		untestable		needs a live socket / OS failure / external bridge
+squat.1906	O	squat.c	1906	handle_squat_command	squat: %ld session(s) reported, instance %s	none		untestable		needs a live socket / OS failure / external bridge
+squat.1918	E	squat.c	1918	handle_squat_command	squat is off; use /squat on	eprefix	/squat subcommand needing squat on	testable	squat.1918	
+squat.1919	E	squat.c	1919	handle_squat_command	no bridge is attached; /squat on starts one	eprefix		untestable		needs a live socket / OS failure / external bridge
+squat.1945	O	squat.c	1945	control_list_cb	control: %-20s input=%-6s automation=%-6s %s	none		untestable		needs a live socket / OS failure / external bridge
+squat.1955	O	squat.c	1955	squat_list_asks	control: request %d: %s wants %s%s%s of %s	none		untestable		needs a live socket / OS failure / external bridge
+squat.1975	E	squat.c	1975	control_answer	no such takeover request	eprefix	/control allow without a request	testable	squat.1975	
+squat.1981	E	squat.c	1981	handle_control_command	restricted	eprefix		untestable		needs a live socket / OS failure / external bridge
+squat.2013	E	squat.c	2013	handle_control_command	no such world: %s	eprefix	/control for an unknown world	testable	squat.2013	
+tfio.102	E	tfio.c	102	tfname	missing filename, and default macro %s is not defined	eprefix	missing filename and default macro undefined	testable	tfio.102	
+tfio.106	E	tfio.c	106	tfname	missing filename	eprefix		untestable		tfname() without a default macro; every caller found supplies one or checks first
+tfio.125	W	tfio.c	125	expand_filename	"~user" filename expansion is not supported.	eprefix		untestable		compiled out where getpwnam() exists
+tfio.220	E	tfio.c	220	tfopen	TF does not support pipes under cygwin32.	eprefix		untestable		cygwin32 builds only
+tfio.850	E	tfio.c	850	tfgetS	keyboard can only be read from a command line command.	eprefix	read from keyboard in non-command-line context	testable	tfio.850	
+tfio.853	W	tfio.c	853	tfgetS	nested keyboard read	eprefix		untestable		needs nested keyboard reads (interactive input)
+tfio.926	E	tfio.c	926	handle_tfopen_func	restricted	eprefix	tfopen() under /restrict file	testable	tfio.926	
+tfio.931	E	tfio.c	931	handle_tfopen_func	invalid mode '%s'	eprefix	tfopen() with an invalid mode	testable	tfio.931	
+tfio.936	E	tfio.c	936	handle_tfopen_func	%s: %s	eprefix	tfopen() of an unopenable file	testable	tfio.936	
+tfio.965	E	tfio.c	965	find_tfile	%s: bad handle	eprefix	tfread() on a bad handle	testable	tfio.965	
+tfio.980	E	tfio.c	980	find_usable_tfile	stream %s is not %sable	eprefix	tfwrite() on a read-only stream	testable	tfio.980	
+tfpython.183	W	tfpython.c	183	tfvar_to_pyvar	TYPE_INT: %d	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+tfpython.186	W	tfpython.c	186	tfvar_to_pyvar	TYPE_FLOAT: %f	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+tfpython.190	W	tfpython.c	190	tfvar_to_pyvar	TYPE_STR: %s	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+tfpython.193	W	tfpython.c	193	tfvar_to_pyvar	TYPE ??? %d	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+tfpython.214	W	tfpython.c	214	pyvar_to_tfvar	  rc string: %s	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+tfpython.220	W	tfpython.c	220	pyvar_to_tfvar	  rc unicode: %s	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+tfpython.225	W	tfpython.c	225	pyvar_to_tfvar	  rc long: %ld	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+tfpython.228	W	tfpython.c	228	pyvar_to_tfvar	  rc float: %lf	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+tfpython.231	W	tfpython.c	231	pyvar_to_tfvar	  rc bool: %lf	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+tfpython.234	W	tfpython.c	234	pyvar_to_tfvar	  rc None	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+tfpython.381	W	tfpython.c	381	handle_python_call_command	handle_python_call_command: %s	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+tfpython.431	W	tfpython.c	431	handle_python_load_command	handle_python_load_command: %s	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+tfpython.464	W	tfpython.c	464	handle_python_command	handle_python_command: %s	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+tfpython.476	W	tfpython.c	476	handle_python_function	handle_python_expression: %s	eprefix		untestable		python support is not compiled in (and gated by tfpy_debug)
+util.219	E	util.c	219	enum2int	Invalid %s value "%s".  %S	eprefix	invalid enumerated value (string)	testable	util.219	
+util.221	E	util.c	221	enum2int	Invalid %s value %d.  %S	eprefix	invalid enumerated value (number)	testable	util.221	
+util.312	E	util.c	312	numarg	invalid or missing numeric argument	eprefix	missing numeric argument	testable	util.312	
+util.352	W	util.c	352	stringliteral	the only legal escapes within this quoted string are \\\\ and \\%c.  \\\\%c is the correct way to write a literal \\%c inside a quoted string.	eprefix	unknown escape inside a quoted string under pedantic	testable	util.352	
+util.446	E	util.c	446	nextopt	invalid option syntax: --%c	eprefix	bad option syntax	testable	util.446	
+util.477	E	util.c	477	nextopt	invalid option	eprefix	invalid option	testable	util.477	
+util.487	E	util.c	487	nextopt	options:%S	eprefix	option summary after an invalid option	testable	util.487	
+util.499	E	util.c	499	nextopt	%S	eprefix	bad quoted option argument	testable	util.499	
+util.526	E	util.c	526	nextopt	%s	eprefix	bad time option	testable	util.526	
+util.564	E	util.c	564	ch_locale	%s category set to "%s" locale.	eprefix	locale category set	testable	util.564	
+util.566	E	util.c	566	ch_locale	Invalid locale for %s.	eprefix		untestable		ch_locale() always uses the environment (""); needs an invalid LANG (harness fixes the environment)
+util.581	E	util.c	581	ch_locale	Locale support is unavailable.	eprefix		untestable		no setlocale() on the platform
+util.674	W	util.c	674	init_util2	Can't figure out name of mail file.	eprefix		untestable		needs HOME/MAIL environment lacking a mail file name (startup)
+util.744	E	util.c	744	check_mail	%s: %s	eprefix		untestable		mail-file check; needs MAIL/TFMAILPATH set to an unreadable file
+util.758	O	util.c	758	check_mail	You have mail in %s	none		untestable		mail-file check; needs a mail file with mail in it
+util.763	H	util.c	763	check_mail	You have new mail in %s	none		untestable		mail-file check; needs a mail file that grew
+util.767	H	util.c	767	check_mail	You have new mail in %s	none		untestable		mail-file check; needs a mail file that grew
+util.827	E	util.c	827	parsenumber	integer value too large	eprefix	integer literal too large	testable	util.827	
+util.905	E	util.c	905	parsenumber	time value too large	eprefix	time value too large	testable	util.905	
+util.912	E	util.c	912	parsenumber	floating point numeric values are not enabled.	eprefix		untestable		only in builds without floating point (NO_FLOAT)
+util.917	E	util.c	917	parsenumber	numeric value too large	eprefix	numeric value too large	testable	util.917	
+variable.116	W	variable.c	116	newglobalvar	variable '%s' was not previously defined in any scope, so it has been created in the global scope.	eprefix		untestable		setting_nearest path with pedantic; no script found that reaches it
+variable.300	W	variable.c	300	hfindnearestvar	"%s" in an expression is a variable reference, and is not the same as special substitution "{%s}".	eprefix	variable reference that looks like a special substitution	testable	variable.300	
+variable.358	W	variable.c	358	newvar	"%s" conflicts with the name of a special substitution, so it will not be accessible with a "%%%s" or "{%s}" substitution.	eprefix	variable named like a special substitution	testable	variable.358	
+variable.373	E	variable.c	373	findorcreatelocalvar	Warning:  Local variable "%s" overshadows global variable of same name.	eprefix	local variable shadows a global	testable	variable.373	
+variable.474	I	variable.c	474	remove_env	impossible type %d	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+variable.540	E	variable.c	540	setvar	restricted	eprefix		untestable		only reachable in squat sandbox mode
+variable.557	I	variable.c	557	setvar	impossible type %d	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+variable.609	W	variable.c	609	setdelim	'=' following space is part of value.	eprefix	'=' after a space in /set	testable	variable.609	
+variable.629	E	variable.c	629	do_set	illegal at top level.	eprefix		untestable		illegal-at-top-level check; no script found that reaches it (/let at file level is accepted)
+variable.657	E	variable.c	657	command_set	illegal variable name: %s	eprefix	illegal variable name	testable	variable.657	
+variable.665	O	variable.c	665	command_set	%s not set %sally	none	/set of an unset variable	testable	variable.665	
+variable.669	O	variable.c	669	command_set	%s=%S	none	/set shows a value	testable	variable.669	
+variable.730	E	variable.c	730	handle_export_command	%s not defined.	eprefix	/export of an undefined variable	testable	variable.730	
+variable.745	E	variable.c	745	unsetvar	%s must be a positive integer, so can not be unset.	eprefix	/unset of a positive-integer variable	testable	variable.745	
+variable.770	I	variable.c	770	unsetvar	bad type %d	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+variable.841	I	variable.c	841	set_special_var	invalid set type %d	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+variable.861	E	variable.c	861	set_special_var	%s must be an integer greater than or equal to %d	eprefix	integer variable below its minimum	testable	variable.861	
+variable.876	I	variable.c	876	set_special_var	invalid var type %d	eprefix		untestable		internal error (impossible state), cannot be provoked from a script
+variable.972	W	variable.c	972	obsolete_prompt	%s is obsolete.  Use prompt_wait instead.	eprefix	obsolete variable	testable	variable.972	
+variable.978	W	variable.c	978	undocumented_var	%s is undocumented, possibly unstable, and may be removed in a future version.	eprefix	undocumented variable	testable	variable.978	
+world.111	E	world.c	111	new_world	illegal world name: %s	eprefix	illegal world name	testable	world.111	
+world.135	E	world.c	135	new_world	world %s: host and port must be both blank or both non-blank.	eprefix	host without port	testable	world.135	
+world.181	W	world.c	181	new_world	file contains passwords and is readable by others.	eprefix	world definition with a password in a world-readable file	testable	world.181	
+world.188	E	world.c	188	new_world	Redefined %s %s	eprefix	redefinition of a world	testable	world.188	
+world.198	E	world.c	198	nuke_world	%s is in use.	eprefix		untestable		needs a world with a live socket
+world.248	E	world.c	248	handle_renameworld_command	usage: /renameworld [<old>] <new>	eprefix	/renameworld without arguments	testable	world.248	
+world.253	E	world.c	253	handle_renameworld_command	no current connection: /renameworld <old> <new>	eprefix	/renameworld with one argument and no connection	testable	world.253	
+world.258	E	world.c	258	handle_renameworld_command	%s	eprefix	/renameworld of an unknown world	testable	world.258	
+world.329	E	world.c	329	squat_world_put	Redefined %s %s	eprefix		untestable		world put by a squat bridge
+world.370	E	world.c	370	handle_unworld_command	No world %s	eprefix	/unworld of an unknown world	testable	world.370	
+world.426	E	world.c	426	handle_listworlds_command	invalid sort criterion	eprefix	/listworlds with a bad sort criterion	testable	world.426	
+world.548	E	world.c	548	handle_saveworld_command	restricted	eprefix	/saveworld under /restrict file	testable	world.548	
+world.560	E	world.c	560	handle_saveworld_command	%s: %s	eprefix	/saveworld to an unwritable path	testable	world.560	
+world.563	O	world.c	563	handle_saveworld_command	%sing world definitions to %s	none	/saveworld reports the file	testable	world.563	
+world.597	E	world.c	597	ch_default_charset	illegal charset name: %s	eprefix	illegal charset name	testable	world.597	
+command.580	H	command.c	580	do_file_load	Loading commands from %s.	none	/load prints "Loading commands from"	testable	command.580	only when not quiet (/load without -q)
+expr.2015.b	E	expr.c	2015	unary_expr	%s: found %d arguments, expected between %d and %d	eprefix	too few arguments to a builtin function (range)	testable	expr.2015.b	
+ctx.file-line	E	(context)	0	ctx	%s: no such function	eprefix	error at file level: "<file>, line N: "	testable	ctx.file-line	context-rule probe: <file>, line N: 
+ctx.macro	E	(context)	0	ctx	%s: no such function	eprefix	error inside a macro: the macro name follows the location	testable	ctx.macro	context-rule probe: macro name after the location
+ctx.macro-nested	E	(context)	0	ctx	%s: no such function	eprefix	error in a macro called from a macro	testable	ctx.macro-nested	context-rule probe: macro called from macro
+ctx.multiline	E	(context)	0	ctx	%s: no such function	eprefix	command spread over lines with backslash continuation: "lines N-M: "	testable	ctx.multiline	context-rule probe: "lines N-M: " for continued lines
+ctx.eval	E	(context)	0	ctx	%s: no such function	eprefix	error in /eval	testable	ctx.eval	context-rule probe
+ctx.trigger	E	(context)	0	ctx	%s: no such function	eprefix	error in a trigger macro	testable	ctx.trigger	context-rule probe
+ctx.hook	E	(context)	0	ctx	%s: no such function	eprefix	error in a hook macro	testable	ctx.hook	context-rule probe
+ctx.load-nested	E	(context)	0	ctx	%s: no such function	eprefix	error in a file loaded from a file: the inner file is named	testable	ctx.load-nested	context-rule probe: inner file named
+ctx.option-suffix	E	(context)	0	ctx	invalid option	eprefix	option parse error: command name carries the option letter	testable	ctx.option-suffix	context-rule probe: " -c" option suffix
+ctx.function-name	E	(context)	0	ctx	real value too large to convert to integer	eprefix	error raised by a function: function name is the command	testable	ctx.function-name	context-rule probe: function name as command
+ctx.cmdsub	E	(context)	0	ctx	%s: no such function	eprefix	error inside $() command substitution	testable	ctx.cmdsub	context-rule probe
+ctx.builtin-in-macro	E	(context)	0	ctx	Macro "%s" was not defined.	eprefix	builtin command error inside a macro: builtin name replaces the macro name	testable	ctx.builtin-in-macro	context-rule probe
+ctx.shadowed-builtin	E	(context)	0	ctx	%s: no such function	eprefix	macro shadowing a builtin name	testable	ctx.shadowed-builtin	context-rule probe
+ctx.nonexistent-command	E	(context)	0	ctx	%s: no such command or macro	eprefix	unknown command (hook NOMACRO text)	testable	ctx.nonexistent-command	context-rule probe (via hook NOMACRO)
+ctx.nonexistent-in-macro	E	(context)	0	ctx	%s: no such command or macro	eprefix	unknown command inside a macro	testable	ctx.nonexistent-in-macro	context-rule probe
+ctx.load-error	E	(context)	0	ctx	%s: %s	eprefix	/load of a missing file	testable	ctx.load-error	context-rule probe (hook LOADFAIL text)
+ctx.load-implicit-dir	E	(context)	0	ctx	%s: %s	eprefix	/load of a directory	testable	ctx.load-implicit-dir	context-rule probe
+ctx.eval-macro	E	(context)	0	ctx	%s: no such function	eprefix	macro invoked through /eval with arguments	testable	ctx.eval-macro	context-rule probe
+ctx.if-condition	E	(context)	0	ctx	%s: no such function	eprefix	error in an /if condition inside a macro	testable	ctx.if-condition	context-rule probe
+ctx.while-body	E	(context)	0	ctx	%s: no such function	eprefix	error in a /while body inside a macro	testable	ctx.while-body	context-rule probe
+ctx.typed	E	(context)	0	ctx	%s: no such function	eprefix		testable	ctx.typed	typed at the prompt: no file location
+ctx.typed-macro	E	(context)	0	ctx	%s: no such function	eprefix		testable	ctx.typed-macro	typed at the prompt: macro name only
+ctx.typed-builtin	E	(context)	0	ctx	Macro "%s" was not defined.	eprefix		testable	ctx.typed-builtin	typed at the prompt
+ctx.typed-unknown	E	(context)	0	ctx	%s: no such command or macro	eprefix		testable	ctx.typed-unknown	typed at the prompt
+ctx.typed-option	E	(context)	0	ctx	invalid option	eprefix		testable	ctx.typed-option	typed at the prompt: option suffix
+output.1504.b	E	output.c	1504	find_statusfield_by_template	%s: no such field in row %d	eprefix	/status_rm of a field that does not exist, in a row	testable	output.1504.b	
