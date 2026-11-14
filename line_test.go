@@ -83,3 +83,13 @@ func TestUndefID(t *testing.T) {
 		t.Fatal("named macro left in the name index")
 	}
 }
+
+func TestHookFromTypedLineExpandsItsBody(t *testing.T) {
+	h, in := run(t, "/def -hSEND sh = /echo hooked %*")
+	in.noExp = true // as inside Exec of a typed line
+	in.Hook("SEND", "say hi")
+	in.noExp = false
+	if len(h.out) != 1 || h.out[0] != "hooked say hi" {
+		t.Fatalf("%v", h.out)
+	}
+}

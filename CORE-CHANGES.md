@@ -38,6 +38,11 @@ other host (and captured/piped output) just gets `Echo(text)` as before.
 Added `Interp.UndefID(id)`: remove a macro by its /list number (reaches
 unnamed macros, which `Undef(name)` cannot). Lets a client implement `/undefn`.
 
+### core: hook bodies expand when the hook fires inside a typed line
+Fixed: `Hook` ran bodies with substitution off when called while a typed line
+(which `Exec` leaves unexpanded) was executing, so a SEND hook saw a literal
+`%*`. Hooks now always expand their body, like triggers.
+
 ## v0.0.1 (2026-11-14) — first extraction
 
 The engine split out of the gtf client repo: interpreter, PCRE2-compatible

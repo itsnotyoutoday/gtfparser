@@ -323,7 +323,10 @@ func (in *Interp) Hook(event, args string) {
 		}
 		in.depth++
 		in.pushFrame(m.Name, args)
+		oldExp := in.noExp
+		in.noExp = false // a hook fired from a typed line (which is unexpanded) still expands its body
 		in.execText(m.Body)
+		in.noExp = oldExp
 		in.ctl = ctlNone
 		in.popFrame()
 		in.depth--
