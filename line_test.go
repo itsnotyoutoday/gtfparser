@@ -67,3 +67,19 @@ func TestEchoOptionsReachEchoHost(t *testing.T) {
 		t.Fatalf("%v", h.out)
 	}
 }
+
+func TestUndefID(t *testing.T) {
+	_, in := run(t, "/def -t'a' = x\n/def named = y")
+	n := len(in.Macros())
+	ms := in.Macros()
+	anon, named := ms[n-2], ms[n-1]
+	if !in.UndefID(anon.ID) || len(in.Macros()) != n-1 || in.UndefID(anon.ID) {
+		t.Fatalf("%v", in.Macros())
+	}
+	if !in.UndefID(named.ID) || len(in.Macros()) != n-2 {
+		t.Fatal("named macro not removed")
+	}
+	if _, ok := in.macros["named"]; ok {
+		t.Fatal("named macro left in the name index")
+	}
+}

@@ -52,3 +52,18 @@ func (in *Interp) World() string { return in.world }
 func (in *Interp) worldOK(m *Macro) bool {
 	return m.World == "" || in.world == "" || strings.EqualFold(m.World, in.world)
 }
+
+// UndefID removes the macro with the given number (the one /list shows; it
+// also reaches macros that have no name). It reports whether there was one.
+func (in *Interp) UndefID(id int) bool {
+	for _, m := range in.list {
+		if m.ID == id {
+			if m.Name != "" && in.macros[m.Name] == m {
+				delete(in.macros, m.Name)
+			}
+			in.removeFromList(m)
+			return true
+		}
+	}
+	return false
+}

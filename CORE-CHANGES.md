@@ -34,6 +34,10 @@ Added optional `EchoHost` (`EchoTo(EchoOpts{World, Attrs, Markup}, text)`).
 `/echo -w<world> -a<attrs> -p` call it when the host implements it; every
 other host (and captured/piped output) just gets `Echo(text)` as before.
 
+### core: UndefID
+Added `Interp.UndefID(id)`: remove a macro by its /list number (reaches
+unnamed macros, which `Undef(name)` cannot). Lets a client implement `/undefn`.
+
 ## v0.0.1 (2026-11-14) — first extraction
 
 The engine split out of the gtf client repo: interpreter, PCRE2-compatible
