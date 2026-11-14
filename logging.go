@@ -136,40 +136,33 @@ func wrapLen(s string, max, tab int) int {
 
 // encodeAnsiAttrs wraps text in the SGR sequences for a line's attributes.
 func encodeAnsiAttrs(text, attrs string) string {
+	a, _, _ := AttrCtx{}.Parse(attrs, 0)
 	var codes []string
-	for i := 0; i < len(attrs); i++ {
-		switch attrs[i] {
-		case 'B', 'h':
-			codes = append(codes, "1")
-		case 'd':
-			codes = append(codes, "2")
-		case 'i':
-			codes = append(codes, "3")
-		case 'u':
-			codes = append(codes, "4")
-		case 'f':
-			codes = append(codes, "5")
-		case 'r':
-			codes = append(codes, "7")
-		case 'C':
-			j := i + 1
-			for j < len(attrs) && attrs[j] != ',' {
-				j++
-			}
-			name := attrs[i+1 : j]
-			base := 30
-			if strings.HasPrefix(name, "bg") {
-				name, base = name[2:], 40
-			}
-			for k, c := range histColorNames {
-				if c == name && k < 8 {
-					codes = append(codes, fmt.Sprint(base+k))
-				} else if c == name {
-					codes = append(codes, fmt.Sprint(base+60+k-8))
-				}
-			}
-			i = j
+	if a&(AttrBold|AttrHilite) != 0 {
+		codes = append(codes, "1")
+	}
+	if a&AttrItalic != 0 {
+		codes = append(codes, "3")
+	}
+	if a&AttrUnderline != 0 {
+		codes = append(codes, "4")
+	}
+	if a&AttrReverse != 0 {
+		codes = append(codes, "7")
+	}
+	color := func(k, base int) {
+		switch {
+		case k < 8:
+			codes = append(codes, fmt.Sprint(base+k))
+		case k < 16:
+			codes = append(codes, fmt.Sprint(base+60+k-8))
 		}
+	}
+	if a.HasFg() {
+		color(a.FgColor(), 30)
+	}
+	if a.HasBg() {
+		color(a.BgColor(), 40)
 	}
 	if len(codes) == 0 {
 		return text
@@ -181,7 +174,7 @@ func encodeAnsiAttrs(text, attrs string) string {
 func (in *Interp) tfname(who, name, def string) (string, bool) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		if m, ok := in.macros[def]; ok && m.Body != "" {
+		if m, ok := in.findMacro(def); ok && m.Body != "" {
 			name = m.Body
 		} else {
 			in.warn("%s: missing filename, and default macro %s is not defined", who, def)
@@ -283,7 +276,7 @@ func cmdLog(in *Interp, args string) Value {
 		h = d.h.global
 	}
 	in.closeLog(h)
-	in.hookMessage("LOG", "Logging to file "+name, name)
+	in.FireHookArgs("LOG", name) // shows "% Logging to file <name>"
 	h.log = &logFile{name: name, f: f}
 	d.lg.n++
 	in.notify("log", "on", name)
@@ -300,13 +293,6 @@ func errText(err error) string {
 		s = strings.ToUpper(s[:1]) + s[1:]
 	}
 	return s
-}
-
-// hookMessage prints the message TF's do_hook would, then runs the macros
-// hooked on event with args.
-func (in *Interp) hookMessage(event, msg, args string) {
-	in.warn("%s", msg)
-	in.Hook(event, args)
 }
 
 func fnNlog(in *Interp, a []Value) (Value, error) { return Int(int64(in.ds().lg.n)), nil }

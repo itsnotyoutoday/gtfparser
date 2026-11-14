@@ -277,7 +277,7 @@ func (in *Interp) newWorld(name, typ, host, port, char, pass, mfile, flags, myho
 	}
 	w.Charset = in.globals["default_charset"].String()
 	if redef {
-		in.hookMessage("REDEF", "Redefined world "+w.Name, "world "+w.Name)
+		in.FireHookArgs("REDEF", "world", w.Name)
 	}
 	if w.Name == db.cur || (db.cur != "" && strings.EqualFold(db.cur, w.Name)) {
 		in.refreshWorldVars()
@@ -294,15 +294,7 @@ func (in *Interp) nukeWorld(w *World) {
 		}
 	}
 	in.closeLog(w.hist)
-	for _, m := range in.Macros() { // remove_world_macros
-		if m.World != "" && strings.EqualFold(m.World, w.Name) {
-			if m.Name != "" {
-				in.Undef(m.Name)
-			} else {
-				in.removeFromList(m)
-			}
-		}
-	}
+	in.RemoveWorldMacros(w.Name)                          // remove_world_macros
 	for _, p := range append([]*Proc(nil), in.procs...) { // kill_procs_by_world
 		if p.World != "" && strings.EqualFold(p.World, w.Name) {
 			in.killProc(p.PID)

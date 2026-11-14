@@ -38,6 +38,7 @@ type Interp struct {
 	Host        Host
 	globals     map[string]Value
 	macros      map[string]*Macro
+	mac         *macState // trigger, hook and match-style state (see triggers.go)
 	list        []*Macro
 	nextID      int
 	fr          *frame
@@ -515,7 +516,7 @@ func (in *Interp) runSub(kind byte, arg string) string {
 	if b, ok := in.WorldMacroBody(arg); ok { // ${world_name} and friends read the current world
 		return b
 	}
-	if m, ok := in.macros[arg]; ok {
+	if m, ok := in.findMacro(arg); ok {
 		return m.Body
 	}
 	return ""
@@ -954,7 +955,7 @@ run:
 func (in *Interp) execOne(st string) Value {
 	if st[0] != '/' {
 		line := in.expand(st)
-		return Bool(in.Host.Send("", line))
+		return in.sendLine(line)
 	}
 	w, _ := firstWord(st)
 	lw := strings.ToLower(w)
@@ -966,10 +967,10 @@ func (in *Interp) execOne(st string) Value {
 	}
 	line := in.expand(st)
 	if strings.HasPrefix(line, "//") { // "//" sends a line starting with "/"
-		return Bool(in.Host.Send("", line[1:]))
+		return in.sendLine(line[1:])
 	}
 	if len(line) == 0 || line[0] != '/' {
-		return Bool(in.Host.Send("", line))
+		return in.sendLine(line)
 	}
 	nm, args := firstWord(line)
 	nm = nm[1:]
@@ -982,12 +983,12 @@ func (in *Interp) execOne(st string) Value {
 		forceBuiltin, nm = true, nm[1:]
 	}
 	var res Value
-	if m, ok := in.macros[nm]; ok && !forceBuiltin {
+	if m, ok := in.findMacro(nm); ok && !forceBuiltin {
 		res = in.callMacro(m, args, false)
 	} else if _, ok := in.cmds[strings.ToLower(nm)]; ok {
 		res = in.runBuiltin(strings.ToLower(nm), args)
 	} else {
-		in.warn("%s: no such command", "/"+nm)
+		in.noMacro(nm)
 		res = Int(0)
 	}
 	return negate(res, neg)
@@ -1027,6 +1028,7 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 		in.warn("%s: too many nested calls", m.Name)
 		return Int(0)
 	}
+	in.noteCall(m)
 	in.depth++
 	f := in.pushFrame(m.Name, args)
 	f.asFunc = asFunc
@@ -1062,7 +1064,7 @@ func (in *Interp) callFunc(name string, args []Value) (Value, error) {
 		}
 		return f(in, args)
 	}
-	if m, ok := in.macros[name]; ok {
+	if m, ok := in.findMacro(name); ok {
 		strs := make([]string, len(args))
 		for i, a := range args {
 			strs[i] = a.String()
@@ -1083,22 +1085,23 @@ func (in *Interp) echo(text string) {
 }
 
 // echoOpts is echo with /echo's options: a host that implements EchoHost
-// receives them; any other host just gets the text.
-func (in *Interp) echoOpts(o EchoOpts, text string) {
+// receives them as given; any other host gets the text with the attributes
+// applied (see echoText).
+func (in *Interp) echoOpts(o EchoOpts, text string) Value {
 	if o == (EchoOpts{}) {
 		in.echo(text)
-		return
-	}
-	for f := in.fr; f != nil; f = f.parent {
-		if f.noOut {
-			return
-		}
+		return Int(1)
 	}
 	if h, ok := in.Host.(EchoHost); ok {
+		for f := in.fr; f != nil; f = f.parent {
+			if f.noOut {
+				return Int(1)
+			}
+		}
 		h.EchoTo(o, text)
-		return
+		return Int(1)
 	}
-	in.Host.Echo(text)
+	return in.echoText(text, o.Attrs, o.Markup, "")
 }
 
 func environ(skip bool) []string {

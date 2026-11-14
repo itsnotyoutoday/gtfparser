@@ -100,7 +100,13 @@ func parseOptions(spec, text string) (opts map[byte]Value, rest string, errMsg, 
 	}
 	for {
 		skip()
-		if i >= len(text) || text[i] != '-' || i+1 >= len(text) || text[i+1] == ' ' {
+		if i >= len(text) || text[i] != '-' {
+			break
+		}
+		if i+1 >= len(text) || text[i+1] == ' ' || text[i+1] == '\t' {
+			// a lone "-" ends the options and is consumed
+			i++
+			skip()
 			break
 		}
 		if strings.HasPrefix(text[i:], "--") && (i+2 == len(text) || text[i+2] == ' ' || text[i+2] == '\t') {

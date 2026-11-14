@@ -553,7 +553,7 @@ func (in *Interp) CheckWatch(world, line string) (gag bool) {
 		if hits >= w.nmatch[wName] {
 			pat := "{" + line[:end] + "}*"
 			in.echo(fmt.Sprintf("%% Watchname: gagging \"%s\"", pat))
-			in.Define(&Macro{Matching: "glob", Trigger: pat, Priority: int(in.globals["gpri"].Int()), Gag: true, Attrs: "g"})
+			in.Define(&Macro{Matching: "glob", Trigger: pat, Priority: int(in.globals["gpri"].Int()), Attr: AttrGag})
 			return true
 		}
 	}
