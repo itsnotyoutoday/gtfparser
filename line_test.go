@@ -93,3 +93,11 @@ func TestHookFromTypedLineExpandsItsBody(t *testing.T) {
 		t.Fatalf("%v", h.out)
 	}
 }
+
+func TestFireHookReturnsWhatRan(t *testing.T) {
+	_, in := run(t, "/def -hSEND -ag a1 = /echo x\n/def -hCONNECT c1 = /echo y")
+	f := in.FireHook("SEND", "hello")
+	if len(f) != 1 || f[0].Name != "a1" || f[0].Attrs != "g" {
+		t.Fatalf("%v", f)
+	}
+}

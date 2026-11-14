@@ -306,7 +306,12 @@ func (in *Interp) runTrigger(m *Macro, line string, regs []string, l, r string) 
 }
 
 // Hook fires macros hooked on an event.
-func (in *Interp) Hook(event, args string) {
+func (in *Interp) Hook(event, args string) { in.FireHook(event, args) }
+
+// FireHook fires the macros hooked on an event and returns the ones that ran
+// (so a client can act on, say, a gag attribute on a SEND hook: real tf then
+// does not send the text).
+func (in *Interp) FireHook(event, args string) (fired []*Macro) {
 	for _, m := range append([]*Macro(nil), in.list...) {
 		if m.Hook == "" || !in.worldOK(m) {
 			continue
@@ -321,6 +326,7 @@ func (in *Interp) Hook(event, args string) {
 		if !match || (pat != "" && !globMatch(pat, args)) {
 			continue
 		}
+		fired = append(fired, m)
 		in.depth++
 		in.pushFrame(m.Name, args)
 		oldExp := in.noExp
@@ -331,6 +337,7 @@ func (in *Interp) Hook(event, args string) {
 		in.popFrame()
 		in.depth--
 	}
+	return fired
 }
 
 func qesc(s string) string {

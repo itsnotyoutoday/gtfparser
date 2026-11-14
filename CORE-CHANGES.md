@@ -43,6 +43,11 @@ Fixed: `Hook` ran bodies with substitution off when called while a typed line
 (which `Exec` leaves unexpanded) was executing, so a SEND hook saw a literal
 `%*`. Hooks now always expand their body, like triggers.
 
+### core: FireHook returns the macros that ran
+Added `Interp.FireHook(event, args) []*Macro` (`Hook` is now a wrapper). A
+client uses it to honour a gag attribute on a SEND hook (real tf then does not
+send the text; lib/tf/alias.tf relies on it).
+
 ## v0.0.1 (2026-11-14) — first extraction
 
 The engine split out of the gtf client repo: interpreter, PCRE2-compatible
