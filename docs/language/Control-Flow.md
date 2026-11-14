@@ -75,12 +75,6 @@ b
 c
 ```
 
-> **Known engine limitation.** A nested `/if` written *immediately* after the
-> outer condition on the same statement, as in `/if (a) /if (b) ... /endif%;
-> /else ...`, is mis-parsed by this engine: the inner `/endif` closes the outer
-> block. Start the outer body with another command or an empty `%;` first
-> (`/if (a) %; /if (b) ...`). See [FINDINGS](FINDINGS.md).
-
 ## `/while`
 
 ```
@@ -119,16 +113,14 @@ n=2
 n=1
 ```
 
-Runaway loops can be stopped by setting `max_iter` (or by the embedding
-program's instruction limits; see the README). With `/set max_iter=5` a loop that
-reaches five passes is aborted instead of running forever:
+As in tf, `%max_iter` is ignored: a runaway loop ends when the instruction budget
+(`%max_instr`, and the embedding program's limits; see the README) runs out, with
+a warning, and the script carries on:
 
 ```tf
-/set max_iter=5
 /def forever = /let i=0%; /while (1) /let i=$[i+1]%; /done
 /forever
 /echo still alive
-/set max_iter=0
 ```
 ```output
 still alive

@@ -47,8 +47,8 @@ Things to notice:
 * `--` ends option parsing, so `-n` in `-ba -- -n whiz` was left alone as an
   ordinary argument.
 * Parsing stops at the first word that is not an option.
-* Numeric (`#`) arguments should be attached to their letter: write `-n5`. The
-  reference client rejects `-n 5`.
+* Numeric (`#`) arguments should be attached to their letter: write `-n5`. tf
+  rejects `-n 5` (see [Known differences](Known-Differences.md)).
 
 A common pattern is to set defaults first and omit `init`:
 
@@ -109,8 +109,9 @@ item: z
 ## Related commands
 
 `/split` (breaks `name = body` text into `%P1`/`%P2`) and `/escape` (backslash
-escapes characters) help when writing commands like `/def`. In this engine
-`/split` does not set `%P1`/`%P2` yet; see [FINDINGS](FINDINGS.md).
+escapes characters) help when writing commands like `/def`. They are part of
+tf's standard library (`stdlib.tf`), which the client loads; they are not built
+into the engine, so the examples in this guide do not use them.
 
 ## Pitfalls
 

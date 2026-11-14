@@ -198,7 +198,7 @@ want to call both ways:
 did not echo). `$(/sq 5)` captured the echoed output.
 
 A macro that never says `/return` returns whatever its last command returned. A
-macro called as a function with no usable result returns the empty string:
+macro whose body is a bare `/return` returns `0`:
 
 ```tf
 /def noreturn = /echo working
@@ -211,11 +211,8 @@ macro called as a function with no usable result returns the empty string:
 ```output
 working
 noreturn returned [1]
-r0 returned []
+r0 returned [0]
 ```
-
-(The reference client returns `0` for a bare `/return`; see
-[FINDINGS](FINDINGS.md).)
 
 ## `/eval`
 

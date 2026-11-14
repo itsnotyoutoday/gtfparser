@@ -58,7 +58,7 @@ value's type.
 |---|---|---|
 | `int` | integer literals; `+ - *` of two ints; `/` of two ints (truncated); results of `strlen()` etc. | `42` |
 | `decimal` | literals with up to six decimal digits; time literals; `+` or `-` involving a decimal | at least one decimal digit: `1.5`, `7.0`, `62.0` |
-| `float` | exponent literals; seven or more decimal digits; `*` or `/` involving a decimal; most math functions (`sqrt`, `pow`...); int arithmetic that overflows | `%sigfigs` significant digits, plus a trailing `.` when it looks whole: `2.5`, `3.`, `1e+20` |
+| `float` | exponent literals; seven or more decimal digits; `*` or `/` involving a decimal; most math functions (`sqrt`, `pow`...); int arithmetic that overflows 64 bits | `%sigfigs` significant digits, plus a trailing `.` when the text is all digits: `2.5`, `3.`, `-3`, `1e+20`, `nan`, `inf` |
 | `string` | quoted text; variables set with `/set`, `/let` | as written |
 
 ```tf
@@ -78,19 +78,28 @@ Things to take from that:
 * **Decimals are exact.** `0.1 + 0.2 == 0.3` is true, because decimal addition
   and subtraction is done in fixed-point with six places. As soon as you
   multiply or divide, you are in floating point.
-* **Integers do not wrap.** If an integer `+`, `-` or `*` would leave the 32-bit
-  range (about plus or minus 2.1 billion), the result silently becomes a float
-  instead. Whole floats print with a trailing dot, which is how you can tell:
+* **Integers are 64-bit.** `+`, `-` and `*` stay integers (so `1 + 4294967296` is
+  `4294967297`) and become floats only when the exact result does not fit in 64
+  bits. Floats that are whole print with a trailing dot, which is how you can tell
+  (`9223372036854775807 + 1` is `9.22337203685478e+18`). The reference `tf`
+  narrows to 32 bits here; that is a
+  [deliberate difference](Deliberate-Differences.md).
 
 ```tf
-/echo $[46340 * 46340] $[46341 * 46341] $[2147483647 + 1]
+/echo $[46341 * 46341] $[2147483647 + 1] $[1 + 4294967296] $[9223372036854775807 + 1]
+/echo $[1.5 * 2] $[-1.5 * 2] $[0 / 0.0]
 ```
 ```output
-2147395600 2147488281. 2147483648.
+2147488281 2147483648 4294967297 9.22337203685478e+18
+3. -3 nan
 ```
 
 * Floats print with `%sigfigs` significant digits (15 by default), in plain
-  notation when the exponent is small enough and in exponent form otherwise.
+  notation when the exponent is small enough and in exponent form otherwise. A
+  `.` is added only when the text is all digits, so a negative whole float prints
+  as `-3` (tf does the same). Dividing by zero is an error for integers
+  (`division by zero`), and an infinite result of `+ - * /` on floats is
+  `/ operator: arithmetic overflow`.
 
 ### Strings become numbers by their prefix
 
@@ -144,17 +153,18 @@ assignment, which groups right to left.
 | 5 | `==` `!=` `=` | **numeric** equal / not equal (`=` is the same as `==`) |
 | 5 | `=~` `!~` | **string** equal / not equal (case sensitive) |
 | 5 | `=/` `!/` | string matches / does not match a **glob** |
-| 6 | `<` `<=` `>` `>=` | **numeric** comparisons |
-| 7 | `&` | logical and (short-circuit) |
-| 8 | `\|` | logical or (short-circuit) |
-| 9 | `c ? a : b`, `c ?: b` | conditional |
-| 10 | `:=` `+=` `-=` `*=` `/=` | assignment |
-| 11 | `,` | evaluate both, result is the right one |
+| 5 | `<` `<=` `>` `>=` | **numeric** comparisons |
+| 6 | `&` | logical and (short-circuit) |
+| 7 | `\|` | logical or (short-circuit) |
+| 8 | `c ? a : b`, `c ?: b` | conditional |
+| 9 | `:=` `+=` `-=` `*=` `/=` | assignment |
+| 10 | `,` | evaluate both, result is the right one |
 
-Note that equality binds *tighter* than `<` and `>`. The tf manual lists the
-comparison operators together, but this engine (like the real client) orders
-them as in the table, so `0 == 1 < 2` means `(0 == 1) < 2`, which is true.
-Use parentheses.
+All the comparison operators in level 5 share one level and group left to right.
+
+Because the comparisons share one level, `0 == 1 < 2` means `(0 == 1) < 2` and
+`1 < 2 == 1` means `(1 < 2) == 1`; chained comparisons do not mean what they do
+in mathematics. Use parentheses.
 
 There is **no modulo operator** (`%` means something else in tf) and no `&&`,
 `||`, `^` or `<<`. Use the functions `mod(a, b)` and `abs()`, and `&` and `|`
@@ -299,9 +309,6 @@ counter is 2
   1]`. Prefer the bare name.
 * **`1 ? 2:3`**: a digit directly before the colon makes `2:3` a time literal,
   and tf reports a syntax error. Write `1 ? 2 : 3`.
-* **Negative floats**: a negative whole-number float may print differently from
-  the reference client (with or without the trailing dot); see
-  [FINDINGS](FINDINGS.md).
 
 ## See also
 

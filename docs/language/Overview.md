@@ -106,5 +106,7 @@ would send to the world are printed as `[send] text`.
 New to tf: read [Evaluation model](Evaluation-Model.md), [Substitution](Substitution.md),
 [Expressions](Expressions.md), then [Macros](Macros.md) and [Triggers](Triggers.md).
 Experienced with tf: skim [Idioms and pitfalls](Idioms-and-Pitfalls.md) and
-[FINDINGS](FINDINGS.md) for where this engine and the reference client differ.
+[Known differences](Known-Differences.md) and
+[Deliberate differences](Deliberate-Differences.md) for where this engine and
+TinyFugue differ.
 Coming from another language: [Differences from other languages](Differences-from-Other-Languages.md).

@@ -127,6 +127,37 @@ hello, Ana! pick 6
 hello, Ana! pick 9
 ```
 
+### The short default form, `%1-default`
+
+Without braces, `%name-default` and `%1-default` also work, but the default runs
+**up to the next blank**, and it is used only when the value is empty. Whatever
+follows the `-` is swallowed, which is why the braces are recommended:
+
+```tf
+/def d1 = /echo [%1-queue] [%{1-queue}] [%2-fallback]
+/d1
+/d1 given
+```
+```output
+[queue] [queue] [fallback]
+[given [given] [fallback]
+```
+
+The second call lost its closing `]`: `%1-queue]` took `queue]` as the default and,
+since `%1` was `given`, dropped it.
+
+### Malformed substitutions are errors
+
+A malformed form such as `%{ 1}`, `%{-0}`, `%{1:}` or `%-` is an error: tf prints
+a warning (`b1: unmatched { or illegal character ' '`) and the whole macro body
+is abandoned, not just the one command. Unterminated `$[`, `$(` and `${` are
+errors too, and so is an expression that fails inside `$[...]`.
+
+### Arguments never end in blanks
+
+Trailing blanks of a macro's arguments are removed, so `/d3 one two   ` sees
+`%*` as `one two`.
+
 Only the first `-` separates the selector from the default, so a default like
 `%{1-a-b}` is `a-b`. (A selector that itself starts with `-`, such as `%{-2}`,
 is the "all except" form above, not a default.)
@@ -166,7 +197,8 @@ HP 42/60 (70%)
 
 `$(...)` runs `cmd` as a macro body in a new scope and substitutes what it
 *echoed*, like backticks in a shell. If it echoed several lines they are joined
-with single spaces. A literal `)` inside must be written `\)`.
+with single spaces. A literal `)` inside must be written `\)`. The command may
+contain `%;` and several commands.
 
 ```tf
 /def pair = /echo %{1}%;/echo %{2}
@@ -221,9 +253,8 @@ above is left as is.
 100% of $5 [%%%] [$$$]
 ```
 
-> A lone `$` followed by a space is the one place this engine and the reference
-> `tf` disagree; use `$$` whenever you mean a dollar sign. See
-> [FINDINGS](FINDINGS.md).
+> A lone `$` followed by a space is dropped by tf; the engine keeps it. Use `$$`
+> whenever you mean a dollar sign (see [Known differences](Known-Differences.md)).
 
 ## Why you write `%%` inside nested definitions
 

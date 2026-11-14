@@ -148,7 +148,7 @@ quantifiers, non-capturing and named groups, alternation, backreferences
 
 ## What is not supported
 
-This engine's regexp implementation deliberately leaves out:
+This engine's regexp implementation does not support:
 
 * **recursion and subroutine calls**: `(?R)`, `(?1)`, `(?&name)`;
 * **backtracking control verbs**: `(*SKIP)`, `(*FAIL)`, `(*COMMIT)`...;
@@ -165,8 +165,8 @@ A pattern using them is rejected with an error, and the match fails:
 0
 ```
 
-(The reference client's own PCRE2 build accepts these. If you port a script
-that uses them, rewrite it. See [FINDINGS](FINDINGS.md) for details.)
+(tf's own PCRE2 build accepts these. If you port a script that uses them,
+rewrite it. See [Known differences](Known-Differences.md).)
 
 ## Pitfalls
 

@@ -177,7 +177,7 @@ A few you will meet in this guide:
 | `matching` | `glob` | default pattern style for `/def -t` / `-h`: `glob`, `regexp`, `simple`, `substr` (see [Patterns](Patterns.md)) |
 | `sigfigs` | `15` | significant digits when printing floats |
 | `sub` | `off` | substitution level for typed/loaded top-level lines (`off`, `on`, `full`) |
-| `max_iter` | `0` | if nonzero, abort a loop that runs more than this many times |
+| `max_instr` | `1000000` | instruction budget; a runaway macro is stopped when it is used up (`max_iter` is accepted but ignored) |
 | `max_recur` | `100` | limit on macro recursion depth |
 | `ptime` | `1.0` | default delay for `/repeat` and `/quote` processes |
 | `borg` | `on` | whether triggers fire |

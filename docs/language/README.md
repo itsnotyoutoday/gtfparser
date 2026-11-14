@@ -9,8 +9,10 @@ for two readers:
 
 Every example is a `tf` block followed by an `output` block, and
 `python3 scripts/doccheck.py docs/language` checks that the engine really prints
-that output. Where this engine differs from the reference `tf`, the pages say so
-and [FINDINGS](FINDINGS.md) has the details.
+that output. Where this engine differs from TinyFugue, the pages say so;
+[Known differences](Known-Differences.md) and
+[Deliberate differences](Deliberate-Differences.md) list every case with the
+exact output of each.
 
 ## Start here
 
@@ -52,7 +54,8 @@ and [FINDINGS](FINDINGS.md) has the details.
 |---|---|
 | [Idioms and pitfalls](Idioms-and-Pitfalls.md) | the mistakes everyone makes, and idioms worth copying |
 | [Differences from other languages](Differences-from-Other-Languages.md) | orientation for shell, JavaScript and Lua users |
-| [FINDINGS](FINDINGS.md) | where this engine and the reference tf disagree |
+| [Known differences](Known-Differences.md) | bugs we intend to fix: exact outputs of TinyFugue and gtfparser side by side |
+| [Deliberate differences](Deliberate-Differences.md) | where gtfparser deliberately departs from TinyFugue, and why |
 
 ## Reading order
 

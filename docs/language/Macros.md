@@ -135,6 +135,30 @@ noret
 of its last command (here `1`), so the surrounding `$[...]` is `1`.
 Recursion works (`/return {1} <= 1 ? 1 : {1} * fact({1} - 1)`) up to `%max_recur`.
 
+### What a macro returns
+
+A macro's return value is its `/return` or `/result` value; if it never says
+either, it is the return value of its **last command**. Two details are worth
+knowing:
+
+* A bare `/return` returns `0`.
+* A macro whose last command is `/set` or `/let`, called as a function, returns
+  the empty string rather than the command's own result.
+
+```tf
+/def r_bare = /return
+/def r_set = /set tmp=1
+/def r_echo = /echo shown
+/echo [$[r_bare()]] [$[r_set()]] [$[r_echo()]]
+```
+```output
+shown
+[0] [] [1]
+```
+
+`/def` itself returns the new macro's number (or 0 on failure), as `/undef`
+returns how many macros it removed.
+
 ## Defining macros from macros
 
 A macro body that contains a `/def` is expanded when it **runs**, so you

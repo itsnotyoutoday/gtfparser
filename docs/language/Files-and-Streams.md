@@ -19,7 +19,8 @@ Every stream has a handle you pass to the `tf*` functions.
 ## Files: `tfopen`, `tfwrite`, `tfread`, `tfclose`
 
 `tfopen(name, mode)` opens a file and returns a handle, or `-1` on failure.
-Modes: `'r'` read, `'w'` write (truncating), `'a'` append.
+Modes: `'r'` read, `'w'` write (truncating), `'a'` append, `'p'` read the output
+of a shell command, `'q'` an in-memory queue (see below).
 
 ```tf
 /set f=$[tfopen('/tmp/gtfdoc_f1.txt', 'w')]
@@ -50,7 +51,32 @@ Failures are quiet: they return `-1`.
 [-1]
 ```
 
-Appending:
+Queues and shell pipes:
+
+* `tfopen()` (no arguments, or mode `'q'`) opens a **queue**: lines you
+  `tfwrite` can be read back with `tfread`, in order. A queue is a handy
+  place to pass lines between commands.
+* `tfopen('command', 'p')` runs a shell command and reads its output (it needs
+  shell access, which an embedder may refuse).
+
+```tf
+/test q := tfopen()
+/test tfwrite(q, 'alpha')
+/test tfwrite(q, 'beta')
+/echo [$[tfread(q, a)]] [%a] [$[tfread(q, b)]] [%b] [$[tfread(q, c)]]
+/test tfclose(q)
+/set p=$[tfopen('echo piped output', 'p')]
+/test tfread(p, l)
+/echo [%l] [$[tfread(p, l2)]]
+/test tfclose(p)
+```
+```output
+[5] [alpha] [4] [beta] [-1]
+[piped output] [-1]
+```
+
+Reading an empty queue returns `-1`, like end of file, but more lines may be
+written later. Appending:
 
 ```tf
 /test fa := tfopen('/tmp/gtfdoc_f2.txt', 'w')
@@ -64,10 +90,8 @@ Appending:
 ```output
 ```
 
-> **Engine note.** The reference tf also offers `'p'` (read a shell command's
-> output) and `'q'` (an in-memory queue) modes. This engine supports the file
-> modes only; see [FINDINGS](FINDINGS.md). Embedding programs can veto file access
-> through a policy; a vetoed `tfopen` returns `-1`.
+> Embedding programs can veto file access through a policy; a vetoed `tfopen`
+> returns `-1`.
 
 ## Pipes
 
@@ -124,7 +148,7 @@ Closing `'i'` prevents further reads; closing `'e'` is not allowed.
 [Evaluation model](Evaluation-Model.md)): no substitution, `%;` does not split,
 except for `/if` and `/while`. Rules for the file:
 
-* A line beginning with `;` is a comment. Leading whitespace is stripped.
+* A line beginning with `;` or `#` is a comment. Leading whitespace is stripped.
 * A line ending in `\` is joined with the next (whose leading whitespace is
   dropped), so long `/def`s can be split.
 * `/load` returns 1 on success, 0 if the file could not be read.
@@ -167,9 +191,8 @@ lib2 loading
 done
 ```
 
-In the reference client `/loaded` itself ends a second read of the same file;
-this engine checks the name given to `/require` instead. Writing the token as the
-same text you pass to `/require` works in both.
+Use the same text as the token and as the argument to `/require` (the full path
+is a good choice), so the check works however the client implements `/loaded`.
 
 ### `/exit`
 
@@ -200,8 +223,8 @@ after load
   file and on error; test for `>= 0`, not truthiness (an empty line has length 0).
 * **`%x` in a file you generate.** `tfwrite(f, '/echo %x')` typed in a macro
   substitutes `%x` first; write `%%x` to get a literal `%x` in the file.
-* **`#` comments.** The tf manual says lines starting with `#` are comments too;
-  this engine does not skip them. Use `;`.
+* **Comments.** A `;` or `#` in the first column makes a comment line. A trailing
+  `\` continues the line, unless a `%` comes right before it.
 * **File access from untrusted scripts.** Embedders should restrict it
   (policy or `/restrict`); see the README.
 
