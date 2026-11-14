@@ -11,6 +11,94 @@ Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 
 ## Unreleased
 
+### core: tf compatibility pass (differential fuzzing findings)
+The engine now matches real tf where it previously did not. Reference configuration: tf 5.0 beta 8,
+UTF-8 build, 64-bit macOS, `en_US.UTF-8`. Corpus: `testdata/cases/compat_*.tf`; the few intentional
+differences are listed in `docs/deliberate-differences.md` and pinned by `testdata/deviations` and
+`compat_test.go`. A client that parsed warning text or relied on the old behavior should read this list.
+
+Fixed (crashes)
+- `/shift -1` and `strncmp()` with a negative count no longer panic (`/shift -1` returns 0).
+
+Fixed (macro language)
+- A nested `/if` that starts on the same line as the outer condition no longer closes the outer
+  `/if` (`/if (a) /if (b) ...%; /endif%; /else ...%; /endif`); same for `/while`.
+- Builtin commands can be called as functions with 0 or 1 argument (`shift()`, `def()`, `load()`,
+  `set()`, `limit()`, `features()`, `version()` ...); `shift` returns 0 when it cannot shift that many.
+  This fixes lisp.tf (`/reverse /mapcar /remove /unique`), stdlib `/nth` and the startup warnings.
+- `regmatch()` captures (`%P1`...) set in a called macro are visible to its caller (`/split`).
+- Substitution grammar follows tf: `%1-queue` / `%name-default` (default to the next blank, taken
+  only when the value is empty), `%{...}` malformed forms (`%{-0}`, `%{#-x}`, `%-`, `%{1:}`, `%{ 1}`)
+  are errors that abort the macro, `%.` and similar drop the `%`, `${%{x}}` expands the name,
+  `$(...)` may contain `%;`, unmatched `$[` `$(` `${` are errors. A failed `$[...]` aborts the
+  statement and the macro (it used to continue with an empty value).
+- A macro's arguments no longer end in blanks; a macro whose last command is `/set` or `/let`
+  returns "" when called as a function; bare `/return` returns 0; `/quote` source lines run
+  unsubstituted (`/qdef` keeps `%1`); a synchronous `/quote !cmd` (and so `/sys`) returns the exit
+  status; `/exit` in a loaded file ends that `/load`; `/load` treats `;` and `#` in the first column
+  as comments and a trailing backslash as a continuation unless a `%` precedes it; `%max_iter` is
+  ignored (as in tf: runaway loops end at `max_instr`).
+- `/load`, `/lcd`, `/version` (now also prints the Copyright line so `/ver` works) texts and option
+  usage lines (`-lgi -w<string>`) match tf; `%isize`/`%tabsize` ... reject values below 1 (`pos`) and
+  integer variables values below 0 with tf's message; time variables print `1.0`; visual mode is
+  refused silently when the host says it cannot (new optional `VisualHost`).
+
+Fixed (expressions)
+- `=~ !~ =/ !/` and `< <= > >=` are one left-associative level; `1 ? 2:3` is a syntax error (`2:3`
+  is a time); arguments of builtin functions are counted when the expression is compiled
+  (`strlen("a","b")`, `pow(1)`), blanks before `(` are allowed (`pow (2,3)`).
+- Identifiers are read when their operator runs (`y - --y` is 0, `y:=5, y + ++y` is 12), function
+  arguments that are bare variables likewise; `++f` on a float truncates to an integer.
+- Float printing follows tf: `%.15g`, a `.` only when the text is all digits, so `-2.0*1` prints
+  `-2`, `-0`, `nan`, `inf`, `-inf`; `0/0.0` prints `nan` while an infinite result of `+ - * /` is
+  `/ operator: arithmetic overflow`; math functions do not check their results.
+- `time()`, `mktime()`, `idle()` have time types (`whatis` says `atime`/`dtime`; durations of a
+  minute or more print as `h:mm:ss`); `ftime()` is a full strftime (`%s %e %j %k %l %U %G` ...,
+  `%.`/`%@`) in the `TZ` the script sees; `filename("~")` expands; `test()`, `fwrite()`, `mktime()`,
+  `read()` exist; `isatty()` (new optional `TTYHost`), `nread()` (`SetReadDepth`) and `nmail()`
+  (the MAIL/TFMAILPATH rules of util.c) are real.
+- String functions work in characters (`strlen`, `substr`, `strstr`, `strchr`, `strrchr`, `pad`);
+  negative `substr()` start/length, the start argument of `strstr`/`strchr`/`strrchr`, the count
+  argument of `tolower`/`toupper`, `strcmp`/`strncmp` byte differences, `replace()` with an empty
+  pattern, `mod(x,0)` error text, `regmatch()` counting only groups up to the last that took part
+  and 0 for an invalid regexp.
+- tfopen() modes `q` (queue) and `p`/`P` (pipe), a single argument is the mode, bad handles
+  and unusable streams give tf's messages and return values for tfclose/tfflush/tfreadable/tfwrite.
+
+Changed (diagnostics)
+- Warnings now carry tf's context: `file, line N: ` while loading (`lines S-E:` for a continued
+  line), then the running macro, builtin command or function (`f5: nosuchcmd2: no such command or
+  macro`, `mod: division by zero`); builtin commands appear in upper case (`LOAD:`, `SH:`) as tf
+  prints them. Expression syntax errors use tf's wording (`expression syntax error: expected
+  operand, found end of body.`); `max_instr` says `instruction count exceeded %max_instr (N).`
+  Messages of client-registered commands and functions keep their old form.
+
+Deliberate differences (see `docs/deliberate-differences.md`)
+- Integers are 64-bit: `1+4294967296` is `4294967297` (tf narrows to 32 bits and prints `1`);
+  results become reals only on int64 overflow; `1/4294967296` is `0`; `++`/`--` at the int64 limit
+  raise `integer overflow in ++x`.
+- `tolower`/`toupper` map Unicode characters one to one (tf maps bytes and can emit invalid UTF-8);
+  `char(n)` for n >= 256 is the Unicode character; `trunc()` of an out-of-range real clamps.
+- `strrep`, `pad` and `replace` refuse results above the new `Limits.MaxString` (default 16 MiB)
+  with an error instead of hanging or exhausting memory.
+
+Added
+- Optional host interfaces `TTYHost` (`IsTTY() bool`), `VisualHost` (`CanVisual() bool`),
+  `Interp.SetReadDepth`, `Limits.MaxString`, `DefaultMaxString`.
+- `scripts/difftest.py` understands `testdata/deviations/*.tf` + `.out` (registered deliberate
+  differences: gtfparser must print the documented output and real tf must still differ).
+
+### core: tflib
+Added package `tflib`: the real tf library (unmodified `lib/tf`, GPL, see `tflib/NOTICE.md`)
+embedded with go:embed so every client ships the same one. `tflib.FS`, `Extract(dir)`,
+`CacheDir()`, `Setup(in, dir)` (extracts and prepends to `LibDirs`), `Version()`. The engine
+loads library files from disk, so clients extract to a cache directory. No change to existing packages.
+
+### core: LimitFilter
+Added `Interp.LimitFilter(world) func(line, attrs string) bool`: a goroutine-safe
+snapshot of a world's /limit filter (nil when none), so a client can filter its
+scrollback without calling into the interpreter from another goroutine.
+
 ## v0.0.5 (2026-11-14) — faithful triggers, hooks, macros and attributes
 
 ### core: trigger, hook, macro and attribute machinery rewritten after tf's macro.c

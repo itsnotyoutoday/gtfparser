@@ -143,10 +143,17 @@ func cmdListstreams(in *Interp, args string) Value {
 	for _, n := range ids {
 		st := in.streams[strconv.Itoa(n)]
 		flush := ""
-		if st.w {
-			flush = "on" // writes are never buffered
+		if st.mode == 'w' || st.mode == 'a' {
+			flush = "off"
+			if st.autoflush {
+				flush = "on"
+			}
 		}
-		in.echo(fmt.Sprintf("%6d   %c   %3s  %s", n, streamModeChar(st.f, st.w), flush, st.f.Name()))
+		mode := st.mode
+		if st.f != nil && st.canWrite {
+			mode = streamModeChar(st.f, true)
+		}
+		in.echo(fmt.Sprintf("%6d   %c   %3s  %s", n, mode, flush, st.name))
 	}
 	return Int(int64(len(ids)))
 }

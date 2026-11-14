@@ -49,8 +49,10 @@ Things that surprise people, all matching real tf, each locked in by a test:
 - Numbers have **four** kinds: integer, **decimal** (fixed-point, six places:
   `1.5`, `7.0`, `0:01:02`), float, and string. `2 * 3.5` is a float (`7.`);
   `1.5 + 1.5` is a decimal (`3.0`).
-- Integer arithmetic that leaves the 32-bit range becomes a float.
-- Floats print as C `%.15g` plus a trailing `.` when they look like integers.
+- Integers are 64-bit; arithmetic that overflows int64 becomes a float (tf narrows to 32 bits
+  by mistake; see [Deliberate differences](deliberate-differences.md)).
+- Floats print as C `%.15g` plus a trailing `.` when the whole text is digits, so `2.0*1` prints
+  `2.`, `-2.0*1` prints `-2` and `0/0.0` prints `nan`.
 - Built-in *functions* win over same-named macros, which is how the standard
   library can wrap `echo()` in a `/echo` macro.
 - Globs match case-insensitively; `{a|b}` matches whole words.
@@ -65,7 +67,8 @@ Honest list of where this engine intentionally or currently differs:
 | Instruction limit | `max_instr` counts statements; real tf counts finer internal instructions, so runaway loops stop at a somewhat different point |
 | Regexps | no recursion or subroutine calls (`(?R)`, `(?1)`), backtracking verbs (other than `(*FAIL)`), callouts, `(?[...])` |
 | Real-tf crashes | not reproduced (for example an internal error on some nested `/if`... `/else`, and a NULL dereference in `status_width()` of a missing field) |
-| Messages | the wording of warnings and errors is not compared by the suite, only behavior and output |
+| Messages | the differential harness compares output only; the wording and context (`file, line N: macro: message`) of common warnings follow tf and are pinned by Go tests (`compat_test.go`) |
+| Deliberate differences | a short, registered list (64-bit integers, Unicode case mapping, resource ceilings): [deliberate-differences.md](deliberate-differences.md), checked by `scripts/difftest.py testdata/deviations/*.tf` |
 | Large non-integer numbers | printing follows C `%.15g` (verified), but extreme values are tested lightly |
 | Unsupported builtins | commands and functions that need client features not yet implemented fail loudly; see the [status table](reference/Status.md) |
 

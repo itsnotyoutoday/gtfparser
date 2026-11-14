@@ -244,7 +244,7 @@ func TestMacroDatabase(t *testing.T) {
 		t.Fatal("identical redefinition must return the original number")
 	}
 	in.Exec("/def foo = /echo two")
-	if !strings.Contains(strings.Join(h.out, "|"), "!Redefined macro foo") {
+	if !strings.Contains(strings.Join(h.out, "|"), "!DEF: Redefined macro foo") {
 		t.Fatalf("no REDEF message: %v", h.out)
 	}
 	in.Exec("/def Bar = /echo b")

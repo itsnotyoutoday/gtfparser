@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 type cmdFunc func(in *Interp, args string) Value
@@ -141,22 +142,23 @@ func cmdUnset(in *Interp, args string) Value {
 func cmdTest(in *Interp, args string) Value {
 	v, err := in.evalExpr(args)
 	if err != nil {
-		in.warn("/test: %v", err)
+		in.warn("%v", err)
 		return Int(0)
 	}
 	return v
 }
 
 func cmdReturn(in *Interp, args string) Value {
-	in.retv = Str("")
+	in.retv = Int(0)
 	if strings.TrimSpace(args) != "" {
 		v, err := in.evalExpr(args)
 		if err != nil {
-			in.warn("/return: %v", err)
+			in.warn("%v", err)
 		}
 		in.retv = v
 	}
 	in.ctl = ctlReturn
+	in.userRes = in.retv
 	return in.retv
 }
 
@@ -228,7 +230,11 @@ func cmdFor(in *Interp, args string) Value {
 }
 
 func cmdQuit(in *Interp, args string) Value { in.Quit = true; return Int(1) }
-func cmdExit(in *Interp, args string) Value { in.ctl = ctlExit; return Int(1) }
+func cmdExit(in *Interp, args string) Value {
+	in.ctl = ctlExit
+	in.exitReq = true // ends the /load that is running, if any
+	return Int(1)
+}
 
 func (in *Interp) findFile(name string) (string, bool) {
 	if filepath.IsAbs(name) || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "~") {
@@ -265,12 +271,12 @@ func cmdLoad(in *Interp, args string) Value {
 	p, ok := in.findFile(name)
 	if !ok {
 		if !quiet {
-			in.warn("/load: %s: no such file", name)
+			in.warn("/load: %s: %s", name, cErr(syscall.ENOENT))
 		}
 		return Int(0)
 	}
 	if err := in.LoadFile(p); err != nil {
-		in.warn("/load: %v", err)
+		in.warn("/load: %s: %s", name, cErr(err))
 		return Int(0)
 	}
 	return Int(1)
@@ -321,25 +327,37 @@ func (in *Interp) LoadFile(path string) error {
 	sc.Buffer(make([]byte, 1<<20), 16<<20)
 	var cur strings.Builder
 	exited := false
+	oldName, oldStart, oldLine := in.loadName, in.loadStart, in.loadLine
+	in.loadName = path
+	defer func() { in.loadName, in.loadStart, in.loadLine = oldName, oldStart, oldLine }()
+	lineNo, startNo := 0, 0
 	flush := func() {
 		line := cur.String()
 		cur.Reset()
-		if t := strings.TrimSpace(line); t == "" || t[0] == ';' || t[0] == '#' && false {
+		if strings.TrimSpace(line) == "" {
 			return
 		}
 		in.depth = 0
+		in.loadStart, in.loadLine = startNo, lineNo
+		in.exitReq = false
 		in.Exec(strings.TrimLeft(line, " \t"))
-		if in.ctl == ctlExit {
+		if in.exitReq {
 			exited = true
+			in.exitReq = false
 		}
 		in.ctl = ctlNone
 	}
 	for sc.Scan() && !exited {
 		l := strings.TrimRight(sc.Text(), "\r")
-		if cur.Len() > 0 && strings.HasPrefix(strings.TrimLeft(l, " \t"), ";") {
-			continue // a comment line inside a continued line
+		lineNo++
+		if cur.Len() == 0 {
+			startNo = lineNo
 		}
-		if cont := strings.HasSuffix(l, "\\") && !strings.HasSuffix(l, "\\\\"); cont {
+		if l != "" && (l[0] == ';' || l[0] == '#') {
+			continue // a comment: ';' or '#' in the first column (also inside a continued line)
+		}
+		// a trailing backslash continues the line unless it follows a '%' (tf's do_file_load)
+		if cont := strings.HasSuffix(l, "\\") && !strings.HasSuffix(l, "%\\"); cont {
 			if cur.Len() > 0 {
 				l = strings.TrimLeft(l, " \t")
 			}

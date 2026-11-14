@@ -5,22 +5,32 @@ import (
 	"strings"
 )
 
+// cmdShift is /shift [n] (shift() as a function): drop n leading positional
+// parameters. It returns 1 on success and 0 when n is negative or exceeds the
+// number of parameters left (in which case they are all dropped).
 func cmdShift(in *Interp, args string) Value {
 	n := 1
-	if w, _ := firstWord(args); w != "" {
-		n = int(Str(w).Int())
+	if args != "" {
+		n = cAtoi(args)
 	}
-	in.shiftArgs(n)
-	return Int(1)
+	if n < 0 {
+		return Int(0)
+	}
+	if in.shiftArgs(n) {
+		return Int(1)
+	}
+	return Int(0)
 }
 
-func (in *Interp) shiftArgs(n int) {
+func (in *Interp) shiftArgs(n int) bool {
 	f := in.fr
 	if n >= len(f.words) {
+		ok := n == len(f.words)
 		f.setArgs("")
-		return
+		return ok
 	}
 	f.setArgs(f.text[f.offs[n]:])
+	return true
 }
 
 // parseOptArg reads an option argument starting at s[i]: a quoted string

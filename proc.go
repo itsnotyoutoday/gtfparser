@@ -149,6 +149,7 @@ func cmdQuote(in *Interp, args string) Value {
 	p.Disp = disp
 	body = strings.Trim(body, "\"")
 	var lines []string
+	shellStatus := 0 // exit status of a !command source: what a synchronous /quote returns
 	switch src {
 	case '\'':
 		if !in.allow(OpFileRead, "/quote", body) {
@@ -172,7 +173,10 @@ func cmdQuote(in *Interp, args string) Value {
 		}
 		sh := exec.Command("sh", "-c", body)
 		sh.Env = in.childEnv()
-		out, _ := sh.CombinedOutput()
+		out, err := sh.CombinedOutput()
+		if ee, ok := err.(*exec.ExitError); ok {
+			shellStatus = ee.ExitCode()
+		}
 		lines = strings.Split(strings.TrimRight(string(out), "\n"), "\n")
 		if len(out) == 0 {
 			lines = nil
@@ -187,6 +191,9 @@ func cmdQuote(in *Interp, args string) Value {
 	if sync {
 		for _, l := range lines {
 			in.quoteLine(p, l)
+		}
+		if src == '!' {
+			return Int(int64(shellStatus))
 		}
 		return Int(1)
 	}
@@ -209,7 +216,7 @@ func (in *Interp) quoteLine(p *Proc, l string) {
 	case 'e':
 		in.echo(text)
 	case 'x':
-		in.ExecFull(text)
+		in.Exec(text) // a quoted line runs like a typed one: no macro substitution
 	default:
 		in.Host.Send(p.World, text)
 	}

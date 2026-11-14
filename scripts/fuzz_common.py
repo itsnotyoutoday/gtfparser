@@ -58,7 +58,7 @@ def run_gtf(script, timeout=20):
         f.write('\n/test tfclose(_o)\n')
     st = None
     try:
-        r = subprocess.run([GTF, '-f', src, '-L', LIB], capture_output=True, text=True, timeout=timeout,
+        r = subprocess.run([GTF, '-f', src, '-L', LIB], capture_output=True, text=True, errors='replace', timeout=timeout,
                            env=_env(d), stdin=subprocess.DEVNULL)
         if r.returncode < 0 or 'panic' in r.stderr[:2000]: st = 'crash'
         err = r.stderr + r.stdout

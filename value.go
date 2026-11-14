@@ -5,11 +5,13 @@
 package gtfparser
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 type kind uint8
@@ -29,6 +31,7 @@ type Value struct {
 	f   float64
 	s   string
 	dec *big.Int // kDec: value * 1e6
+	tt  uint8    // kDec: 0 decimal, ttDtime duration, ttAtime absolute time
 	en  int      // enumerated variable value: 1 + index into its list (numeric value is the index)
 }
 
@@ -45,6 +48,20 @@ func Bool(b bool) Value {
 var million = big.NewInt(1000000)
 
 func decMicro(m *big.Int) Value { return Value{k: kDec, dec: m} }
+
+// time types of a kDec value, in tf's promotion order
+const (
+	ttDecimal uint8 = iota
+	ttDtime
+	ttAtime
+)
+
+func timeMicro(m *big.Int, tt uint8) Value { return Value{k: kDec, dec: m, tt: tt} }
+
+// atimeOf is an absolute time (time(), mktime()) with microsecond precision.
+func atimeOf(t time.Time) Value {
+	return timeMicro(big.NewInt(t.UnixMicro()), ttAtime)
+}
 
 // microOf is the fixed-point value of an int or decimal.
 func (v Value) microOf() *big.Int {
@@ -68,9 +85,36 @@ func (v Value) String() string {
 	case kReal:
 		return formatReal(v.f)
 	case kDec:
+		if v.tt == ttDtime {
+			return formatDtime(v.dec)
+		}
 		return formatDec(v.dec)
 	}
 	return v.s
+}
+
+// formatDtime is tf's duration format: seconds.micro under a minute,
+// otherwise h:mm[:ss[.micro]].
+func formatDtime(m *big.Int) string {
+	if m.CmpAbs(big.NewInt(60*1000000)) < 0 {
+		return formatDec(m)
+	}
+	neg := m.Sign() < 0
+	a := new(big.Int).Abs(m)
+	q, r := new(big.Int).QuoRem(a, million, new(big.Int))
+	sec := q.Int64()
+	var b strings.Builder
+	if neg {
+		b.WriteByte('-')
+	}
+	fmt.Fprintf(&b, "%d:%02d", sec/3600, (sec/60)%60)
+	if sec%60 != 0 || r.Sign() != 0 {
+		fmt.Fprintf(&b, ":%02d", sec%60)
+	}
+	if r.Sign() != 0 {
+		b.WriteString("." + strings.TrimRight(leftPad(r.String(), 6), "0"))
+	}
+	return b.String()
 }
 
 // formatDec prints seconds.microseconds with trailing zeros trimmed, keeping
@@ -101,17 +145,35 @@ func leftPad(s string, n int) string {
 // TF appends when the result looks like an integer.
 func formatReal(f float64) string {
 	s := formatReal0(f)
-	if !strings.ContainsAny(s, ".eEn") {
-		s += "."
+	// tf appends '.' only when the whole text is digits, so negative
+	// numbers, nan and inf never get one
+	if s != "" && isDigit(s[0]) {
+		allDigits := true
+		for i := 0; i < len(s); i++ {
+			if !isDigit(s[i]) {
+				allDigits = false
+				break
+			}
+		}
+		if allDigits {
+			s += "."
+		}
 	}
 	return s
 }
 
 func formatReal0(f float64) string {
-	if math.IsInf(f, 0) || math.IsNaN(f) {
-		return strconv.FormatFloat(f, 'g', -1, 64)
-	}
-	if f == 0 {
+	switch {
+	case math.IsNaN(f):
+		return "nan"
+	case math.IsInf(f, 1):
+		return "inf"
+	case math.IsInf(f, -1):
+		return "-inf"
+	case f == 0:
+		if math.Signbit(f) {
+			return "-0"
+		}
 		return "0"
 	}
 	return strconv.FormatFloat(f, 'g', getSigFigs(), 64)
@@ -148,7 +210,16 @@ func (v Value) Int() int64 {
 	case kDec:
 		return new(big.Int).Quo(n.dec, million).Int64()
 	}
-	return int64(n.f)
+	switch f := n.f; {
+	case f != f:
+		return 0
+	case f >= 9.2233720368547758e18:
+		return math.MaxInt64 // out of range: tf's result is platform-dependent; gtfparser clamps
+	case f <= -9.2233720368547758e18:
+		return math.MinInt64
+	default:
+		return int64(f)
+	}
 }
 
 func (v Value) Truth() bool {

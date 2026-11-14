@@ -10,11 +10,22 @@ type Limits struct {
 	MaxInstr    int64 // statements executed per top-level execution (TF default 1000000)
 	MaxLoadDeep int   // nested /load (default 32)
 	MaxOutput   int   // echoed lines per top-level execution; 0 = unlimited
+	MaxString   int   // bytes a string function (strrep, pad, replace) may build (default 16 MiB; tf hangs or crashes on absurd sizes)
 }
 
 // DefaultLimits are used when the client supplies none.
 func DefaultLimits() Limits {
 	return Limits{MaxRecur: 100, MaxInstr: 1000000, MaxLoadDeep: 32}
+}
+
+// DefaultMaxString is the MaxString used when Limits.MaxString is 0.
+const DefaultMaxString = 16 << 20
+
+func (in *Interp) maxString() int64 {
+	if in.limits.MaxString > 0 {
+		return int64(in.limits.MaxString)
+	}
+	return DefaultMaxString
 }
 
 func (in *Interp) maxRecur() int {
@@ -48,7 +59,7 @@ func (in *Interp) tick() bool {
 	}
 	in.instr++
 	if m := in.maxInstr(); m > 0 && in.instr > m {
-		in.warn("max_instr (%d) exceeded; execution aborted", m)
+		in.warn("instruction count exceeded %%max_instr (%d).", m)
 		in.instr = 0
 		in.ctl = ctlExit
 		return false

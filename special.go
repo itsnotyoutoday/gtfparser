@@ -1,6 +1,7 @@
 package gtfparser
 
 import (
+	"math/big"
 	"strings"
 )
 
@@ -9,7 +10,9 @@ func (sp varSpec) initial() Value {
 	case "int", "pos":
 		return Str(sp.def).Num()
 	case "time":
-		return Str(sp.def).Num()
+		v := Str(sp.def).Num()
+		v.tt = ttDtime
+		return v
 	case "enum":
 		v, _ := sp.coerce(Str(sp.def))
 		return v
@@ -21,15 +24,19 @@ func (sp varSpec) initial() Value {
 func (sp varSpec) coerce(v Value) (Value, bool) {
 	switch sp.kind {
 	case "int":
-		return Int(v.Int()), true
-	case "pos":
-		n := v.Int()
-		if n < 0 {
-			return v, false
+		if n := v.Int(); n >= 0 {
+			return Int(n), true
 		}
-		return Int(n), true
+		return v, false
+	case "pos":
+		if n := v.Int(); n >= 1 {
+			return Int(n), true
+		}
+		return v, false
 	case "time":
-		return v.Num(), true
+		// a time variable holds a duration: whole seconds print as "5.0"
+		sec, usec, _ := valTime(v)
+		return timeMicro(big.NewInt(sec*1000000+usec), ttDtime), true
 	case "enum":
 		s := v.String()
 		for i, e := range sp.enum {
@@ -65,10 +72,24 @@ func (in *Interp) setGlobal(name string, v Value) bool {
 	if sp, ok := specialVars[name]; ok {
 		cv, ok := sp.coerce(v)
 		if !ok {
-			in.warn("/set: invalid value for %s: %s", name, v.String())
+			switch sp.kind {
+			case "int":
+				in.warn("%s must be an integer greater than or equal to 0", name)
+			case "pos":
+				in.warn("%s must be an integer greater than or equal to 1", name)
+			case "enum":
+				in.warn("Invalid %s value \"%s\".  Valid values are: %s", name, v.String(), enumList(sp.enum, func(int) bool { return true }))
+			default:
+				in.warn("/set: invalid value for %s: %s", name, v.String())
+			}
 			return false
 		}
 		v = cv
+		if name == "visual" && v.en == 2 {
+			if vh, ok := in.Host.(VisualHost); ok && !vh.CanVisual() {
+				v, _ = sp.coerce(Str("off")) // refused, silently
+			}
+		}
 		if name == "sigfigs" {
 			setSigFigs(int(cv.Int()))
 		}
@@ -85,6 +106,12 @@ func typeName(v Value) string {
 	case kInt:
 		return "int"
 	case kDec:
+		switch v.tt {
+		case ttDtime:
+			return "dtime"
+		case ttAtime:
+			return "atime"
+		}
 		return "decimal"
 	case kReal:
 		return "float"

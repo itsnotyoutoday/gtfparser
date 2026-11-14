@@ -1219,7 +1219,9 @@ func dtimeSince(now, then time.Time) Value {
 	if neg {
 		s = "-" + s
 	}
-	return Str(s).Num()
+	v := Str(s).Num()
+	v.tt = ttDtime
+	return v
 }
 
 func fnIdle(send bool) fn {

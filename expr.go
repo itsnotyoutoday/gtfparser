@@ -40,7 +40,7 @@ func (in *Interp) evalExpr(src string) (Value, error) {
 		if err == nil {
 			p.ws()
 			if p.pos < len(p.s) {
-				err = fmt.Errorf("expression: unexpected %q", p.s[p.pos:])
+				err = p.syntaxErr("end of expression")
 			}
 		}
 		e = &exprEntry{f: f, err: err}
@@ -142,15 +142,15 @@ func (p *exprParser) parseTernary() (eval, error) {
 	p.take("?")
 	var a eval
 	if !p.peek(":") || p.peek(":=") {
-		a, err = p.parseAssign()
+		a, err = p.parseComma()
 		if err != nil {
 			return nil, err
 		}
 	}
 	if !p.take(":") {
-		return nil, errors.New("expression: expected ':' in conditional")
+		return nil, p.syntaxErr("':' after '?...'")
 	}
-	b, err := p.parseAssign()
+	b, err := p.parseTernary()
 	if err != nil {
 		return nil, err
 	}
@@ -216,14 +216,22 @@ func (p *exprParser) parseAnd() (eval, error) {
 }
 
 func (p *exprParser) binLevel(ops []string, next func() (eval, error)) (eval, error) {
+	start := p.pos
 	l, err := next()
 	if err != nil {
 		return nil, err
 	}
+	// a bare variable is read when the operator runs, not when it is parsed
+	// (tf pushes identifiers and looks them up in reduce(): y - --y is 0)
+	lazy := p.bareIdent(start, p.pos)
 	for {
 		var op string
+		p.ws()
 		for _, o := range ops {
-			if p.peek(o) {
+			if strings.HasPrefix(p.s[p.pos:], o) {
+				if (o == "+" || o == "-" || o == "*" || o == "/") && p.pos+1 < len(p.s) && p.s[p.pos+1] == '=' {
+					continue // "+=" and friends are assignments
+				}
 				op = o
 				break
 			}
@@ -236,28 +244,48 @@ func (p *exprParser) binLevel(ops []string, next func() (eval, error)) (eval, er
 		if err != nil {
 			return nil, err
 		}
-		l0, op0 := l, op
+		l0, op0, id := l, op, lazy
 		l = func() (Value, error) {
-			a, err := l0()
-			if err != nil {
-				return a, err
+			var a Value
+			var err error
+			if id == "" {
+				a, err = l0()
+				if err != nil {
+					return a, err
+				}
 			}
 			b, err := r()
 			if err != nil {
 				return b, err
 			}
+			if id != "" {
+				a, _ = p.in.lookup(id)
+			}
 			return binary(op0, a, b)
 		}
+		lazy = ""
 	}
 }
 
-// Relational binds looser than equality in TF's operator table.
-func (p *exprParser) parseRel() (eval, error) {
-	return p.binLevel([]string{"<=", ">=", "<", ">"}, p.parseEq)
+// bareIdent reports the identifier when s[start:end] is just a variable name.
+func (p *exprParser) bareIdent(start, end int) string {
+	t := strings.TrimSpace(p.s[start:end])
+	if t == "" || !isIdentStart(t[0]) {
+		return ""
+	}
+	for i := 1; i < len(t); i++ {
+		if !isIdentChar(t[i]) {
+			return ""
+		}
+	}
+	return t
 }
-func (p *exprParser) parseEq() (eval, error) {
+
+// Relational and equality operators are one left-associative level in tf's
+// expression parser (relational_expr in expr.c).
+func (p *exprParser) parseRel() (eval, error) {
 	// longest operators first so "=~" and "==" are not read as "="
-	return p.binLevel([]string{"==", "!=", "=~", "!~", "=/", "!/", "="}, p.parseAdd)
+	return p.binLevel([]string{"==", "!=", "=~", "!~", "=/", "!/", "<=", ">=", "<", ">", "="}, p.parseAdd)
 }
 func (p *exprParser) parseAdd() (eval, error) {
 	return p.binLevel([]string{"+", "-"}, p.parseMul)
@@ -272,17 +300,28 @@ func (p *exprParser) parseUnary() (eval, error) {
 	case p.peek("++") || p.peek("--"):
 		op := p.s[p.pos : p.pos+2]
 		p.pos += 2
-		p.ws()
-		id, ok := p.ident()
-		if !ok {
-			return nil, errors.New("expression: ++/-- needs a variable")
+		start := p.pos
+		x, err := p.parseUnary()
+		if err != nil {
+			return nil, err
 		}
+		id := p.bareIdent(start, p.pos)
+		if id == "" {
+			return func() (Value, error) { return Int(0), errors.New("illegal object of assignment") }, nil
+		}
+		_ = x
 		return func() (Value, error) {
 			cur, _ := p.in.lookup(id)
-			r, err := arith(op[:1], cur, Int(1))
-			if err != nil {
-				return r, err
+			n := cur.Int() // a real is truncated to an integer first: ++f on 1.5 gives 2
+			if (op == "++" && n == math.MaxInt64) || (op == "--" && n == math.MinInt64) {
+				return Int(0), fmt.Errorf("integer overflow in %s%s", op, id)
 			}
+			if op == "++" {
+				n++
+			} else {
+				n--
+			}
+			r := Int(n)
 			p.in.assign(id, r)
 			return r, nil
 		}, nil
@@ -296,8 +335,9 @@ func (p *exprParser) parseUnary() (eval, error) {
 			v, err := x()
 			return Bool(!v.Truth()), err
 		}, nil
-	case p.peek("-"):
-		p.take("-")
+	case p.peek("-") || p.peek("+"):
+		op := p.s[p.pos : p.pos+1]
+		p.pos++
 		x, err := p.parseUnary()
 		if err != nil {
 			return nil, err
@@ -307,25 +347,24 @@ func (p *exprParser) parseUnary() (eval, error) {
 			if err != nil {
 				return v, err
 			}
-			n := v.Num()
-			switch n.k {
-			case kInt:
-				return Int(-n.i), nil
-			case kDec:
-				return decMicro(new(big.Int).Neg(n.dec)), nil
-			}
-			return Real(-n.f), nil
+			return reduce(op, v, Int(0), false)
 		}, nil
-	case p.peek("+"):
-		p.take("+")
-		x, err := p.parseUnary()
-		if err != nil {
-			return nil, err
+	}
+	return p.parsePrimaryCall()
+}
+
+// parsePrimaryCall is a primary expression plus the function-call suffix
+// (tf allows blanks between the name and the parenthesis).
+func (p *exprParser) parsePrimaryCall() (eval, error) {
+	p.ws()
+	if p.pos < len(p.s) && isIdentStart(p.s[p.pos]) {
+		save := p.pos
+		id, _ := p.ident()
+		p.ws()
+		if p.pos < len(p.s) && p.s[p.pos] == '(' {
+			return p.call(id)
 		}
-		return func() (Value, error) {
-			v, err := x()
-			return v.Num(), err
-		}, nil
+		p.pos = save
 	}
 	return p.parsePrimary()
 }
@@ -350,7 +389,7 @@ func (p *exprParser) ident() (string, bool) {
 func (p *exprParser) parsePrimary() (eval, error) {
 	p.ws()
 	if p.pos >= len(p.s) {
-		return nil, errors.New("expression: unexpected end")
+		return nil, p.syntaxErr("operand")
 	}
 	c := p.s[p.pos]
 	switch {
@@ -361,7 +400,7 @@ func (p *exprParser) parsePrimary() (eval, error) {
 			return nil, err
 		}
 		if !p.take(")") {
-			return nil, errors.New("expression: missing ')'")
+			return nil, p.syntaxErr("')' after '(...'")
 		}
 		return e, nil
 	case c >= '0' && c <= '9' || (c == '.' && p.pos+1 < len(p.s) && p.s[p.pos+1] >= '0' && p.s[p.pos+1] <= '9'):
@@ -398,7 +437,26 @@ func (p *exprParser) parsePrimary() (eval, error) {
 			return v, nil
 		}, nil
 	}
-	return nil, fmt.Errorf("expression: unexpected %q", string(c))
+	return nil, p.syntaxErr("operand")
+}
+
+func isAlnumByte(c byte) bool { return isIdentChar(c) && c != '_' }
+
+// syntaxErr is parse_error() in expand.c.
+func (p *exprParser) syntaxErr(expect string) error {
+	p.ws()
+	found := "end of body"
+	if p.pos < len(p.s) {
+		end := p.pos + 1
+		c := p.s[p.pos]
+		if isAlnumByte(c) || c == '"' || c == '\'' || c == '`' || c == '/' {
+			for end < len(p.s) && isAlnumByte(p.s[end]) {
+				end++
+			}
+		}
+		found = "'" + p.s[p.pos:end] + "'"
+	}
+	return fmt.Errorf("expression syntax error: expected %s, found %s.", expect, found)
 }
 
 func (p *exprParser) number() (eval, error) {
@@ -453,12 +511,13 @@ func (p *exprParser) quoted(q byte) (eval, error) {
 		b.WriteByte(c)
 		p.pos++
 	}
-	return nil, errors.New("expression: unterminated string")
+	return nil, fmt.Errorf("unmatched %c in string literal", q)
 }
 
 func (p *exprParser) call(name string) (eval, error) {
 	p.take("(")
 	var args []eval
+	var ids []string // arguments that are bare variables are read after the others are evaluated
 	p.ws()
 	if !p.take(")") {
 		for {
@@ -481,32 +540,63 @@ func (p *exprParser) call(name string) (eval, error) {
 					p.pos = save
 				}
 			}
+			id := ""
 			if a == nil {
+				st := p.pos
 				a, err = p.parseAssign()
 				if err != nil {
 					return nil, err
 				}
+				id = p.bareIdent(st, p.pos)
 			}
 			args = append(args, a)
+			ids = append(ids, id)
 			if p.take(",") {
 				continue
 			}
 			if p.take(")") {
 				break
 			}
-			return nil, fmt.Errorf("expression: bad arguments to %s()", name)
+			return nil, p.syntaxErr("',' or ')' after function argument")
 		}
 	}
+	if ar, ok := funcArity[name]; ok {
+		if _, isBuiltin := p.in.funcs[name]; isBuiltin && (len(args) < ar[0] || (ar[1] >= 0 && len(args) > ar[1])) {
+			var msg string
+			switch {
+			case ar[0] == ar[1]:
+				msg = fmt.Sprintf("%s: found %d arguments, expected %d", name, len(args), ar[0])
+			case ar[1] < 0:
+				msg = fmt.Sprintf("%s: found %d arguments, expected at least %d", name, len(args), ar[0])
+			default:
+				msg = fmt.Sprintf("%s: found %d arguments, expected between %d and %d", name, len(args), ar[0], ar[1])
+			}
+			return nil, errors.New(msg)
+		}
+	} else if _, isFn := p.in.funcs[name]; !isFn && len(args) > 1 {
+		if _, isCmd := p.in.cmds[strings.ToLower(name)]; isCmd && p.in.isTfCommand(name) {
+			return nil, fmt.Errorf("%s: command called as function must have 0 or 1 argument", name)
+		}
+	}
+	_, isTfFunc := funcArity[name]
 	return func() (Value, error) {
 		vals := make([]Value, len(args))
 		for i, a := range args {
+			if ids[i] != "" {
+				continue
+			}
 			v, err := a()
 			if err != nil {
 				return v, err
 			}
 			vals[i] = v
 		}
-		return p.in.callFunc(name, vals)
+		for i, id := range ids {
+			if id != "" {
+				vals[i], _ = p.in.lookup(id)
+			}
+		}
+		return p.in.callFuncTf(name, vals, isTfFunc)
 	}, nil
 }
 
@@ -570,12 +660,17 @@ func binary(op string, a, b Value) (Value, error) {
 			c = 1
 		}
 	} else {
-		xf, yf := a.Float(), b.Float()
+		xf, yf := x.Float(), y.Float()
 		switch {
 		case xf < yf:
 			c = -1
 		case xf > yf:
 			c = 1
+		case xf != yf: // NaN: every comparison but != is false
+			if op == "!=" {
+				return Int(1), nil
+			}
+			return Int(0), nil
 		}
 	}
 	switch op {
@@ -595,62 +690,135 @@ func binary(op string, a, b Value) (Value, error) {
 	return Int(0), fmt.Errorf("expression: unknown operator %s", op)
 }
 
-func arith(op string, a, b Value) (Value, error) {
-	x, y := a.Num(), b.Num()
-	if x.k == kInt && y.k == kInt {
-		// TF keeps integer results only while they fit a 32-bit int;
-		// anything larger becomes a real.
-		var r int64
+// arith applies an arithmetic operator the way reduce_arithmetic() in tf's
+// expr.c does. Integer addition and subtraction work on 32-bit ints (an
+// overflow promotes the result to a float), integer multiplication is exact
+// only while the result fits 32 bits, and the integer divisor is truncated to
+// 32 bits (so dividing by 2^32 is a division by zero).
+func arith(op string, a, b Value) (Value, error) { return reduce(op, a, b, true) }
+
+// reduce is arith with an optional right operand: unary -/+ pass binary=false
+// and the single operand in a.
+func reduce(op string, a, b Value, binary bool) (Value, error) {
+	if binary && a.k == kInt && b.k == kInt && a.en == 0 && b.en == 0 {
+		// fast path: both operands are plain integers
 		switch op {
 		case "+":
-			r = x.i + y.i
+			if s := a.i + b.i; (s > a.i) == (b.i > 0) {
+				return Int(s), nil
+			}
 		case "-":
-			r = x.i - y.i
+			if s := a.i - b.i; (s < a.i) == (b.i > 0) {
+				return Int(s), nil
+			}
+		}
+	}
+	x, y := a.Num(), b.Num()
+	last := y
+	if !binary {
+		last = x
+	}
+	// tf's promotion order is INT < DECIMAL (time) < FLOAT
+	rank := func(k kind) int {
+		switch k {
+		case kInt:
+			return 0
+		case kDec:
+			return 1
+		}
+		return 2
+	}
+	pr := rank(x.k)
+	if binary && rank(y.k) > pr {
+		pr = rank(y.k)
+	}
+	if pr < 2 && (op == "+" || op == "-") {
+		// tf narrows to 32-bit int here (so 1+4294967296 is 1, a defect of
+		// its 64-bit port); gtfparser is 64-bit throughout and promotes to a
+		// real only when the exact result overflows (docs/deliberate-differences.md)
+		var a0 int64
+		if binary {
+			a0 = x.Int()
+		}
+		a1 := last.Int()
+		var sum int64
+		ok := true
+		if op == "-" {
+			sum = a0 - a1
+			ok = !(a1 > 0 && a0 < math.MinInt64+a1) && !(a1 < 0 && a0 > math.MaxInt64+a1)
+		} else {
+			sum = a0 + a1
+			ok = !(a1 > 0 && a0 > math.MaxInt64-a1) && !(a1 < 0 && a0 < math.MinInt64-a1)
+		}
+		if !ok {
+			pr = 2
+		} else if pr == 0 {
+			return Int(sum), nil
+		}
+	}
+	switch pr {
+	case 0:
+		switch op {
 		case "*":
-			if x.i == 0 || y.i == 0 {
-				return Int(0), nil
+			r := x.i * y.i
+			if x.i == 0 || y.i == 0 || (r/y.i == x.i && !(x.i == -1 && y.i == math.MinInt64) && !(y.i == -1 && x.i == math.MinInt64)) {
+				return Int(r), nil
 			}
-			r = x.i * y.i
-			if r/y.i != x.i {
-				return Real(float64(x.i) * float64(y.i)), nil
-			}
+			return Real(float64(x.i) * float64(y.i)), nil
 		case "/":
 			if y.i == 0 {
 				return Int(0), errors.New("division by zero")
 			}
+			if x.i == math.MinInt64 && y.i == -1 {
+				return Real(-float64(x.i)), nil
+			}
 			return Int(x.i / y.i), nil
 		}
-		if r > math.MaxInt32 || r < math.MinInt32 {
-			xf, yf := float64(x.i), float64(y.i)
-			switch op {
-			case "+":
-				return Real(xf + yf), nil
-			case "-":
-				return Real(xf - yf), nil
+	case 1:
+		tt := x.tt
+		if binary && y.tt > tt {
+			tt = y.tt
+		}
+		switch op {
+		case "+":
+			if !binary {
+				return timeMicro(x.microOf(), tt), nil
 			}
-			return Real(xf * yf), nil
+			return timeMicro(new(big.Int).Add(x.microOf(), y.microOf()), tt), nil
+		case "-":
+			if !binary {
+				return timeMicro(new(big.Int).Neg(x.microOf()), tt), nil
+			}
+			if x.tt == ttAtime && y.tt == ttAtime {
+				tt = ttDtime
+			}
+			return timeMicro(new(big.Int).Sub(x.microOf(), y.microOf()), tt), nil
 		}
-		return Int(r), nil
 	}
-	if (x.k == kInt || x.k == kDec) && (y.k == kInt || y.k == kDec) && (op == "+" || op == "-") {
-		if op == "+" {
-			return decMicro(new(big.Int).Add(x.microOf(), y.microOf())), nil
-		}
-		return decMicro(new(big.Int).Sub(x.microOf(), y.microOf())), nil
-	}
-	xf, yf := a.Float(), b.Float()
+	xf := x.Float()
+	yf := last.Float()
+	var r float64
 	switch op {
 	case "+":
-		return Real(xf + yf), nil
-	case "-":
-		return Real(xf - yf), nil
-	case "*":
-		return Real(xf * yf), nil
-	case "/":
-		if yf == 0 {
-			return Int(0), errors.New("division by zero")
+		r = xf
+		if binary {
+			r = xf + yf
 		}
-		return Real(xf / yf), nil
+	case "-":
+		if binary {
+			r = xf - yf
+		} else {
+			r = -xf
+		}
+	case "*":
+		r = xf * yf
+	case "/":
+		r = xf / yf
+	default:
+		return Int(0), fmt.Errorf("expression: bad operator %s", op)
 	}
-	return Int(0), fmt.Errorf("expression: bad operator %s", op)
+	if math.IsInf(r, 0) {
+		return Int(0), fmt.Errorf("%s operator: arithmetic overflow", op)
+	}
+	return Real(r), nil
 }

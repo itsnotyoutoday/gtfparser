@@ -533,7 +533,7 @@ func TestDisconnectForegroundAndFunctions(t *testing.T) {
 	exp("nactive()", "1")
 	exp("nactive(\"a\")", "3")
 	exp("nactive(\"b\")", "0")
-	exp("idle(\"a\")", "90.0")
+	exp("idle(\"a\")", "0:01:30")
 	exp("sidle(\"a\")", "5.0")
 	exp("sidle()", "5.0")
 	exp("idle(\"nosuch\")", "0.0")

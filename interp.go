@@ -1,6 +1,7 @@
 package gtfparser
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -68,6 +69,16 @@ type Interp struct {
 	interrupted atomic.Bool
 	instr       int64
 	nest        int
+	asFuncCmd   int    // >0 while a builtin command runs as a function
+	exitReq     bool   // /exit ran: the enclosing /load stops (see LoadFile)
+	curCmd      string // name of the running macro, builtin command or function (diagnostics)
+	loadName    string // file being loaded, and the lines of the logical line being run
+	loadStart   int
+	loadLine    int
+	userRes     Value // tf's user_result: the value of the last command that sets one (not /set, /let); what a macro called as a function returns
+	readDepth   int
+	mail        map[string]*mailInfo
+	subFail     bool // a $[...] substitution failed: the statement and its macro are abandoned
 	exported    map[string]bool
 	cmdSpecs    map[string]CommandSpec
 	funcSpecs   map[string]FuncSpec
@@ -146,7 +157,53 @@ func (in *Interp) Var(name string) string {
 	return v.String()
 }
 
-func (in *Interp) warn(f string, a ...any) { in.Warn(fmt.Sprintf(f, a...)) }
+// cmdErr is an error that names the builtin function it came from, so the
+// diagnostic reads "% file, line N: mod: division by zero" as in tf.
+type cmdErr struct {
+	cmd string
+	err error
+}
+
+func (e *cmdErr) Error() string { return e.err.Error() }
+func (e *cmdErr) Unwrap() error { return e.err }
+
+// warn reports a diagnostic the way tf's eprintf does: "file, line N: "
+// while loading, then the name of the command, macro or function that is
+// running ("/cmd: " at the start of the message names a builtin command and
+// is shown as tf shows it, upper case), then the message.
+func (in *Interp) warn(f string, a ...any) {
+	cmd := in.curCmd
+	for _, x := range a {
+		if ce, ok := x.(*cmdErr); ok {
+			cmd = ce.cmd
+		}
+	}
+	msg := fmt.Sprintf(f, a...)
+	if len(msg) > 2 && msg[0] == '/' {
+		if i := strings.Index(msg, ": "); i > 1 {
+			// "/cmd: msg" and "/cmd -x: msg" name a builtin command, shown as tf shows it
+			name, opt, _ := strings.Cut(msg[1:i], " ")
+			if !strings.ContainsAny(name, "/ ") && tfCmdSet[strings.ToLower(name)] && (opt == "" || (len(opt) == 2 && opt[0] == '-')) {
+				cmd, msg = strings.ToUpper(name), msg[i+2:]
+				if opt != "" {
+					cmd += " " + opt
+				}
+			}
+		}
+	}
+	var b strings.Builder
+	if in.loadName != "" {
+		if in.loadStart == in.loadLine {
+			fmt.Fprintf(&b, "%s, line %d: ", in.loadName, in.loadLine)
+		} else {
+			fmt.Fprintf(&b, "%s, lines %d-%d: ", in.loadName, in.loadStart, in.loadLine)
+		}
+	}
+	if cmd != "" {
+		b.WriteString(cmd + ": ")
+	}
+	in.Warn(b.String() + msg)
+}
 
 // ---------------------------------------------------------------- variables
 
@@ -298,6 +355,9 @@ func (in *Interp) selValue(name string) string {
 			return ""
 		}
 		end := len(f.words) - n
+		if f.asFunc { // function arguments may be empty: tf joins the remaining ones
+			return strings.Join(f.words[:end], " ")
+		}
 		return strings.TrimRight(f.text[:f.offs[end-1]+len(f.words[end-1])], " \t")
 	}
 	if m := reP.FindStringSubmatch(name); m != nil {
@@ -496,6 +556,7 @@ const (
 	subExpr              // $[expr]
 	subCmd               // $(cmd)
 	subMacro             // ${name}
+	subErr               // a malformed substitution: arg is tf's complaint
 )
 
 func (in *Interp) runSub(kind byte, arg string) string {
@@ -508,11 +569,17 @@ func (in *Interp) runSub(kind byte, arg string) string {
 		v, err := in.evalExpr(arg)
 		if err != nil {
 			in.warn("%v", err)
+			in.subFail = true
 		}
 		return v.String()
 	case subCmd:
 		return in.captureCmd(arg)
+	case subErr:
+		in.warn("%s", arg)
+		in.subFail = true
+		return ""
 	}
+	arg = in.expand(arg)                     // the name may itself contain substitutions: ${%{L}}
 	if b, ok := in.WorldMacroBody(arg); ok { // ${world_name} and friends read the current world
 		return b
 	}
@@ -534,7 +601,10 @@ func parseSub(s string) (int, byte, string) {
 		if c == '{' {
 			end := matchClose(s, 1, '{', '}')
 			if end < 0 {
-				return 0, 0, ""
+				return len(s), subErr, "unmatched { or bad substitution"
+			}
+			if !validBraceSel(s[2:end]) {
+				return end + 1, subErr, braceSelError(s[2:end])
 			}
 			return end + 1, subBrace, s[2:end]
 		}
@@ -542,13 +612,17 @@ func parseSub(s string) (int, byte, string) {
 		switch {
 		case c == '*' || c == '#' || c == '?':
 			j = 2
-		case c == '-' && len(s) > 2 && (s[2] >= '0' && s[2] <= '9' || s[2] == 'L'):
-			j = 2
-			if s[2] == 'L' {
-				j = 3
-			}
-			for j < len(s) && s[j] >= '0' && s[j] <= '9' {
-				j++
+		case c == '-':
+			if len(s) > 2 && (s[2] >= '0' && s[2] <= '9' && s[2] != '0' || s[2] == 'L') {
+				j = 2
+				if s[2] == 'L' {
+					j = 3
+				}
+				for j < len(s) && s[j] >= '0' && s[j] <= '9' {
+					j++
+				}
+			} else {
+				return 2, subErr, "illegal character '-' in substitution"
 			}
 		case c >= '0' && c <= '9':
 			for j < len(s) && s[j] >= '0' && s[j] <= '9' {
@@ -558,8 +632,28 @@ func parseSub(s string) (int, byte, string) {
 			for j < len(s) && isIdentChar(s[j]) {
 				j++
 			}
+		case c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == ';' || c == '|':
+			return 0, 0, "" // "% " is left alone
 		default:
-			return 0, 0, ""
+			return 1 + 0, subBare, "" // an empty variable name: the % vanishes, the character stays
+		}
+		if j < len(s) && s[j] == '-' && c != '#' && c != '?' {
+			// %name-default: the default runs to the next blank or %;
+			k := j + 1
+			for k < len(s) && s[k] != ' ' && s[k] != '\t' && !(s[k] == '%' && k+1 < len(s) && (s[k+1] == ';' || s[k+1] == '|')) {
+				if s[k] == '\\' && k+1 < len(s) {
+					k += 2
+					continue
+				}
+				if s[k] == '%' || s[k] == '$' {
+					if n, _, _ := parseSub(s[k:]); n > 0 {
+						k += n
+						continue
+					}
+				}
+				k++
+			}
+			return k, subBrace, s[1:k]
 		}
 		return j, subBare, s[1:j]
 	case '$':
@@ -568,14 +662,17 @@ func parseSub(s string) (int, byte, string) {
 			if end := matchClose(s, 1, '[', ']'); end >= 0 {
 				return end + 1, subExpr, s[2:end]
 			}
+			return len(s), subErr, "unmatched $["
 		case '(':
 			if end := matchCloseCmd(s, 1); end >= 0 {
 				return end + 1, subCmd, s[2:end]
 			}
+			return len(s), subErr, "unmatched ("
 		case '{':
 			if end := matchClose(s, 1, '{', '}'); end >= 0 {
 				return end + 1, subMacro, s[2:end]
 			}
+			return len(s), subErr, "unmatched ${"
 		}
 	}
 	return 0, 0, ""
@@ -610,6 +707,10 @@ func (c *captureHost) Echo(t string) { c.lines = append(c.lines, t) }
 // captureCmd runs cmd as a macro body and returns its echoed output joined
 // into one line.
 func (in *Interp) captureCmd(cmd string) string {
+	// in tf the closing ')' follows the text, so a final lone '%' is an (empty) substitution
+	if strings.HasSuffix(cmd, "%") && !strings.HasSuffix(cmd, "%%") && !strings.HasSuffix(cmd, "\\%") {
+		cmd = cmd[:len(cmd)-1]
+	}
 	old := in.Host
 	ch := &captureHost{Host: old}
 	in.Host = ch
@@ -635,8 +736,24 @@ func splitList(text string) []string {
 		switch text[i] {
 		case '\\':
 			i++
+		case '$':
+			// a $( ... ) command substitution is a list of its own: its %; does not end this statement
+			if i+1 < len(text) && text[i+1] == '(' {
+				if end := matchCloseCmd(text, i+1); end >= 0 {
+					i = end
+				}
+			}
 		case '%':
 			if i+1 < len(text) {
+				if text[i+1] == '%' {
+					// a run of n percent signs is one escaped (n-1)-sign text: none of them ends a statement
+					j := i
+					for j < len(text) && text[j] == '%' {
+						j++
+					}
+					i = j - 1
+					continue
+				}
 				switch text[i+1] {
 				case ';', '|':
 					out = append(out, strings.TrimRight(text[st:i], " \t"))
@@ -809,11 +926,19 @@ func (in *Interp) execIf(stmts []string, i int) (Value, int) {
 	cur := branch{hasCond: true}
 	rest := strings.TrimLeft(stmts[i], " \t")[len("/if"):]
 	depth := 0
+	// a body that begins on the same statement as its condition may itself
+	// open an /if whose /endif must not close this one
+	inline := func(r string) {
+		if stmtWord(r) == "/if" {
+			depth++
+		}
+		cur.body = append(cur.body, r)
+	}
 	start := func(rest string) {
 		if e, r, ok := parenExpr(rest); ok {
 			cur.cond, cur.isExpr = e, true
 			if r != "" {
-				cur.body = append(cur.body, r)
+				inline(r)
 			}
 		} else if strings.TrimSpace(rest) != "" {
 			cur.condList = append(cur.condList, rest)
@@ -840,14 +965,14 @@ func (in *Interp) execIf(stmts []string, i int) (Value, int) {
 			if w == "/elseif" {
 				start(r)
 			} else if r != "" {
-				cur.body = append(cur.body, r)
+				inline(r)
 			}
 			continue
 		case depth == 0 && w == "/then":
 			cur.inBody = true
 			_, r := firstWord(st)
 			if r != "" {
-				cur.body = append(cur.body, r)
+				inline(r)
 			}
 			continue
 		}
@@ -885,15 +1010,19 @@ func (in *Interp) execWhile(stmts []string, i int) (Value, int) {
 	var cond string
 	var condList, body []string
 	isExpr := false
+	depth0 := 0
 	if e, r, ok := parenExpr(rest); ok {
 		cond, isExpr = e, true
 		if r != "" {
+			if stmtWord(r) == "/while" {
+				depth0++
+			}
 			body = append(body, r)
 		}
 	} else if strings.TrimSpace(rest) != "" {
 		condList = append(condList, rest)
 	}
-	depth, end := 0, len(stmts)-1
+	depth, end := depth0, len(stmts)-1
 	inBody := isExpr
 	for j := i + 1; j < len(stmts); j++ {
 		s2 := strings.TrimLeft(stmts[j], " \t")
@@ -922,11 +1051,8 @@ func (in *Interp) execWhile(stmts []string, i int) (Value, int) {
 	}
 run:
 	res := Int(0)
-	maxIter := int(in.globals["max_iter"].Int())
-	for n := 0; ; n++ {
-		if maxIter > 0 && n >= maxIter {
-			break
-		}
+	// %max_iter is documented but unused in tf; runaway loops end at max_instr
+	for {
 		var ok bool
 		if isExpr {
 			ok = in.condition(cond)
@@ -955,7 +1081,10 @@ run:
 func (in *Interp) execOne(st string) Value {
 	if st[0] != '/' {
 		line := in.expand(st)
-		return in.sendLine(line)
+		if in.subFail {
+			return in.abortStmt()
+		}
+		return in.leaf(in.sendLine(line))
 	}
 	w, _ := firstWord(st)
 	lw := strings.ToLower(w)
@@ -963,14 +1092,17 @@ func (in *Interp) execOne(st string) Value {
 		neg := strings.HasPrefix(w, "/!")
 		name := strings.TrimLeft(lw, "/!@")
 		_, args := firstWord(st)
-		return negate(in.runBuiltin(name, args), neg)
+		return negate(in.leaf(in.runBuiltin(name, args)), neg)
 	}
 	line := in.expand(st)
+	if in.subFail {
+		return in.abortStmt()
+	}
 	if strings.HasPrefix(line, "//") { // "//" sends a line starting with "/"
-		return in.sendLine(line[1:])
+		return in.leaf(in.sendLine(line[1:]))
 	}
 	if len(line) == 0 || line[0] != '/' {
-		return in.sendLine(line)
+		return in.leaf(in.sendLine(line))
 	}
 	nm, args := firstWord(line)
 	nm = nm[1:]
@@ -984,14 +1116,33 @@ func (in *Interp) execOne(st string) Value {
 	}
 	var res Value
 	if m, ok := in.findMacro(nm); ok && !forceBuiltin {
-		res = in.callMacro(m, args, false)
+		// a macro's arguments never end in blanks (tf's argument vector is cut at the last word)
+		res = in.callMacro(m, strings.TrimRight(args, " \t"), false)
 	} else if _, ok := in.cmds[strings.ToLower(nm)]; ok {
-		res = in.runBuiltin(strings.ToLower(nm), args)
+		ln := strings.ToLower(nm)
+		res = in.runBuiltin(ln, args)
+		if ln != "set" && ln != "let" {
+			in.userRes = res
+		}
 	} else {
 		in.noMacro(nm)
-		res = Int(0)
+		res = in.leaf(Int(0))
 	}
 	return negate(res, neg)
+}
+
+// leaf records the value of a command as the macro's result (tf's user_result).
+func (in *Interp) leaf(v Value) Value {
+	in.userRes = v
+	return v
+}
+
+// abortStmt ends the running macro after a failed substitution, as tf does.
+func (in *Interp) abortStmt() Value {
+	in.subFail = false
+	in.retv = Int(0)
+	in.ctl = ctlReturn
+	return Int(0)
 }
 
 func negate(v Value, neg bool) Value {
@@ -1003,13 +1154,18 @@ func negate(v Value, neg bool) Value {
 
 func (in *Interp) runBuiltin(name, args string) Value {
 	if in.disabled["/"+name] {
-		in.warn("/%s: disabled", name)
+		in.Warn("/" + name + ": disabled")
 		return Int(0)
 	}
 	f, ok := in.cmds[name]
 	if !ok {
 		in.warn("/%s: no such command", name)
 		return Int(0)
+	}
+	if !quietCmds[name] && tfCmdSet[name] { // commands that only run an expression or a body show no name
+		old := in.curCmd
+		in.curCmd = strings.ToUpper(name)
+		defer func() { in.curCmd = old }()
 	}
 	return f(in, args)
 }
@@ -1030,6 +1186,9 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 	}
 	in.noteCall(m)
 	in.depth++
+	oldCmd := in.curCmd
+	in.curCmd = m.Name
+	defer func() { in.curCmd = oldCmd }()
 	f := in.pushFrame(m.Name, args)
 	f.asFunc = asFunc
 	if in.pendingArgs != nil {
@@ -1044,25 +1203,76 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 	}
 	oldExp := in.noExp
 	in.noExp = false
+	savedRes := in.userRes
+	if asFunc {
+		in.userRes = Str("")
+	}
 	res := in.execText(m.Body)
 	in.noExp = oldExp
 	if in.ctl == ctlReturn {
 		res = in.retv
+	} else if asFunc {
+		res = in.userRes
+	}
+	if asFunc {
+		in.userRes = savedRes
 	}
 	if in.ctl != ctlExit {
 		in.ctl = ctlNone
+	}
+	// regmatch() captures are global in tf: a macro's %P1... outlive it
+	if f.regs != nil && f.parent != nil {
+		f.parent.regs, f.parent.pl, f.parent.pr = f.regs, f.pl, f.pr
 	}
 	in.popFrame()
 	in.depth--
 	return res
 }
 
+// quietCmds run user text or expressions: tf does not name them in diagnostics.
+var quietCmds = map[string]bool{"test": true, "eval": true, "return": true, "result": true, "set": true, "let": true, "setenv": true}
+
 func (in *Interp) callFunc(name string, args []Value) (Value, error) {
+	_, isTf := funcArity[name]
+	return in.callFuncTf(name, args, isTf)
+}
+
+// callFuncTf is callFunc when the caller already knows whether name is one of
+// tf's own builtin functions (whose diagnostics carry the function name).
+func (in *Interp) callFuncTf(name string, args []Value, isTf bool) (Value, error) {
 	if f, ok := in.funcs[name]; ok {
-		if in.disabled[name+"()"] {
-			return Int(0), fmt.Errorf("%s(): disabled", name)
+		if len(in.disabled) > 0 && in.disabled[name+"()"] {
+			return Int(0), &cmdErr{name, fmt.Errorf("disabled")}
 		}
-		return f(in, args)
+		old := in.curCmd
+		if isTf {
+			in.curCmd = name
+		}
+		v, err := f(in, args)
+		in.curCmd = old
+		if err != nil && isTf {
+			if _, ok := err.(*cmdErr); !ok {
+				msg := strings.TrimPrefix(err.Error(), name+"(): ")
+				err = &cmdErr{name, errors.New(msg)}
+			}
+		}
+		return v, err
+	}
+	if ln := strings.ToLower(name); in.isTfCommand(ln) && ln != "exit" {
+		// a builtin command called as a function takes 0 or 1 argument: its
+		// command line (a user macro of the same name is not consulted)
+		if _, ok := in.cmds[ln]; ok {
+			arg := ""
+			if len(args) > 0 {
+				arg = args[0].String()
+			}
+			if in.disabled["/"+ln] {
+				return in.runBuiltin(ln, arg), nil
+			}
+			in.asFuncCmd++ // no command name in diagnostics: tf only sets it for a command line
+			defer func() { in.asFuncCmd-- }()
+			return in.cmds[ln](in, arg), nil
+		}
 	}
 	if m, ok := in.findMacro(name); ok {
 		strs := make([]string, len(args))
@@ -1120,8 +1330,33 @@ func (in *Interp) enter() func() {
 	in.nest++
 	return func() {
 		in.nest--
-		if in.nest == 0 && in.ctl == ctlExit {
+		if in.nest == 0 && (in.ctl == ctlExit || in.ctl == ctlReturn) {
 			in.ctl = ctlNone
 		}
 	}
+}
+
+var braceSelRE = regexp.MustCompile(`(?s)^(?:#|\?|\*(?:-.*)?|-?[0-9]+(?:-.*)?|-?[LP][0-9]*(?:-.*)?|[A-Za-z_][A-Za-z0-9_]*(?:-.*)?)$`)
+
+// validBraceSel reports whether the inside of %{...} is something tf's
+// varsub() accepts; anything else is a "bad substitution" error.
+func validBraceSel(sel string) bool {
+	if !braceSelRE.MatchString(sel) {
+		return false
+	}
+	return !strings.HasPrefix(sel, "-0") || len(sel) > 2 && sel[2] >= '0' && sel[2] <= '9'
+}
+
+func braceSelError(sel string) string {
+	if strings.HasPrefix(sel, "-0") {
+		return "illegal character '-' in substitution"
+	}
+	i := 0
+	for i < len(sel) && (isIdentChar(sel[i]) || (i == 0 && (sel[i] == '-' || sel[i] == '*' || sel[i] == '#' || sel[i] == '?'))) {
+		i++
+	}
+	if i >= len(sel) {
+		return "unmatched { or bad substitution"
+	}
+	return fmt.Sprintf("unmatched { or illegal character '%c'", sel[i])
 }
