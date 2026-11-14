@@ -153,7 +153,7 @@ def run_gtf(gtf, lib, src, timeout, typed=False):
                            stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired:
         return [], True
-    ls = [l.rstrip() for l in r.stderr.split('\n') if l.startswith('% ')]
+    ls = [l.rstrip() for l in (r.stdout + '\n' + r.stderr).split('\n') if l.startswith('% ')]
     if len(ls) > 50: ls = ls[:50] + ['%% ...(%d more lines)' % (len(ls) - 50)]
     return ls, False
 

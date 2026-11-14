@@ -57,7 +57,7 @@ type Interp struct {
 	tfin        []string
 	pendingArgs []string
 	templates   map[string]*template
-	stmtCache   map[string][]string
+	stmtCache   map[string]*compiled
 	exprCache   map[string]*exprEntry
 	procs       []*Proc
 	nextPID     int
@@ -116,7 +116,7 @@ func New(h Host, opts ...Option) *Interp {
 	in := &Interp{
 		limits:    DefaultLimits(),
 		templates: map[string]*template{},
-		stmtCache: map[string][]string{},
+		stmtCache: map[string]*compiled{},
 		exprCache: map[string]*exprEntry{},
 		exported:  map[string]bool{},
 		Host:      h,
@@ -189,6 +189,16 @@ func (in *Interp) warn(f string, a ...any) {
 				if opt != "" {
 					cmd += " " + opt
 				}
+			}
+		}
+	}
+	if cmd != "" {
+		// a message that names the function or command already named by the
+		// context prefix ("addworld(): restricted") must not repeat it
+		for _, p := range []string{cmd + "(): ", cmd + ": "} {
+			if strings.HasPrefix(msg, p) {
+				msg = msg[len(p):]
+				break
 			}
 		}
 	}
@@ -786,7 +796,7 @@ func (in *Interp) Exec(text string) Value {
 	in.noExp = true
 	defer func() { in.noExp = old }()
 	switch stmtWord(t) {
-	case "/if", "/while", "/break":
+	case "/if", "/while", "/break", "/else", "/elseif", "/endif", "/done", "/then", "/do":
 		return in.execText(t)
 	}
 	if t == "" {
@@ -806,21 +816,30 @@ func (in *Interp) ExecFull(text string) Value {
 }
 
 func (in *Interp) execText(text string) Value {
-	return in.execStmts(in.split(text))
+	c := in.split(text)
+	if len(c.diags) > 0 {
+		for _, d := range c.diags {
+			in.warn("%s", d)
+		}
+		if c.failed {
+			return in.leaf(Int(0))
+		}
+	}
+	return in.execStmts(c.stmts)
 }
 
-// split is splitList with a per-interpreter cache; the result must not be
-// modified (execStmts copies before it does).
-func (in *Interp) split(text string) []string {
-	if st, ok := in.stmtCache[text]; ok {
-		return st
+// split is splitList plus the structural check, with a per-interpreter
+// cache; the result must not be modified (execStmts copies before it does).
+func (in *Interp) split(text string) *compiled {
+	if c, ok := in.stmtCache[text]; ok {
+		return c
 	}
-	st := splitList(text)
+	c := in.compileStmts(splitList(text), false)
 	if len(in.stmtCache) >= cacheMax {
-		in.stmtCache = map[string][]string{}
+		in.stmtCache = map[string]*compiled{}
 	}
-	in.stmtCache[text] = st
-	return st
+	in.stmtCache[text] = c
+	return c
 }
 
 func firstWord(s string) (w, rest string) {
@@ -849,6 +868,10 @@ func (in *Interp) execStmts(stmts []string) Value {
 				copied = true
 			}
 			stmts[i] = st // marker (if any) consumed
+		}
+		if st == blankStmt {
+			res = in.leaf(in.sendLine(""))
+			continue
 		}
 		var pipeHost *captureHost
 		if i+1 < len(stmts) && strings.HasPrefix(stmts[i+1], "\x00") {

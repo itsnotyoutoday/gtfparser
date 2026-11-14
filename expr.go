@@ -15,8 +15,9 @@ type eval func() (Value, error)
 
 type exprParser struct {
 	in  *Interp
-	s   string
-	pos int
+	s    string
+	pos  int
+	kind string // "expression" (default) or "condition": the noun in syntax errors
 }
 
 type exprEntry struct {
@@ -456,7 +457,11 @@ func (p *exprParser) syntaxErr(expect string) error {
 		}
 		found = "'" + p.s[p.pos:end] + "'"
 	}
-	return fmt.Errorf("expression syntax error: expected %s, found %s.", expect, found)
+	kind := p.kind
+	if kind == "" {
+		kind = "expression"
+	}
+	return fmt.Errorf("%s syntax error: expected %s, found %s.", kind, expect, found)
 }
 
 func (p *exprParser) number() (eval, error) {
