@@ -11,6 +11,8 @@ Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 
 ## Unreleased
 
+## v0.0.5 (2026-11-14) — faithful triggers, hooks, macros and attributes
+
 ### core: trigger, hook, macro and attribute machinery rewritten after tf's macro.c
 The macro database, trigger matcher, hook table and display attributes were
 rewritten to follow tf 5 exactly (priority/fall-through selection, `-c`
