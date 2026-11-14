@@ -165,7 +165,9 @@ func (r *optReader) next() (c byte, arg string, num int, hasArg bool) {
 	r.cur = c
 	k := strings.IndexByte(r.opts, c)
 	if c == '#' || c == ':' || c == '@' || k < 0 {
-		r.in.cmdErr(r.cmd, c, "invalid option")
+		if c != '?' { // "-?" only asks for the option summary
+			r.in.cmdErr(r.cmd, c, "invalid option")
+		}
 		var help strings.Builder
 		o := r.opts
 		dash := true
@@ -184,6 +186,10 @@ func (r *optReader) next() (c byte, arg string, num int, hasArg bool) {
 				dash = true
 			} else if i+1 < len(o) && o[i+1] == '#' {
 				help.WriteString("<integer>")
+				i++
+				dash = true
+			} else if i+1 < len(o) && o[i+1] == '@' {
+				help.WriteString("<time>")
 				i++
 				dash = true
 			}
@@ -205,6 +211,8 @@ func (r *optReader) next() (c byte, arg string, num int, hasArg bool) {
 			for j < len(s) && s[j] != q {
 				if s[j] == '\\' && j+1 < len(s) && (s[j+1] == q || s[j+1] == '\\') {
 					j++
+				} else if s[j] == '\\' && j+1 < len(s) && r.in.flag("pedantic") {
+					r.in.cmdErr(r.cmd, c, "Warning: the only legal escapes within this quoted string are \\\\ and \\%c.  \\\\%c is the correct way to write a literal \\%c inside a quoted string.", q, s[j+1], s[j+1])
 				}
 				b.WriteByte(s[j])
 				j++
@@ -321,7 +329,7 @@ func (in *Interp) parseSpec(cmd, args string, list bool) *macroSpec {
 			sp.m.Bind = arg
 		case 'B':
 			if in.globals["warn_def_B"].String() != "off" {
-				in.warn("Warning: /def -B is deprecated.  See /help keys.")
+				in.cmdErr(cmd, 'B', "Warning: /def -B is deprecated.  See /help keys.")
 			}
 			sp.keySet = true
 			sp.m.Keyname = arg
@@ -394,6 +402,7 @@ func (in *Interp) parseSpec(cmd, args string, list bool) *macroSpec {
 					continue
 				}
 				var sa SubAttr
+				neg := false
 				rest := part
 				switch {
 				case rest[0] == 'L':
@@ -402,6 +411,10 @@ func (in *Interp) parseSpec(cmd, args string, list bool) *macroSpec {
 					sa.Subexp, rest = -2, rest[1:]
 				default:
 					j := 0
+					if rest[0] == '-' && len(rest) > 1 && rest[1] >= '0' && rest[1] <= '9' {
+						neg = true
+						break
+					}
 					for j < len(rest) && rest[j] >= '0' && rest[j] <= '9' {
 						j++
 					}
@@ -411,6 +424,11 @@ func (in *Interp) parseSpec(cmd, args string, list bool) *macroSpec {
 						sa.Subexp, _ = strconv.Atoi(rest[:j])
 					}
 					rest = rest[j:]
+				}
+				if neg {
+					in.cmdErr(cmd, 'P', "-P: number must be non-negative")
+					bad = true
+					break
 				}
 				a, _, err := ctx.Parse(rest, 0)
 				if err != nil {
@@ -786,6 +804,16 @@ func (in *Interp) completeMacro(m *Macro, num int) int {
 	}
 	m.Attr &^= AttrNone
 	m.relAttr = m.Attr&AttrDisplay != 0 || len(m.SubAttr) > 0
+	if m.Keyname != "" {
+		code, ok := in.KeyCode(m.Keyname)
+		if !ok {
+			in.cmdErr("DEF", 0, "unknown key name \"%s\".", m.Keyname)
+			return 0
+		}
+		if code == "" {
+			in.cmdErr("DEF", 0, "Warning: no code for key \"%s\".", m.Keyname)
+		}
+	}
 	if m.Bind != "" && m.Keyname != "" {
 		m.Bind = ""
 	}
@@ -956,6 +984,11 @@ func cmdUndef(in *Interp, args string) Value {
 	for _, name := range strings.Fields(args) {
 		m, ok := in.findMacro(name)
 		if !ok {
+			if len(name) > 1 && name[0] == '#' {
+				if num, err := strconv.Atoi(name[1:]); err == nil {
+					in.cmdErr("UNDEF", 0, "no macro with number %d", num)
+				}
+			}
 			in.cmdErr("UNDEF", 0, "Macro \"%s\" was not defined.", name)
 			continue
 		}
