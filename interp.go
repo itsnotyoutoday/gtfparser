@@ -67,6 +67,7 @@ type Interp struct {
 	cmds                    map[string]cmdFunc // this interpreter's builtin commands (see registry.go)
 	funcs                   map[string]fn      // ... and functions
 	disabled                map[string]bool
+	placeholders            []string
 	restriction             int
 	limits                  Limits
 	interrupted             atomic.Bool
