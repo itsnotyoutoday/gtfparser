@@ -1164,8 +1164,10 @@ func (in *Interp) runBuiltin(name, args string) Value {
 	}
 	if !quietCmds[name] && tfCmdSet[name] { // commands that only run an expression or a body show no name
 		old := in.curCmd
-		in.curCmd = strings.ToUpper(name)
-		defer func() { in.curCmd = old }()
+		in.curCmd = upperCmd(name)
+		v := f(in, args)
+		in.curCmd = old
+		return v
 	}
 	return f(in, args)
 }
@@ -1188,7 +1190,6 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 	in.depth++
 	oldCmd := in.curCmd
 	in.curCmd = m.Name
-	defer func() { in.curCmd = oldCmd }()
 	f := in.pushFrame(m.Name, args)
 	f.asFunc = asFunc
 	if in.pendingArgs != nil {
@@ -1203,9 +1204,10 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 	}
 	oldExp := in.noExp
 	in.noExp = false
-	savedRes := in.userRes
+	var savedRes Value
 	if asFunc {
-		in.userRes = Str("")
+		savedRes = in.userRes
+		in.userRes = Value{k: kStr}
 	}
 	res := in.execText(m.Body)
 	in.noExp = oldExp
@@ -1226,6 +1228,7 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 	}
 	in.popFrame()
 	in.depth--
+	in.curCmd = oldCmd
 	return res
 }
 
@@ -1258,7 +1261,7 @@ func (in *Interp) callFuncTf(name string, args []Value, isTf bool) (Value, error
 		}
 		return v, err
 	}
-	if ln := strings.ToLower(name); in.isTfCommand(ln) && ln != "exit" {
+	if ln := cmdFuncName(name); ln != "" && ln != "exit" {
 		// a builtin command called as a function takes 0 or 1 argument: its
 		// command line (a user macro of the same name is not consulted)
 		if _, ok := in.cmds[ln]; ok {

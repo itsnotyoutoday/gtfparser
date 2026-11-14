@@ -138,3 +138,36 @@ func cAtoi(s string) int {
 	}
 	return n
 }
+
+// cmdFuncName is the lower-case name of the tf builtin command that name
+// (as written in a function call) refers to, or "".
+func cmdFuncName(name string) string {
+	if tfCmdSet[name] {
+		return name
+	}
+	for i := 0; i < len(name); i++ {
+		if name[i] >= 'A' && name[i] <= 'Z' {
+			if ln := strings.ToLower(name); tfCmdSet[ln] {
+				return ln
+			}
+			break
+		}
+	}
+	return ""
+}
+
+var upperNames = map[string]string{}
+
+func init() {
+	for n := range tfCmdSet {
+		upperNames[n] = strings.ToUpper(n)
+	}
+}
+
+// upperCmd is the upper-case spelling of a builtin command name (tf's cmd->name).
+func upperCmd(name string) string {
+	if u, ok := upperNames[name]; ok {
+		return u
+	}
+	return strings.ToUpper(name)
+}
