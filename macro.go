@@ -109,7 +109,7 @@ func (in *Interp) cmdErr(cmd string, opt byte, f string, a ...any) {
 	defer func() { in.curCmd = old }()
 	// the command name shown is the one running (a builtin called as a
 	// function has none); cmd is used only when nothing is running (host API)
-	if in.curCmd == "" || in.nest == 0 && in.curCmd == "" {
+	if in.curCmd == "" && in.asFuncCmd == 0 {
 		in.curCmd = cmd
 	}
 	if opt != 0 && in.curCmd != "" {

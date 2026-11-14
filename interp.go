@@ -69,6 +69,7 @@ type Interp struct {
 	interrupted atomic.Bool
 	instr       int64
 	nest        int
+	asFuncCmd   int // >0 while a builtin command runs as a function
 	exitReq     bool   // /exit ran: the enclosing /load stops (see LoadFile)
 	curCmd      string // name of the running macro, builtin command or function (diagnostics)
 	loadName    string // file being loaded, and the lines of the logical line being run
@@ -703,6 +704,10 @@ func (c *captureHost) Echo(t string) { c.lines = append(c.lines, t) }
 // captureCmd runs cmd as a macro body and returns its echoed output joined
 // into one line.
 func (in *Interp) captureCmd(cmd string) string {
+	// in tf the closing ')' follows the text, so a final lone '%' is an (empty) substitution
+	if strings.HasSuffix(cmd, "%") && !strings.HasSuffix(cmd, "%%") {
+		cmd = cmd[:len(cmd)-1]
+	}
 	old := in.Host
 	ch := &captureHost{Host: old}
 	in.Host = ch
@@ -1246,7 +1251,9 @@ func (in *Interp) callFunc(name string, args []Value) (Value, error) {
 			if in.disabled["/"+ln] {
 				return in.runBuiltin(ln, arg), nil
 			}
-			return in.cmds[ln](in, arg), nil // no command name in diagnostics: tf only sets it for a command line
+			in.asFuncCmd++ // no command name in diagnostics: tf only sets it for a command line
+			defer func() { in.asFuncCmd-- }()
+			return in.cmds[ln](in, arg), nil
 		}
 	}
 	if m, ok := in.findMacro(name); ok {
