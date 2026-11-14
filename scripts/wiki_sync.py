@@ -18,7 +18,7 @@ REPO = 'itsnotyoutoday/gtfparser'
 BLOB = f'https://github.com/{REPO}/blob/main/'
 GUIDE_ORDER = ['Home', 'Getting-Started', 'Embedding-Guide', 'Extending-the-Engine', 'Use-Cases',
                'Safety-and-Sandboxing', 'Concurrency-and-Performance', 'Testing-and-Compatibility',
-               'Deliberate-Differences', 'Diagnostics', 'Architecture', 'FAQ']
+               'Deliberate-differences', 'Diagnostics', 'Architecture', 'FAQ']
 SECTIONS = [('language', 'Language', 'Language guide'), ('reference', 'Reference', 'Built-in reference'),
             ('engine', 'Engine', 'Engine notes')]
 
@@ -31,7 +31,8 @@ def wiki_name(rel):
                 return {'language': 'Language-Guide', 'reference': 'Built-in-Reference', 'engine': 'Engine-Notes'}[folder]
             tail = ['Known-Differences' if x == 'FINDINGS' else x for x in parts[1:]]
             return prefix + '-' + '-'.join(tail)
-    return '-'.join(w[:1].upper() + w[1:] for w in '-'.join(parts).split('-'))
+    n = '-'.join(parts)
+    return n[:1].upper() + n[1:]
 
 def collect(docs):
     pages = {}
@@ -121,6 +122,9 @@ def main():
         r = subprocess.run(['git', 'clone', url, wiki], capture_output=True, text=True)
         if r.returncode != 0:
             sys.exit('cannot clone the wiki repo (enable Wikis on the repository and create the first page once in the web UI):\n' + r.stderr)
+        for f in os.listdir(wiki):
+            if f.endswith('.md'):
+                os.remove(os.path.join(wiki, f))
         n = build(docs, wiki)
         git = lambda *c: subprocess.run(['git', '-C', wiki] + list(c), check=True)
         git('add', '-A')
