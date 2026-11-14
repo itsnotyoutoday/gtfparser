@@ -30,6 +30,7 @@ type stream struct {
 	id        string
 	autoflush bool
 	eof       bool
+	origin    string // the origin that opened it (see origin.go)
 }
 
 func (in *Interp) stream(id string) *stream {
@@ -132,7 +133,7 @@ func fnTfopen(in *Interp, a []Value) (Value, error) {
 		in.warn("invalid mode '%s'", mode)
 		return Int(-1), nil
 	}
-	if in.restriction >= 2 && mode != "q" { // RESTRICT_FILE
+	if in.EffectiveRestriction() >= 2 && mode != "q" { // RESTRICT_FILE
 		in.warn("restricted")
 		return Int(-1), nil
 	}
@@ -149,6 +150,7 @@ func fnTfopen(in *Interp, a []Value) (Value, error) {
 	if in.streams == nil {
 		in.streams = map[string]*stream{}
 	}
+	st.origin = in.CurrentOrigin()
 	in.nextFd++
 	st.id = fmt.Sprint(in.nextFd)
 	in.streams[st.id] = st
@@ -164,6 +166,10 @@ func (in *Interp) findStream(h string) (st *stream, std byte, ok bool) {
 			return nil, c, true
 		}
 	} else if s := in.stream(fmt.Sprint(cAtoi(h))); s != nil {
+		if !in.streamAllowed(s) {
+			in.warn("restricted")
+			return nil, 0, false
+		}
 		return s, 0, true
 	}
 	in.warn("%s: bad handle", h)

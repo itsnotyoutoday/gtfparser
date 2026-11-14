@@ -836,7 +836,15 @@ func (in *Interp) evalStatusExpr(src, who string) string {
 	old, oldWarn := in.fr.noOut, in.Warn
 	in.fr.noOut = true
 	in.Warn = func(m string) { in.warnOnce(oldWarn, m) } // diagnostics from functions the expression calls
+	// A status field's expression is stored in a variable by whoever set it and
+	// run by the host on every redraw: when origins are in use it may not touch
+	// the shell, files or the network (it cannot be traced to its author).
+	oldForce := in.origForce
+	if len(in.origLevels) > 0 {
+		in.origForce = RestrictWorld
+	}
 	v, err := in.EvalExpr(src)
+	in.origForce = oldForce
 	in.Warn = oldWarn
 	in.fr.noOut = old
 	if err != nil {

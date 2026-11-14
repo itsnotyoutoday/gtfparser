@@ -9,6 +9,41 @@ mid-task.
 Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 `Breaking` (and what a client must do).
 
+## v0.0.11 (unreleased) — restriction by origin
+
+### core: code from different parties can run under different restriction levels
+For hosts that run a remote peer's commands and macros next to the owner's own (gtf with an attached
+GUI): `/restrict` is one global level, so locking out the peer locked out the owner. An *origin* is an
+opaque string the host chooses; each gets its own level, code run under it is restricted, and what it
+defines (macros, triggers, hooks, key bindings, `/repeat` and `/quote` processes, streams) keeps the
+tag and runs restricted later, whatever starts it. Strictest of the global level, the running
+macro's origin and the callers' origins wins; nothing can loosen it. Full semantics, the audit of
+every guarded operation and the decisions left to the host: `docs/engine/origins.md`.
+tf has no such thing, so a script that uses no origin behaves exactly as before (same output, same
+saved state, same speed within noise).
+
+Added
+- `SetOriginRestriction(origin, level) bool`, `OriginRestriction`, `OriginRestrictions`,
+  `ExecAs`, `RunAs`, `EvalAs`, `DoAs`, `EffectiveRestriction`, `CurrentOrigin`, `(*Macro).Origin`.
+- Script functions `macro_origin(name)` and `current_origin()` (extensions; a script's own macro of the
+  same name wins). `/list` and every other output are unchanged.
+- State section `origins` (version 1, required, written only when origins are in use): levels and the
+  tags of macros, processes and streams survive `SaveState`/`LoadState`. A load never lowers a level.
+
+Changed (only observable when an origin is configured)
+- Every guard (`/sh`, `/quote`, `/load`, `/log`, `/save`, `/saveworld`, `/lcd`, `tfopen`, `fwrite`,
+  `addworld`, `/connect`, host commands declaring `Needs`) now reads the effective level.
+- `/restrict` run by origin code raises that origin's level, never the global one; with no argument it
+  reports the effective level.
+- A stream handle opened by the host or another origin cannot be used by code whose origin is
+  restricted at the level that would have refused opening it (`restricted`).
+- Stored status-field expressions are evaluated as if at `RestrictWorld` once any origin has a level.
+- A trigger's `-E` condition runs under the macro's origin.
+- Redefining a macro from another origin is never a "no change"; `/edit` retags as described in the doc.
+
+Client: wrap peer input in `ExecAs("peer:<id>", ...)` and set `SetOriginRestriction("peer:<id>", RestrictFile)`
+once; nothing else is needed for triggers, hooks and timers the peer defines.
+
 ## v0.0.10 (2026-11-14) — state export for restarts, squatter hook events
 
 ### core: a session can be carried to a fresh Interp

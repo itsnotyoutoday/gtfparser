@@ -84,6 +84,7 @@ as tf does. A server hosting other people's scripts will want
 | `in.Eval(expr)` | an expression for its value | returns a `Value` (`.String()`, `.Int()`, `.Float()`, `.Truth()`) |
 | `in.ProcessLine(line)` | a line that arrived from the world | runs matching triggers |
 | `in.Process(line, live)` / `in.ProcessText(LineInput{...})` | the same, wanting to know what happened | returns what matched, the attributes to display, gag/no-log flags (see [triggers-hooks](engine/triggers-hooks.md)); `live` false only matches |
+| `in.ExecAs(origin, line)` / `RunAs` / `EvalAs` / `DoAs` | the line came from a party that must be restricted differently from you (a remote peer) | `SetOriginRestriction(origin, level)` first; what the code defines stays under that origin (see [origins](engine/origins.md)) |
 | `in.FireHook(event, args)` | something happened in the client (connect, send, ...) | runs the hooked macros, returns the ones that ran (see [hooks](engine/hooks.md)) |
 | `in.RunDue()` / `NextDue()` | timers (`/repeat`, `/quote`) | or let a `Runner` do it |
 

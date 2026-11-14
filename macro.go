@@ -82,6 +82,7 @@ type Macro struct {
 	Gag       bool
 	WorldType string
 
+	origin   string  // the origin that defined the macro ("" = the host; see origin.go)
 	native   cmdFunc // Go implementation of a library macro (see nativelib.go)
 	fromSpec bool
 	dead     bool
@@ -728,7 +729,7 @@ func macroEqual(a, b *Macro) bool {
 	if a.Invisible != b.Invisible || a.Shots != b.Shots || a.Fall != b.Fall || a.Quiet != b.Quiet ||
 		a.Prob != b.Prob || a.Priority != b.Priority || a.Attr != b.Attr || len(a.SubAttr) != len(b.SubAttr) ||
 		a.World != b.World || a.IsHook != b.IsHook || a.Bind != b.Bind || a.Keyname != b.Keyname ||
-		a.Name != b.Name || a.Body != b.Body || a.Cond != b.Cond {
+		a.Name != b.Name || a.Body != b.Body || a.Cond != b.Cond || a.origin != b.origin {
 		return false
 	}
 	if a.CheckMatchAttr != b.CheckMatchAttr || a.MatchAttr != b.MatchAttr {
@@ -817,6 +818,9 @@ func (in *Interp) completeMacro(m *Macro, num int) int {
 	}
 	if m.Bind != "" && m.Keyname != "" {
 		m.Bind = ""
+	}
+	if num == 0 && len(in.origStack) > 0 {
+		m.origin = in.CurrentOrigin() // provenance: what an origin defines runs under it
 	}
 	var orig *Macro
 	if m.Name != "" {

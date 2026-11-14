@@ -26,6 +26,7 @@ type Proc struct {
 	Lines   []string
 	Pre     string
 	Suf     string
+	origin  string // the origin that started it (see origin.go)
 }
 
 // Now is the interpreter's clock (replaceable in tests).
@@ -44,6 +45,7 @@ func parseDelay(s string) time.Duration {
 func (in *Interp) addProc(p *Proc) int {
 	in.nextPID++
 	p.PID = in.nextPID
+	p.origin = in.CurrentOrigin()
 	in.procs = append(in.procs, p)
 	return p.PID
 }
@@ -183,7 +185,7 @@ func cmdQuote(in *Interp, args string) Value {
 	shellStatus := 0 // exit status of a !command source: what a synchronous /quote returns
 	switch src {
 	case '\'':
-		if in.restriction >= RestrictFile {
+		if in.EffectiveRestriction() >= RestrictFile {
 			in.warn("/quote: files restricted")
 			return Int(0)
 		}
@@ -278,6 +280,10 @@ func (in *Interp) stepProc(p *Proc) {
 	old := in.curCmd
 	in.curCmd = "" // processes run from the main loop, under no command
 	defer func() { in.curCmd = old }()
+	if p.origin != "" {
+		in.pushOrigin(p.origin) // a process keeps the origin that started it
+		defer in.popOrigin()
+	}
 	switch p.Kind {
 	case 'r':
 		in.ExecFull(p.Cmd)

@@ -52,7 +52,7 @@ func TestStateFixtureV1(t *testing.T) {
 	}
 	same := true
 	for _, s := range stateSections {
-		if env.Sections[s.name].V != s.maxV {
+		if env.Sections[s.name].V != s.maxV && s.name != "origins" { // origins: only written when used
 			same = false
 		}
 	}

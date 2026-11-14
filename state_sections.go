@@ -38,6 +38,7 @@ type stLoad struct {
 	limit   map[string]*limitFilter
 	watch   sWatch
 	mail    map[string]*mailInfo
+	origins sOrigins
 }
 
 func (ld *stLoad) check() error { return nil }

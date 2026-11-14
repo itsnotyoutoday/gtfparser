@@ -123,6 +123,14 @@ func cmdEdit(in *Interp, args string) Value {
 	if sp.invis != 0 {
 		nm.Invisible = true
 	}
+	// provenance: an edit that changes what the macro runs makes it the editor's
+	// code; one that does not keeps the tag (but a host macro edited from inside
+	// an origin becomes that origin's)
+	if len(in.origStack) > 0 || old.origin != "" {
+		if cur := in.CurrentOrigin(); (sp.hasBody && nm.Body != old.Body) || sp.exprSet || old.origin == "" {
+			nm.origin = cur
+		}
+	}
 	return Int(int64(in.completeMacro(nm, old.ID)))
 }
 
