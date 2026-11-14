@@ -234,7 +234,8 @@ reports optional features off unless the client calls `SetFeature`.
 
 Added
 - `Interp.Placeholders()` lists the builtins real tf has that the engine only stubs
-  ("/name" / "name()"), so documentation and status tooling can be generated from the code.
+  ("/name" / "name()"), so documentation and status tooling can be generated from the code;
+  `TFCommands()` / `TFFunctions()` list every builtin of real tf.
 - `Extension`, `CommandSpec`, `FuncSpec` and `Interp.Load`: declare commands,
   functions, variables and disabled builtins as tables and load them in one
   validated call (argument-count checks, privilege checks via `Needs`, usage/help

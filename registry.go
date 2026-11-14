@@ -97,3 +97,10 @@ func (in *Interp) unsupported(what string) Value {
 func (in *Interp) Placeholders() []string {
 	return append([]string(nil), in.placeholders...)
 }
+
+// TFCommands returns the name of every command builtin of real tf (without
+// the slash), whether or not this package implements it.
+func TFCommands() []string { return append([]string(nil), tfCommands...) }
+
+// TFFunctions returns the name of every builtin function of real tf.
+func TFFunctions() []string { return append([]string(nil), tfFunctions...) }
