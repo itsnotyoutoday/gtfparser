@@ -543,7 +543,7 @@ func fnMoresize(in *Interp, a []Value) (Value, error) {
 	return Int(int64(n)), nil
 }
 
-func fnNactive(in *Interp, a []Value) (Value, error) {
+func fnNactiveMore(in *Interp, a []Value) (Value, error) {
 	if len(a) > 0 {
 		n, _ := in.moresize("n", a[0].String())
 		return Int(int64(n)), nil

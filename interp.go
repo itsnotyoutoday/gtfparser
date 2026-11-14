@@ -511,6 +511,9 @@ func (in *Interp) runSub(kind byte, arg string) string {
 	case subCmd:
 		return in.captureCmd(arg)
 	}
+	if b, ok := in.WorldMacroBody(arg); ok { // ${world_name} and friends read the current world
+		return b
+	}
 	if m, ok := in.macros[arg]; ok {
 		return m.Body
 	}
