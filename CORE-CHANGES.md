@@ -11,7 +11,7 @@ Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 
 ## Unreleased
 
-## v0.1.0 (2026-11-14) — first extraction
+## v0.0.1 (2026-11-14) — first extraction
 
 The engine split out of the gtf client repo: interpreter, PCRE2-compatible
 regexp engine, per-interpreter command/function registries, host capability
