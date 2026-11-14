@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -69,14 +70,41 @@ func cmdRepeat(in *Interp, args string) Value {
 			p.Delay = parseDelay(w[1:])
 		}
 	}
-	cnt, cmd := firstWord(args)
-	if cnt == "" || cmd == "" {
-		in.warn("/repeat: missing count or command")
+	ptr := strings.TrimLeft(args, " \t")
+	if ptr != "" && (ptr[0] == 'i' || ptr[0] == 'I') {
+		if sync {
+			in.warn("/repeat: -S i would cause an infinite busy loop.")
+			return Int(0)
+		}
+		p.Count = -1
+		ptr = ptr[1:]
+	} else if ptr != "" && ptr[0] >= '0' && ptr[0] <= '9' {
+		j := 0
+		for j < len(ptr) && ptr[j] >= '0' && ptr[j] <= '9' {
+			j++
+		}
+		n, ok := atoiBig(ptr[:j])
+		if !ok {
+			in.warn("/repeat: integer value too large")
+			return Int(0)
+		}
+		if n <= 0 {
+			in.warn("/repeat: invalid repeat count (%d)", n)
+			return Int(0)
+		}
+		p.Count, ptr = n, ptr[j:]
+	} else {
+		in.warn("/repeat: invalid repeat count (%s)", firstN(ptr, 5))
 		return Int(0)
 	}
-	p.Count = int(Str(cnt).Int())
-	if cnt == "i" {
-		p.Count = -1
+	if ptr != "" && ptr[0] != ' ' && ptr[0] != '\t' {
+		in.warn("/repeat: repeat count followed by garbage (%s)", firstN(ptr, 5))
+		return Int(0)
+	}
+	cmd := strings.TrimLeft(ptr, " \t")
+	if cmd == "" {
+		in.warn("/repeat: missing command")
+		return Int(0)
 	}
 	p.Cmd = cmd
 	if sync {
@@ -138,7 +166,7 @@ func cmdQuote(in *Interp, args string) Value {
 		i += 1 + j
 	}
 	if i < 0 {
-		in.warn("/quote: no source given")
+		in.warn("/quote: missing command character")
 		return Int(0)
 	}
 	p.Pre = strings.ReplaceAll(args[:i], "\\", "")
@@ -155,6 +183,10 @@ func cmdQuote(in *Interp, args string) Value {
 	shellStatus := 0 // exit status of a !command source: what a synchronous /quote returns
 	switch src {
 	case '\'':
+		if in.restriction >= RestrictFile {
+			in.warn("/quote: files restricted")
+			return Int(0)
+		}
 		if !in.allow(OpFileRead, "/quote", body) {
 			return Int(0)
 		}
@@ -167,7 +199,7 @@ func cmdQuote(in *Interp, args string) Value {
 				fh.Close()
 			}
 		} else {
-			in.warn("/quote: %s: no such file", body)
+			in.warn("/quote: %s: %s", body, cErr(syscall.ENOENT))
 			return Int(0)
 		}
 	case '!':
@@ -310,13 +342,25 @@ func (in *Interp) killProc(pid int) bool {
 }
 
 func cmdKill(in *Interp, args string) Value {
-	ok := false
-	for _, w := range strings.Fields(args) {
-		if in.killProc(int(Str(w).Int())) {
-			ok = true
+	failed := 0
+	for ptr := strings.TrimLeft(args, " \t"); ptr != ""; {
+		var w string
+		w, ptr = firstWord(ptr)
+		n, ok := atoiBig(w)
+		if w[0] < '0' || w[0] > '9' || !ok {
+			if w[0] >= '0' && w[0] <= '9' {
+				in.warn("/kill: integer value too large")
+			} else {
+				in.warn("/kill: invalid or missing numeric argument")
+			}
+			return Int(0)
+		}
+		if !in.killProc(n) {
+			in.warn("/kill: no process %d", n)
+			failed++
 		}
 	}
-	return Bool(ok)
+	return Bool(failed == 0)
 }
 
 func cmdPs(in *Interp, args string) Value {
@@ -339,4 +383,23 @@ func init() {
 	builtinCmds["quote"] = cmdQuote
 	builtinCmds["kill"] = cmdKill
 	builtinCmds["ps"] = cmdPs
+}
+
+// atoiBig parses a run of digits as a C int: ok is false when it overflows.
+func atoiBig(s string) (int, bool) {
+	n := 0
+	for i := 0; i < len(s) && s[i] >= '0' && s[i] <= '9'; i++ {
+		n = n*10 + int(s[i]-'0')
+		if n > 1<<31-1 {
+			return 0, false
+		}
+	}
+	return n, true
+}
+
+func firstN(s string, n int) string {
+	if len(s) > n {
+		return s[:n]
+	}
+	return s
 }
