@@ -143,9 +143,6 @@ grouped by root cause and priority.
 
 * gtfparser's `% ` lines are collected from both stdout and stderr (informational output such as
   `% Logging to file ...` is echoed; errors go to the `Warn` hook).
-* `/set name` followed only by blanks is taken as "set to the empty value" (tf decides from the
-  unexpanded text whether `/set x %*` has a value part; the engine sees the expanded text). A typed
-  `/set x ` therefore sets x instead of listing it.
 * The harness compares what tf prints on a pty at width 4000; messages that include the screen
   width (`total status width (N) is wider than screen (M)`) depend on that.
 * Some real-tf behaviours are bugs, not targets: macro syntax errors are followed by an `Internal

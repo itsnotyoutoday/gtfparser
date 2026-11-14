@@ -61,8 +61,8 @@ Changed (behavior)
 - Processes (`/repeat`, `/quote`) run under no command name, like tf's main loop.
 - `read()` and `tfread("i", v)` report that the keyboard can only be read from a command line
   command (the engine has no keyboard).
-- `/set x ` (blank after the name, no value) now sets x to the empty string (see
-  `docs/diagnostics.md`, Caveats).
+- `/set x %*` with empty arguments sets x to the empty string while a typed `/set x ` lists it,
+  as in tf: the engine decides from the unexpanded line (`Interp.rawSetValue`).
 
 Added
 - `diag_test.go`: pins the most common messages without needing real tf.

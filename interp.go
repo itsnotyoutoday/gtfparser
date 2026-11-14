@@ -36,6 +36,7 @@ type frame struct {
 
 // Interp is one TinyFugue scripting environment.
 type Interp struct {
+	rawSetValue             bool // the running /set or /let line had a value part before expansion
 	Host                    Host
 	globals                 map[string]Value
 	macros                  map[string]*Macro
@@ -1164,7 +1165,17 @@ func (in *Interp) execOne(st string) Value {
 		res = in.callMacro(m, strings.TrimRight(args, " \t"), false)
 	} else if _, ok := in.cmds[strings.ToLower(nm)]; ok {
 		ln := strings.ToLower(nm)
+		in.rawSetValue = false
+		if ln == "set" || ln == "let" || ln == "setenv" {
+			// tf decides "no value" from the unexpanded text: "/set x %*" has a value
+			// part even when it expands to nothing, but a typed "/set x " has none.
+			_, rawArgs := firstWord(st)
+			rawArgs = strings.TrimLeft(rawArgs, " \t")
+			rawArgs = rawArgs[varNameEnd(rawArgs):]
+			in.rawSetValue = strings.TrimLeft(rawArgs, " \t") != ""
+		}
 		res = in.runBuiltin(ln, args)
+		in.rawSetValue = false
 		if ln != "set" && ln != "let" {
 			in.userRes = res
 		}
