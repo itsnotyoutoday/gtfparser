@@ -9,7 +9,7 @@ mid-task.
 Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 `Breaking` (and what a client must do).
 
-## Unreleased — state export (`SaveState` / `LoadState`)
+## v0.0.10 (2026-11-14) — state export for restarts, squatter hook events
 
 ### core: a session can be carried to a fresh Interp
 For clients that re-exec themselves (`/restart`) and keep their sockets open: the new process
@@ -57,6 +57,15 @@ the Runner. Do not call `SaveState` while a command other than the one asking fo
 Fixed
 - The module did not compile where `int` is 32 bits (linux/386, linux/arm): `cAtoi` saturated at `1<<31` in an `int`.
   It now accumulates in 64 bits and clamps. Behaviour on 64-bit platforms is unchanged.
+
+### Also in v0.0.10
+
+### core: optional hook events SQUAT_CONNECT, SQUAT_DISCONNECT, SQUAT_PAIR
+Three optional hook events (like GMCP and MSDP: `/def -h<event>` is refused until the client calls
+`EnableHookEvents`) for a client that serves remote peers. Args: `device role`. Added
+- `hookTable` entries (alphabetical, after SIGUSR2), documented in `docs/engine/hooks.md`,
+- `TestSquatHooksOptional` (refused until enabled, then fire and run the macro).
+No behaviour changes for clients that do not enable them; `/list -h` and `/hook` listings do not show optional events.
 
 ## v0.0.8 (2026-11-14) — stdlib.tf's library commands move into the engine
 

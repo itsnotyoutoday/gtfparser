@@ -141,6 +141,9 @@ var hookTable = []HookEventInfo{
 	{Name: "SIGTERM", Doc: "SIGTERM caught."},
 	{Name: "SIGUSR1", Doc: "SIGUSR1 caught."},
 	{Name: "SIGUSR2", Doc: "SIGUSR2 caught."},
+	{Name: "SQUAT_CONNECT", Optional: true, Args: "device, role", Doc: "A remote client (squatter peer) connected and authenticated (optional event, enabled by a client that serves remote peers)."},
+	{Name: "SQUAT_DISCONNECT", Optional: true, Args: "device, role", Doc: "A remote client (squatter peer) disconnected (optional event)."},
+	{Name: "SQUAT_PAIR", Optional: true, Args: "device, role", Doc: "A new remote client was paired (optional event)."},
 	{Name: "WORLD", Class: HookWorld, Args: "world", Doc: "The foreground world changed. The client may supply a message with FireHookEvent."},
 }
 

@@ -92,6 +92,11 @@ with those protocols. Call `in.EnableHookEvents("GMCP", "GMCP_LOGIN")` when
 your client implements them; until then `/def -hGMCP` fails exactly as in the
 reference build.
 
+Three more optional events serve clients that accept remote peers (a "squatter"
+daemon built into the client): `SQUAT_CONNECT`, `SQUAT_DISCONNECT` and
+`SQUAT_PAIR` (args: device name, role). They are off until the client calls
+`in.EnableHookEvents("SQUAT_CONNECT", "SQUAT_DISCONNECT", "SQUAT_PAIR")`.
+
 `HookEvents()` returns the table (with `Doc` and `Args`) programmatically.
 `/def -hBACKGROUND` is accepted as a name for BGTRIG.
 
