@@ -38,7 +38,8 @@ that is not implemented fails loudly ("not supported by this client").
 
 ## Testing against real tf
 
-    . scripts/env.sh                       # points at a reference tf build
+    export TFREF_DIR=/path/to/built/tinyfugue   # a UTF-8 build; contains src/tf and lib/tf
+    . scripts/env.sh
     go build -o /tmp/gtfrun ./cmd/gtfrun
     python3 scripts/difftest.py testdata/cases/*.tf
     GTF_TF_LIB=$TF_LIB go test .           # whole-library macro table vs real tf
