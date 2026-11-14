@@ -361,12 +361,6 @@ func init() {
 
 	f := builtinFuncs
 	f["tfopen"], f["tfclose"], f["tfwrite"], f["tfread"], f["tfreadable"] = fnTfopen, fnTfclose, fnTfwrite, fnTfread, fnTfreadable
-	f["keycode"] = func(in *Interp, a []Value) (Value, error) {
-		if k, ok := in.Host.(KeyHost); ok {
-			return Str(k.KeyCode(str(a, 0))), nil
-		}
-		return Str(""), nil
-	}
 	f["columns"] = func(in *Interp, a []Value) (Value, error) { c, _ := in.termSize(); return Int(int64(c)), nil }
 	f["lines"] = func(in *Interp, a []Value) (Value, error) { _, l := in.termSize(); return Int(int64(l)), nil }
 	f["tfflush"] = func(in *Interp, a []Value) (Value, error) { return Int(1), nil }

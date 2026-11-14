@@ -11,6 +11,8 @@ Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 
 ## Unreleased
 
+## v0.0.2 (2026-11-14) — extension tables, parsed handlers, terminal builtins
+
 Added
 - `Extension`, `CommandSpec`, `FuncSpec` and `Interp.Load`: declare commands,
   functions, variables and disabled builtins as tables and load them in one
@@ -26,6 +28,28 @@ Added
 - Exported `Interp.Echo`, `Warnf`, `Send`, `Allow`, so command and function
   implementations outside the package can print, warn, send and check
   privileges.
+
+Terminal, input and status (from the terminal builtins work; docs in
+`docs/engine/terminal-builtins.md` and `terminal-hooks.md`)
+- Input buffer (`in.Input()`, `TypeText`, `SubmitInput`, input history with
+  `^old^new` substitution) and the whole `kb*()` function family and `/input`.
+- `/dokey` with every documented name; editing operations run in core, display
+  operations raise a `dokey` Notifier event. A `/dokey_<name>` macro overrides.
+- Key dispatch for clients: `KeyPressed(bytes)`, `FlushKeys`, `PendingKeys`,
+  `Bindings`, `FindKey`, `PrintToAscii`/`AsciiToPrint`; `keycode()` via `KeyHost`.
+- Status line: `/status_add|edit|rm|clear`, `status_fields()`, `status_width()`,
+  `in.StatusRows(width)` rendering rows with attribute spans; internal field
+  values supplied by a `StatusHost` or the `%status_int_*` variables.
+- `/beep`, `/localecho`, `/suspend`, `prompt()`, `fake_recv()`, paging state and
+  functions (`morepaused`, `moresize`, `morescroll`, `winlines`, `nactive`).
+- New optional host interfaces (in `terminal.go`): `MoreHost`, `WindowHost`,
+  `LineHost`, `PromptHost`, `StatusHost`. New Notifier event kinds: `beep`,
+  `localecho`, `suspend`, `dokey`, `status`, `more`, `prompt`, `var`.
+- Variable-change hooks: `OnVarChange`, `WatchVar`, `PollVars`.
+
+Known gaps carried with this change: `/bind` does not reject a binding that is
+a prefix of another; `idle()`, `sidle()`, `nread()`, `nlog()`, `nmail()` await
+sockets/log/mail owners.
 
 ## v0.0.1 (2026-11-14) — first extraction
 
