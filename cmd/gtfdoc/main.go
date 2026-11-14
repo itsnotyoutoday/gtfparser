@@ -18,31 +18,23 @@ import (
 // needs maps a builtin ("/name" or "name()") to the optional host capability
 // it depends on to do its whole job. Keep it sorted by capability.
 var needs = map[string]string{
-	// WorldHost: connections
-	"/connect": "WorldHost", "/dc": "WorldHost", "/fg": "WorldHost", "/listsockets": "WorldHost",
-	"/listworlds": "WorldHost", "/renameworld": "WorldHost", "/unworld": "WorldHost",
-	"/saveworld": "WorldHost", "/watchdog": "WorldHost", "/watchname": "WorldHost",
-	"addworld()": "WorldHost", "fg_world()": "WorldHost", "is_connected()": "WorldHost",
-	"is_open()": "WorldHost", "world_info()": "WorldHost", "nactive()": "WorldHost",
-	"idle()": "WorldHost", "sidle()": "WorldHost", "nread()": "WorldHost", "fake_recv()": "WorldHost",
+	// connections: the core keeps the world database, the host owns sockets
+	"/connect": "WorldHost (ConnectHost for options)", "/dc": "WorldHost (SocketHost for -all)",
+	"/fg": "WorldHost (FgHost for -q)", "/listsockets": "SocketHost",
+	"is_connected()": "SocketHost", "is_open()": "SocketHost", "nactive()": "SocketHost",
+	"idle()": "IdleHost (no argument), SocketHost (world)", "sidle()": "SocketHost",
+	"fake_recv()": "WorldHost", "nread()": "WorldHost",
 	"gmcp()": "WorldHost", "msdp()": "WorldHost", "atcp()": "WorldHost", "option102()": "WorldHost",
-	// Notifier: display and terminal state the client owns
-	"/beep": "Notifier", "/localecho": "Notifier", "/log": "Notifier", "/limit": "Notifier",
-	"/unlimit": "Notifier", "/relimit": "Notifier", "/recall": "Notifier", "/recordline": "Notifier",
-	"/histsize": "Notifier", "/suspend": "Notifier", "/restrict": "Notifier", "/reboot": "Notifier",
-	"/status_add": "Notifier", "/status_clear": "Notifier", "/status_edit": "Notifier", "/status_rm": "Notifier",
-	"/input": "Notifier", "/edit": "Notifier", "nlog()": "Notifier", "nmail()": "Notifier",
-	"morepaused()": "Notifier", "morescroll()": "Notifier", "moresize()": "Notifier",
-	"status_fields()": "Notifier", "prompt()": "Notifier", "read()": "Notifier",
-	// KeyHost / TermHost
-	"keycode()": "KeyHost", "columns()": "TermHost", "lines()": "TermHost", "winlines()": "TermHost",
-	"status_width()": "TermHost", "isatty()": "TermHost",
-	"kbcharback()": "TermHost", "kbcharfwd()": "TermHost", "kbdel()": "TermHost", "kbgoto()": "TermHost",
-	"kbhead()": "TermHost", "kblen()": "TermHost", "kbmatch()": "TermHost", "kbpoint()": "TermHost",
-	"kbtail()": "TermHost", "kbwordleft()": "TermHost", "kbwordright()": "TermHost",
-	// HelpHost
-	"/help": "HelpHost",
-	// Host (basic): output and sending
+	// display and process state only the client has
+	"/limit": "LimitHost", "/relimit": "LimitHost", "/unlimit": "LimitHost",
+	"/reboot": "RebootHost", "/help": "HelpHost", "/core": "Notifier",
+	"/beep": "Notifier", "/localecho": "Notifier", "/suspend": "Notifier", "/restrict": "Notifier",
+	"keycode()": "KeyHost", "columns()": "TermHost", "lines()": "TermHost",
+	"isatty()": "TermHost", "nmail()": "Notifier", "read()": "Notifier",
+	"morepaused()": "MoreHost (optional)", "morescroll()": "MoreHost (optional)", "moresize()": "MoreHost (optional)",
+	"winlines()": "WindowHost (optional)", "status_fields()": "StatusHost (optional)",
+	"prompt()": "PromptHost (optional)",
+	// basic Host: output and sending
 	"/echo": "Host", "/send": "Host", "echo()": "Host", "send()": "Host",
 }
 
