@@ -16,6 +16,8 @@ Added
   functions, variables and disabled builtins as tables and load them in one
   validated call (argument-count checks, privilege checks via `Needs`, usage/help
   kept for generated help). `Interp.CommandSpecs` / `FuncSpecs` list them.
+- `Interp.Run` and `Interp.Eval` (clear names for running a script / evaluating an
+  expression), `HostFuncs` and `Console` hosts for small programs and tests.
 - Exported `Interp.Echo`, `Warnf`, `Send`, `Allow`, so command and function
   implementations outside the package can print, warn, send and check
   privileges.

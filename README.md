@@ -1,103 +1,169 @@
 # gtfparser
 
-A TinyFugue scripting engine for Go: the language, its runtime and a
-PCRE2-compatible regex engine, as an embeddable library. It is the shared core
-of two programs:
+**A TinyFugue scripting engine for Go.** The language, its runtime, and a
+PCRE2-compatible regexp engine, as a library you can drop into any program:
+a terminal MU* client, a desktop app, a relay daemon, a test rig.
 
-- **gtf**, a terminal MU* client (separate repository)
-- **SquatClient / squatterd** (separate repositories)
+It runs TinyFugue's own library (`stdlib.tf` and friends) unmodified, and is
+checked line by line against the real `tf` binary.
 
-Neither client owns it, and neither may fork it. A client extends the engine
-through its public extension points; anything a client needs that the engine
-lacks is added here, generically.
+    go get github.com/itsnotyoutoday/gtfparser
 
-## Packages
+## Thirty seconds
 
-| Path | What |
-|---|---|
-| `gtfparser` (repo root) | the interpreter: expressions, `%`/`$` substitution, macros, triggers, hooks, processes, `/load`, builtin commands and functions |
-| `pcre` | PCRE2-compatible backtracking regexp engine, verified against real tf and PCRE2 10.47 |
-| `cmd/gtfrun` | batch runner used by the differential tests (not a client) |
-| `scripts/` | differential harness (`difftest.py`), benchmarks, PCRE tooling |
-| `testdata/` | differential corpus, golden macro table, benchmarks |
+```go
+in := gtfparser.New(gtfparser.Console(os.Stdout))
 
-## Embedding
+in.Run("/echo hello from tf")           // run commands
+v, _ := in.Eval("strlen('abc') * 2")    // evaluate expressions
+fmt.Println(v)                          // 6
 
-The smallest host just prints what scripts echo and accepts what they send:
+in.Run("/set score=40")                 // scripts and Go share variables
+in.SetVar("bonus", "2")
+in.Run("/echo score is $[score + bonus]")   // score is 42
+```
 
-    type host struct{}
-    func (host) Echo(s string)         { fmt.Println(s) }
-    func (host) Send(w, s string) bool { return true }
+`Run` executes text the way a macro body runs: commands, `%{vars}`, `$[exprs]`,
+`%;` separators, plain text sent to the current world. `Eval` evaluates an
+expression. That is most of the API you need to start.
 
-    in := gtfparser.New(host{})
-    in.LoadFile("stdlib.tf")       // TinyFugue's own library runs unmodified
-    in.ExecFull("/echo $[1 + 2]")  // 3
+## Macros, triggers and the game's side of the conversation
 
-An `Interp` belongs to one goroutine. When sockets, a UI and timers all need
-it, wrap it in a `Runner` (an actor): `run.Do(func(in *gtfparser.Interp) { ... })`.
+Definitions are ordinary TinyFugue. Anything that works in tf works here.
 
-## Extending the engine: load a table
+```go
+in.Exec("/def square = /result {1} * {1}")
+in.Exec("/def -t'* tells you: *' reply = say %{-3}")      // a trigger
 
-A client adds its own commands, functions and variables by declaring them as
-**data** and loading the table in one call. The engine validates the whole
-table first (nothing is installed if any entry is bad), checks argument counts
-and privileges before your function runs, and keeps the usage and help text so
-help listings can be generated from the table.
+in.Run("/echo 7 squared is $[square(7)]")                 // 7 squared is 49
+in.ProcessLine("Bob tells you: nice to see you")          // a line arrives from the game
+//  -> say nice to see you
+```
 
-    var toolkit = gtfparser.Extension{
-        Name: "toolkit",
-        Commands: []gtfparser.CommandSpec{
-            {Name: "greet", Fn: cmdGreet, Usage: "<name>", Help: "say hello", MinArgs: 1},
-            {Name: "roll",  Fn: cmdRoll,  Usage: "[sides]", Help: "roll a die", MaxArgs: 1},
-            {Name: "pwd",   Fn: cmdPwd,   Help: "show the directory",
-                Needs: []gtfparser.Op{gtfparser.OpFileRead}},   // refused under /restrict file
-        },
-        Functions: []gtfparser.FuncSpec{
-            {Name: "clamp", Fn: fnClamp, Usage: "value, low, high", MinArgs: 3, MaxArgs: 3},
-        },
-        Vars:            map[string]string{"greeting": "Hello"},
-        DisableCommands: []string{"sh"},   // keep scripts away from the shell
-    }
+`Exec` takes a line the way a script file does (no substitution until the macro
+runs); `Run` takes one the way a macro body does.
 
-    func cmdGreet(in *gtfparser.Interp, args string) gtfparser.Value {
-        in.Echo(in.Var("greeting") + ", " + strings.TrimSpace(args) + "!")
-        return gtfparser.Int(1)
-    }
+## Your program is the host
 
-    if err := in.Load(toolkit); err != nil { log.Fatal(err) }
+An interpreter talks to its surroundings through a `Host`: somewhere to show
+text, somewhere to send lines. For a quick start use `Console`, or adapt two
+functions:
 
-Then, from a script: `/greet world` prints `Hello, world!`, `$[clamp(15, 0, 10)]`
-is `10`, and `/greet` alone prints `% usage: /greet <name>`.
+```go
+in := gtfparser.New(gtfparser.HostFuncs{
+    OnEcho: func(text string) { ui.Append(text) },
+    OnSend: func(world, text string) bool { return conn.Write(world, text) },
+})
+```
+
+Everything else a client may or may not provide is an **optional interface**
+the host implements when it can: `WorldHost` (connections), `Notifier`
+(beeps, status, limits...), `KeyHost` and `TermHost` (terminal facts),
+`HelpHost`. A feature whose capability is missing says so
+(`% /connect: not supported by this client`) instead of pretending to work.
+
+## Extend it with a table
+
+Commands, functions, variables and disabled builtins are declared as **data**
+and loaded in one call. The whole table is validated first (nothing is
+installed if any entry is bad), argument counts and privileges are checked
+before your function runs, and usage/help text is kept so `/help` can be
+generated from it.
+
+```go
+var toolkit = gtfparser.Extension{
+    Name: "toolkit",
+    Commands: []gtfparser.CommandSpec{
+        {Name: "greet", Fn: cmdGreet, Usage: "<name>", Help: "say hello", MinArgs: 1},
+        {Name: "roll",  Fn: cmdRoll,  Usage: "[sides]", Help: "roll a die", MaxArgs: 1},
+        {Name: "pwd",   Fn: cmdPwd,   Help: "show the directory",
+            Needs: []gtfparser.Op{gtfparser.OpFileRead}},      // refused under /restrict file
+    },
+    Functions: []gtfparser.FuncSpec{
+        {Name: "clamp", Fn: fnClamp, Usage: "value, low, high", MinArgs: 3, MaxArgs: 3},
+    },
+    Vars:            map[string]string{"greeting": "Hello"},
+    DisableCommands: []string{"sh"},                           // keep scripts off the shell
+}
+
+func cmdGreet(in *gtfparser.Interp, args string) gtfparser.Value {
+    in.Echo(in.Var("greeting") + ", " + strings.TrimSpace(args) + "!")
+    return gtfparser.Int(1)
+}
+
+in.Load(toolkit)
+```
+
+```
+/greet world                      Hello, world!
+/echo $[clamp(15, 0, 10)]         10
+/greet                            % usage: /greet <name>
+```
 
 Tables layer: load several in order and a later entry overrides an earlier one,
-including a built-in (to wrap the original, fetch it first with
-`in.Command("echo")`). `in.CommandSpecs()` and `in.FuncSpecs()` return what the
-tables declared, sorted, for building `/help` output. A runnable version of the
-example above is in `example_test.go`.
+built-ins included (fetch the original first with `in.Command("echo")` to wrap
+it). `in.CommandSpecs()` returns what was declared, for building help. Handlers
+use `in.Echo`, `in.Warnf`, `in.Send` and `in.Allow`. A small one-off needs no
+table: `in.RegisterCommand("name", fn)`.
 
-Handlers talk to the user and the world with `in.Echo`, `in.Warnf`,
-`in.Send` and `in.Allow` (the privilege check, for handlers that do something
-privileged and don't declare it in `Needs`).
+## Use it from many goroutines
 
-### Other extension points
+An `Interp` belongs to one goroutine. When sockets, a UI and timers all want
+it, give it to a `Runner`, which owns it in one goroutine (and runs `/repeat`
+and `/quote` timers for you):
 
-| Need | Use |
+```go
+run := gtfparser.NewRunner(in)
+defer run.Close()
+
+run.Do(func(in *gtfparser.Interp) { in.Run("/set hp=30") })    // from any goroutine
+run.Post(func(in *gtfparser.Interp) { in.ProcessLine(line) })  // fire and forget
+run.Interrupt()                                                // stop a runaway script
+```
+
+## Make it safe for other people's scripts
+
+```go
+in := gtfparser.New(host,
+    gtfparser.WithPolicy(myRules),                              // veto shell/file/world access
+    gtfparser.WithRestriction(gtfparser.RestrictShell),         // tf's own /restrict, from the start
+    gtfparser.WithLimits(gtfparser.Limits{MaxInstr: 1_000_000, MaxRecur: 100}))
+
+in.Run("/sh rm -rf /")      // % /sh: restricted
+in.Run("/spin")             // % max_instr (1000000) exceeded; execution aborted
+```
+
+Limits are ceilings: a script may lower `max_instr` but never raise it past
+yours.
+
+## Compatible, and proven so
+
+The test suite runs scripts through the real `tf` and through this engine and
+compares the results: expressions, substitution, control flow, scoping, globs,
+triggers, pipes, special variables, processes, and a golden check that loading
+TinyFugue's whole library defines the exact same macro table. The regexp
+engine (`pcre`) is checked against real PCRE2.
+
+```sh
+export TFREF_DIR=/path/to/built/tinyfugue    # a UTF-8 build: src/tf, lib/tf
+. scripts/env.sh
+go build -o /tmp/gtfrun ./cmd/gtfrun
+python3 scripts/difftest.py testdata/cases/*.tf
+GTF_TF_LIB=$TF_LIB go test .
+```
+
+## Layout
+
+| Path | |
 |---|---|
-| One-off command or function | `RegisterCommand` / `RegisterFunction` |
-| Turn a builtin off for scripts | `DisableCommand` / `DisableFunction`, or `DisableCommands` in a table |
-| Connections, status, keys, help, terminal size | optional host interfaces: `WorldHost`, `Notifier`, `KeyHost`, `HelpHost`, `TermHost` |
-| Veto shell, file or world access | `WithPolicy(...)`, `WithRestriction(...)` (and the script-level `/restrict`) |
-| Resource ceilings, stopping a runaway script | `WithLimits(...)`, `in.Interrupt()` |
+| `.` (package `gtfparser`) | the interpreter and runtime |
+| `pcre/` | PCRE2-compatible regexp engine |
+| `cmd/gtfrun` | batch runner used by the differential tests |
+| `scripts/`, `testdata/` | differential harness, corpus, benchmarks |
 
-A builtin that real tf has and that is not implemented fails loudly ("not
-supported by this client") instead of silently succeeding.
+Every example above runs in the test suite (`easy_test.go`,
+`example_test.go`). Changes that clients can see are logged in
+[CORE-CHANGES.md](CORE-CHANGES.md); see [CONTRIBUTING.md](CONTRIBUTING.md) before
+changing the engine.
 
-## Testing against real tf
-
-    export TFREF_DIR=/path/to/built/tinyfugue   # a UTF-8 build; contains src/tf and lib/tf
-    . scripts/env.sh
-    go build -o /tmp/gtfrun ./cmd/gtfrun
-    python3 scripts/difftest.py testdata/cases/*.tf
-    GTF_TF_LIB=$TF_LIB go test .           # whole-library macro table vs real tf
-
-License: GPL-3.0-or-later (TinyFugue is GPL-2.0-or-later).
+GPL-3.0-or-later (TinyFugue is GPL-2.0-or-later).
