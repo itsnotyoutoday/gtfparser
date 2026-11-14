@@ -9,7 +9,7 @@ mid-task.
 Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 `Breaking` (and what a client must do).
 
-## Unreleased
+## v0.0.7 (2026-11-14) — diagnostics match tf
 
 ### core: diagnostics identical to real tf's
 Warning and error text, and the `<file>, line N: <command or macro>: ` prefix, now match real tf
