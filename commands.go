@@ -307,6 +307,14 @@ func cmdEval(in *Interp, args string) Value {
 	res := in.execText(args)
 	in.inEval--
 	in.popFrame()
+	// the eval is a scope of its own: /return ends it (not the macro around it) and a
+	// /break with no loop inside it does not reach a loop outside
+	switch in.ctl {
+	case ctlReturn:
+		in.ctl, res = ctlNone, in.retv
+	case ctlBreak:
+		in.ctl, in.brk = ctlNone, 0
+	}
 	return res
 }
 

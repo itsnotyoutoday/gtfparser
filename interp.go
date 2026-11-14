@@ -874,7 +874,7 @@ func firstWord(s string) (w, rest string) {
 
 func (in *Interp) execStmts(stmts []string) Value {
 	res := Int(1)
-	copied := false
+	copied, fed := false, false
 	for i := 0; i < len(stmts); i++ {
 		if in.ctl != ctlNone || !in.tick() {
 			break
@@ -918,9 +918,12 @@ func (in *Interp) execStmts(stmts []string) Value {
 			res = in.execOne(st)
 		}
 		in.lastRet = res
+		if fed {
+			in.tfin, fed = nil, false // what the left side of a pipe wrote lives only while its right side runs
+		}
 		if pipeHost != nil {
 			in.Host = pipeHost.Host
-			in.tfin = pipeHost.lines
+			in.tfin, fed = pipeHost.lines, true
 		}
 	}
 	return res

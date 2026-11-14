@@ -57,6 +57,7 @@ func TestDiagnosticsMatchTf(t *testing.T) {
 		{"mula overflow", "/test z := 1e308\n/test z *= 10", "CASE, line 2: MULA operator: arithmetic overflow"},
 		{"undef number", "/undef #9999", "CASE, line 1: UNDEF: no macro with number 9999\nCASE, line 1: UNDEF: Macro \"#9999\" was not defined."},
 		{"def bad option", "/def -Z foo = bar", "CASE, line 1: DEF -Z: invalid option\nCASE, line 1: DEF: options: -p<integer> -c<integer> -b<string> -B<string> -E<string> -t<string> -w<string> -h<string> -A<string> -a<string> -f<string> -P<string> -T<string> -FiI -n<integer> -1 -m<string> -q"},
+		{"getopts invalid option", "/def f = /if (!getopts(\"a:bcd#e\", \"\")) /return 0%; /endif\n/f -b -Z", "CASE, line 2: f -Z: invalid option\nCASE, line 2: f: options: -a<string> -bc -d<integer> -e"},
 		{"non-command line aborts load", "/echo a\nhello\n/echo b", "CASE, line 2: Invalid command. Aborting.\nCASE: line 2: last command is incomplete because of trailing \\"},
 		{"indented line", "/echo a\n  /echo b", "CASE: line 1: Warning: possibly missing trailing \\"},
 		{"final backslash blanks", "/echo a\\ \n/echo b", "CASE, line 1: Warning: whitespace following final '\\'"},
