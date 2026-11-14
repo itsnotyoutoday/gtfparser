@@ -136,7 +136,10 @@ func (in *Interp) setDelim(rest string) (kind int, val string) {
 	case rest[0] == ' ' || rest[0] == '\t':
 		rest = strings.TrimLeft(rest, " \t")
 		if rest == "" {
-			return 0, ""
+			// tf decides "no value" from the unexpanded text: "/set x %*" has a
+			// value part that may expand to nothing. The text arrives expanded,
+			// so a trailing blank after the name is taken as that case.
+			return 1, ""
 		}
 		if rest[0] == '=' {
 			in.warn("Warning: '=' following space is part of value.")
