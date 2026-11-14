@@ -20,6 +20,15 @@ Added
   implementations outside the package can print, warn, send and check
   privileges.
 
+### core: line results and world context
+Added `Interp.Process(line, live) LineResult` (matching macros with the byte
+range of each match and of its regexp groups; `live=false` runs no body and
+consumes no shot, for recomputing display effects of replayed history),
+`Interp.SetWorld/World` (the world the interpreter is acting for; macros and
+hooks defined with `-w` fire only for it; "" = any). `ProcessLine` is now
+`Process(line, true).Gag`. The engine still does not interpret `-a`
+attributes: `Match.Macro.Attrs` is handed to the client.
+
 ## v0.0.1 (2026-11-14) — first extraction
 
 The engine split out of the gtf client repo: interpreter, PCRE2-compatible

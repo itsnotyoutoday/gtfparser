@@ -70,6 +70,7 @@ type Interp struct {
 	exported    map[string]bool
 	cmdSpecs    map[string]CommandSpec
 	funcSpecs   map[string]FuncSpec
+	world       string // see SetWorld
 	// Policy, if set, can veto privileged operations on top of /restrict.
 	Policy Policy
 	// Now replaces the clock (tests); nil means time.Now.
