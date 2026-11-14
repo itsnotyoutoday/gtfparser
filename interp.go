@@ -74,7 +74,7 @@ type Interp struct {
 	loadName    string // file being loaded, and the lines of the logical line being run
 	loadStart   int
 	loadLine    int
-	setLetLast  bool // the last command run was /set or /let (see callMacro)
+	userRes     Value // tf's user_result: the value of the last command that sets one (not /set, /let); what a macro called as a function returns
 	readDepth   int
 	mail        map[string]*mailInfo
 	subFail     bool // a $[...] substitution failed: the statement and its macro are abandoned
@@ -1065,13 +1065,12 @@ run:
 
 // execOne runs a single statement: a command or text for the current world.
 func (in *Interp) execOne(st string) Value {
-	in.setLetLast = false
 	if st[0] != '/' {
 		line := in.expand(st)
 		if in.subFail {
 			return in.abortStmt()
 		}
-		return in.sendLine(line)
+		return in.leaf(in.sendLine(line))
 	}
 	w, _ := firstWord(st)
 	lw := strings.ToLower(w)
@@ -1079,17 +1078,17 @@ func (in *Interp) execOne(st string) Value {
 		neg := strings.HasPrefix(w, "/!")
 		name := strings.TrimLeft(lw, "/!@")
 		_, args := firstWord(st)
-		return negate(in.runBuiltin(name, args), neg)
+		return negate(in.leaf(in.runBuiltin(name, args)), neg)
 	}
 	line := in.expand(st)
 	if in.subFail {
 		return in.abortStmt()
 	}
 	if strings.HasPrefix(line, "//") { // "//" sends a line starting with "/"
-		return in.sendLine(line[1:])
+		return in.leaf(in.sendLine(line[1:]))
 	}
 	if len(line) == 0 || line[0] != '/' {
-		return in.sendLine(line)
+		return in.leaf(in.sendLine(line))
 	}
 	nm, args := firstWord(line)
 	nm = nm[1:]
@@ -1107,13 +1106,21 @@ func (in *Interp) execOne(st string) Value {
 		res = in.callMacro(m, strings.TrimRight(args, " \t"), false)
 	} else if _, ok := in.cmds[strings.ToLower(nm)]; ok {
 		ln := strings.ToLower(nm)
-		in.setLetLast = ln == "set" || ln == "let"
 		res = in.runBuiltin(ln, args)
+		if ln != "set" && ln != "let" {
+			in.userRes = res
+		}
 	} else {
 		in.noMacro(nm)
-		res = Int(0)
+		res = in.leaf(Int(0))
 	}
 	return negate(res, neg)
+}
+
+// leaf records the value of a command as the macro's result (tf's user_result).
+func (in *Interp) leaf(v Value) Value {
+	in.userRes = v
+	return v
 }
 
 // abortStmt ends the running macro after a failed substitution, as tf does.
@@ -1182,13 +1189,19 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 	}
 	oldExp := in.noExp
 	in.noExp = false
-	in.setLetLast = false
+	savedRes := in.userRes
+	if asFunc {
+		in.userRes = Str("")
+	}
 	res := in.execText(m.Body)
 	in.noExp = oldExp
 	if in.ctl == ctlReturn {
 		res = in.retv
-	} else if asFunc && in.setLetLast {
-		res = Str("") // a macro ending in /set or /let has no value as a function
+	} else if asFunc {
+		res = in.userRes
+	}
+	if asFunc {
+		in.userRes = savedRes
 	}
 	if in.ctl != ctlExit {
 		in.ctl = ctlNone

@@ -158,6 +158,7 @@ func cmdReturn(in *Interp, args string) Value {
 		in.retv = v
 	}
 	in.ctl = ctlReturn
+	in.userRes = in.retv
 	return in.retv
 }
 
