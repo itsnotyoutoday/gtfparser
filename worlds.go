@@ -12,6 +12,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -30,6 +31,10 @@ type World struct {
 	SSL       bool   // 'x'
 	Echo      bool   // 'e'
 	Temp      bool   // made by "/connect host port"; dropped when the connection ends unless renamed
+	// Rev is the world's revision: a number that changes on every change to the record (defined,
+	// redefined, renamed) and is never reused, not even by a world of the same name created later.
+	// It is assigned by the interpreter; a value passed in is ignored.
+	Rev uint64
 
 	hist *history
 }
@@ -133,10 +138,10 @@ func (in *Interp) Worlds() []WorldInfo {
 	db := &in.ds().wd
 	var out []WorldInfo
 	if db.def != nil {
-		out = append(out, *db.def)
+		out = append(out, *touchRev(db.def))
 	}
 	for _, w := range db.worlds {
-		out = append(out, *w)
+		out = append(out, *touchRev(w))
 	}
 	return out
 }
@@ -145,13 +150,13 @@ func (in *Interp) Worlds() []WorldInfo {
 func (in *Interp) World(name string) (WorldInfo, bool) {
 	db := &in.ds().wd
 	if strings.EqualFold(name, "default") && db.def != nil {
-		return *db.def, true
+		return *touchRev(db.def), true
 	}
 	if name == "" {
 		return WorldInfo{}, false
 	}
 	if w := db.find(name); w != nil {
-		return *w, true
+		return *touchRev(w), true
 	}
 	return WorldInfo{}, false
 }
@@ -282,6 +287,14 @@ func (in *Interp) newWorld(name, typ, host, port, char, pass, mfile, flags, myho
 		w.Temp = true
 	}
 	w.Charset = in.globals["default_charset"].String()
+	bumpRev(w)
+	if !w.Temp {
+		op := "add"
+		if redef {
+			op = "update"
+		}
+		in.notify("world", op, w.Name)
+	}
 	if redef {
 		in.FireHookArgs("REDEF", "world", w.Name)
 	}
@@ -293,6 +306,9 @@ func (in *Interp) newWorld(name, typ, host, port, char, pass, mfile, flags, myho
 
 func (in *Interp) nukeWorld(w *World) {
 	db := &in.ds().wd
+	if !w.Temp {
+		defer in.notify("world", "remove", w.Name)
+	}
 	for i, x := range db.worlds {
 		if x == w {
 			db.worlds = append(db.worlds[:i], db.worlds[i+1:]...)
@@ -396,16 +412,23 @@ func cmdRenameworld(in *Interp, args string) Value {
 		in.warn("/renameworld: a world named %s already exists", newn)
 		return Int(0)
 	}
+	in.renameWorldRecord(w, newn)
+	in.echo("% World renamed.")
+	return Int(1)
+}
+
+// renameWorldRecord renames w (already validated), keeping its connection, history and macros.
+func (in *Interp) renameWorldRecord(w *World, newn string) {
+	db := &in.ds().wd
 	was := w.Name
 	w.Name = newn
 	w.Temp = false
+	bumpRev(w)
 	if strings.EqualFold(db.cur, was) {
 		db.cur = newn
 		in.refreshWorldVars()
 	}
 	in.notify("renameworld", was, newn)
-	in.echo("% World renamed.")
-	return Int(1)
 }
 
 // ---------------------------------------------------------------- /listworlds /saveworld
@@ -1306,4 +1329,152 @@ func init() {
 	f["idle"] = fnIdle(false)
 	f["sidle"] = fnIdle(true)
 	f["nactive"] = fnNactive
+}
+
+// ---------------------------------------------------------------- revisions and the Go API
+
+var worldSerial atomic.Uint64
+
+// nextRev returns a revision larger than every one handed out before in this process and, because
+// the counter starts at the wall clock in milliseconds, larger than those of an earlier process
+// (a restart does not make an old revision valid again).
+func nextRev() uint64 {
+	for {
+		cur := worldSerial.Load()
+		n := cur + 1
+		if cur == 0 {
+			n = uint64(time.Now().UnixMilli())
+		}
+		if worldSerial.CompareAndSwap(cur, n) {
+			return n
+		}
+	}
+}
+
+func bumpRev(w *World) { w.Rev = nextRev() }
+
+// touchRev gives a world that has no revision yet (one restored by LoadState) its first one.
+func touchRev(w *World) *World {
+	if w.Rev == 0 {
+		bumpRev(w)
+	}
+	return w
+}
+
+// Errors returned by the world API; use errors.Is.
+var (
+	ErrWorldNotFound = errorString("no such world")
+	ErrWorldExists   = errorString("a world of that name already exists")
+	ErrWorldInUse    = errorString("the world is in use (connected)")
+	ErrWorldInvalid  = errorString("invalid world definition")
+)
+
+type errorString string
+
+func (e errorString) Error() string { return string(e) }
+
+type worldErr struct {
+	kind   error
+	detail string
+}
+
+func (e *worldErr) Error() string { return e.detail }
+func (e *worldErr) Unwrap() error { return e.kind }
+
+func validWorldRecordName(name string) bool {
+	return name != "" && !strings.ContainsAny(name, " \t\r\n") && name[0] != '(' && !strings.EqualFold(name, "default")
+}
+
+// PutWorld creates the world w.Name or replaces every field of the existing one (unlike
+// DefineWorld an empty field clears the old value; the history, macros and connection are kept).
+// It validates without printing: ErrWorldInvalid for a bad name or a host without a port (or the
+// reverse); "default" and "(unnamedN)" names are refused. It returns the stored record with its
+// new Rev and notifies the host with the event "world" ("add" or "update", name). This is a host
+// API, not a script command: the caller owns any policy decision.
+func (in *Interp) PutWorld(w WorldInfo) (WorldInfo, error) {
+	if !validWorldRecordName(w.Name) {
+		return WorldInfo{}, &worldErr{ErrWorldInvalid, "illegal world name: " + w.Name}
+	}
+	if (w.Host == "") != (w.Port == "") {
+		return WorldInfo{}, &worldErr{ErrWorldInvalid, "host and port must be both blank or both non-blank"}
+	}
+	db := &in.ds().wd
+	cur := db.find(w.Name)
+	redef := cur != nil
+	if cur == nil {
+		cur = &World{hist: &history{}}
+		db.worlds = append(db.worlds, cur)
+	}
+	cur.Name, cur.Type, cur.Host, cur.Port = w.Name, w.Type, w.Host, w.Port
+	cur.Character, cur.Password, cur.MFile, cur.SrcHost = w.Character, w.Password, w.MFile, w.SrcHost
+	cur.NoProxy, cur.SSL, cur.Echo, cur.Temp = w.NoProxy, w.SSL, w.Echo, false
+	cur.Charset = w.Charset
+	if cur.Charset == "" {
+		cur.Charset = in.globals["default_charset"].String()
+	}
+	bumpRev(cur)
+	op := "add"
+	if redef {
+		op = "update"
+		in.FireHookArgs("REDEF", "world", cur.Name)
+	}
+	in.notify("world", op, cur.Name)
+	if strings.EqualFold(db.cur, cur.Name) {
+		in.refreshWorldVars()
+	}
+	return *cur, nil
+}
+
+// DeleteWorld removes a world: ErrWorldNotFound, ErrWorldInUse (connected) or ErrWorldInvalid
+// (the default world). The host is notified with "world", "remove", name.
+func (in *Interp) DeleteWorld(name string) error {
+	db := &in.ds().wd
+	if strings.EqualFold(name, "default") {
+		return &worldErr{ErrWorldInvalid, "the default world cannot be removed this way"}
+	}
+	w := db.find(name)
+	if w == nil || name == "" {
+		return ErrWorldNotFound
+	}
+	if in.worldInUse(w.Name) {
+		return ErrWorldInUse
+	}
+	in.nukeWorld(w)
+	return nil
+}
+
+// RenameWorld renames a world (also while it is connected). Errors: ErrWorldNotFound,
+// ErrWorldExists, ErrWorldInvalid. The host is notified with "renameworld", old, new, as for
+// /renameworld.
+func (in *Interp) RenameWorld(old, newName string) (WorldInfo, error) {
+	db := &in.ds().wd
+	w := db.find(old)
+	if w == nil || old == "" {
+		return WorldInfo{}, ErrWorldNotFound
+	}
+	if !validWorldRecordName(newName) {
+		return WorldInfo{}, &worldErr{ErrWorldInvalid, "illegal world name: " + newName}
+	}
+	if o := db.find(newName); o != nil && o != w {
+		return WorldInfo{}, ErrWorldExists
+	}
+	in.renameWorldRecord(w, newName)
+	return *w, nil
+}
+
+// WorldDefinitions returns the lines /saveworld writes: one "/test addworld(...)" per world,
+// temporary worlds excluded.
+func (in *Interp) WorldDefinitions() []string {
+	var out []string
+	in.listWorlds(nil, nil, func(s string) { out = append(out, s) }, 0, nil)
+	return out
+}
+
+// WorldFile returns the file /saveworld writes with no argument: the body of the WORLDFILE macro
+// with "~" expanded; ok is false when that macro is not defined.
+func (in *Interp) WorldFile() (string, bool) {
+	if m, ok := in.findMacro("WORLDFILE"); ok && strings.TrimSpace(m.Body) != "" {
+		return in.expandTilde(strings.TrimSpace(m.Body)), true
+	}
+	return "", false
 }

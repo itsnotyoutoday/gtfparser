@@ -9,6 +9,35 @@ mid-task.
 Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 `Breaking` (and what a client must do).
 
+## v0.0.11 (unreleased) — world database API with revisions and change events
+
+### core: mutate the world database from Go, and hear about every change
+For clients that let something other than a script edit the worlds (a remote peer, a settings
+screen) and must tell everyone who looks at the database. No script-visible behaviour changes.
+
+Added
+- `World.Rev` (so `WorldInfo.Rev`): the record's revision. It changes on every definition,
+  redefinition and rename, is never reused (not even by a later world of the same name) and is
+  larger after a restart than before it (the counter starts at the wall clock in ms). Assigned
+  lazily for worlds restored by `LoadState`; not part of the saved state. Use it for optimistic
+  concurrency: an update based on an older Rev is stale.
+- `(*Interp).PutWorld(WorldInfo) (WorldInfo, error)`: create or replace every field (an empty field
+  clears the old value, unlike `DefineWorld`); history, macros and connection are kept.
+- `(*Interp).DeleteWorld(name) error`, `(*Interp).RenameWorld(old, new) (WorldInfo, error)`.
+- Errors (use `errors.Is`): `ErrWorldNotFound`, `ErrWorldExists`, `ErrWorldInUse`, `ErrWorldInvalid`.
+  These calls print nothing; validation failures are returned.
+- `(*Interp).WorldDefinitions() []string` (the lines `/saveworld` writes) and
+  `(*Interp).WorldFile() (string, bool)` (what `/saveworld` writes to by default, the `WORLDFILE`
+  macro), so a client can persist the database itself (atomically, with a backup).
+- Notifier event `"world"` with args `op, name` where op is `add`, `update` or `remove`, fired for
+  every change by any route: `/addworld`-style `addworld()`, `/unworld`, `PutWorld`, `DeleteWorld`,
+  `DefineWorld`, `RemoveWorld`. Temporary (`/connect host port`) worlds do not notify. Renames keep
+  the existing `"renameworld"` event (`old, new`), now also fired by `RenameWorld`.
+  (There is no `/purgeworld` in tf; the commands are `/addworld`, `/unworld`, `/renameworld`.)
+
+Client: implement `Notifier` (gtf already does) and handle `"world"`; to adopt, bump the pinned
+version after this is released.
+
 ## v0.0.10 (2026-11-14) — state export for restarts, squatter hook events
 
 ### core: a session can be carried to a fresh Interp

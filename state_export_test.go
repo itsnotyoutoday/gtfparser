@@ -276,6 +276,7 @@ func sxProbe(t *testing.T, a, b *Interp, ha, hb *stHost, clk *stClock) {
 		ws := in.Worlds()
 		for i := range ws {
 			ws[i].hist = nil // a pointer
+			ws[i].Rev = 0    // a runtime counter, not carried
 		}
 		input := strings.Join(in.HistoryLines(HistInput, ""), "|")
 		input = strings.Replace(input, "hunter2", "", 1) // typed with echo off: never carried
