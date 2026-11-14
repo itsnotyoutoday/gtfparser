@@ -11,6 +11,11 @@ Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 
 ## Unreleased
 
+### core: LimitFilter
+Added `Interp.LimitFilter(world) func(line, attrs string) bool`: a goroutine-safe
+snapshot of a world's /limit filter (nil when none), so a client can filter its
+scrollback without calling into the interpreter from another goroutine.
+
 ## v0.0.5 (2026-11-14) — faithful triggers, hooks, macros and attributes
 
 ### core: trigger, hook, macro and attribute machinery rewritten after tf's macro.c

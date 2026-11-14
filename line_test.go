@@ -101,3 +101,27 @@ func TestFireHookReturnsWhatRan(t *testing.T) {
 		t.Fatalf("%v", f)
 	}
 }
+
+type limHost struct{ tHost }
+
+func (limHost) Redraw(string) int { return 1 }
+
+func TestLimitFilterSnapshot(t *testing.T) {
+	in := New(&limHost{})
+	if in.LimitFilter("w") != nil {
+		t.Fatal("no limit yet")
+	}
+	in.SetWorld("w")
+	in.ExecFull("/limit -mglob foo*")
+	f := in.LimitFilter("w")
+	if f == nil || f("foo bar", "") || !f("bar", "") {
+		t.Fatalf("filter wrong")
+	}
+	in.ExecFull("/unlimit")
+	if f("foo bar", "") || !f("bar", "") {
+		t.Fatal("a snapshot must not change under later /unlimit")
+	}
+	if in.LimitFilter("w") != nil {
+		t.Fatal("unlimit")
+	}
+}
