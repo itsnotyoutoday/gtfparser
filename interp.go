@@ -68,6 +68,8 @@ type Interp struct {
 	instr       int64
 	nest        int
 	exported    map[string]bool
+	cmdSpecs    map[string]CommandSpec
+	funcSpecs   map[string]FuncSpec
 	// Policy, if set, can veto privileged operations on top of /restrict.
 	Policy Policy
 	// Now replaces the clock (tests); nil means time.Now.

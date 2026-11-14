@@ -11,6 +11,15 @@ Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 
 ## Unreleased
 
+Added
+- `Extension`, `CommandSpec`, `FuncSpec` and `Interp.Load`: declare commands,
+  functions, variables and disabled builtins as tables and load them in one
+  validated call (argument-count checks, privilege checks via `Needs`, usage/help
+  kept for generated help). `Interp.CommandSpecs` / `FuncSpecs` list them.
+- Exported `Interp.Echo`, `Warnf`, `Send`, `Allow`, so command and function
+  implementations outside the package can print, warn, send and check
+  privileges.
+
 ## v0.0.1 (2026-11-14) — first extraction
 
 The engine split out of the gtf client repo: interpreter, PCRE2-compatible
