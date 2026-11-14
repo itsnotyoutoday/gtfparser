@@ -72,6 +72,7 @@ type Interp struct {
 	asFuncCmd   int    // >0 while a builtin command runs as a function
 	exitReq     bool   // /exit ran: the enclosing /load stops (see LoadFile)
 	curCmd      string // name of the running macro, builtin command or function (diagnostics)
+	quietLoad   int    // depth of /load -q (suppresses 'Loading commands from')
 	loadName    string // file being loaded, and the lines of the logical line being run
 	loadStart   int
 	loadLine    int

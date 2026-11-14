@@ -260,26 +260,46 @@ func cmdLoad(in *Interp, args string) Value {
 	for strings.HasPrefix(args, "-") {
 		var w string
 		w, args = firstWord(args)
-		if strings.Contains(w, "q") {
+		for _, c := range w[1:] {
+			if c != 'q' {
+				return Int(0)
+			}
 			quiet = true
 		}
 	}
-	name, _ := firstWord(args)
+	name := strings.TrimSpace(args)
 	if !in.allow(OpFileRead, "/load", name) {
 		return Int(0)
 	}
-	p, ok := in.findFile(name)
-	if !ok {
-		if !quiet {
-			in.warn("/load: %s: %s", name, cErr(syscall.ENOENT))
-		}
+	if name == "" {
+		in.warn("/load: missing filename")
 		return Int(0)
 	}
+	if quiet {
+		in.quietLoad++
+		defer func() { in.quietLoad-- }()
+	}
+	p, ok := in.findFile(name)
+	if !ok {
+		in.loadFail(name, cErr(syscall.ENOENT))
+		return Int(0)
+	}
+	in.FireHookEvent(HookEvent{Name: "LOAD", Args: []string{p}, NoMessage: in.quietLoad > 0})
 	if err := in.LoadFile(p); err != nil {
-		in.warn("/load: %s: %s", name, cErr(err))
+		in.loadFail(name, cErr(err))
 		return Int(0)
 	}
 	return Int(1)
+}
+
+// loadFail reports a failed /load through the LOADFAIL hook, as tf does (the
+// default message is an error line; a gagging hook, such as the one stdlib.tf
+// installs around its optional local.tf, silences it).
+func (in *Interp) loadFail(name, reason string) {
+	old := in.curCmd
+	in.curCmd = "LOAD"
+	defer func() { in.curCmd = old }()
+	in.FireHookArgs("LOADFAIL", name, reason)
 }
 
 func cmdRequire(in *Interp, args string) Value {
@@ -287,7 +307,7 @@ func cmdRequire(in *Interp, args string) Value {
 	if in.loaded[name] {
 		return Int(1)
 	}
-	return cmdLoad(in, name)
+	return cmdLoad(in, "-q "+name)
 }
 
 func cmdLoaded(in *Interp, args string) Value {
