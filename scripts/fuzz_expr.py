@@ -6,7 +6,7 @@ Each expression is run as `/test E(expr)` with a reset of the variables first; a
 line before each makes "no output" (an error) detectable.  Divergent expressions are
 shrunk (subtree replacement, batched) and grouped by category.
 """
-import argparse, os, random, sys, collections, zlib
+import argparse, os, random, sys, collections, zlib, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fuzz_common as C
 
@@ -285,8 +285,9 @@ def main():
     ap.add_argument('--depth', type=int, default=4)
     ap.add_argument('--noise', type=float, default=0.05)
     ap.add_argument('--no-shrink', action='store_true')
+    ap.add_argument('--budget', type=int, default=240, help='seconds allowed for shrinking')
     ap.add_argument('--gtf')
-    ap.add_argument('--timeout', type=int, default=30)
+    ap.add_argument('--timeout', type=int, default=4)
     ap.add_argument('--max-report', type=int, default=60)
     a = ap.parse_args()
     if a.gtf: C.GTF = a.gtf
@@ -325,7 +326,9 @@ def main():
         cur = [r[1][0] for r in reps]
         curtext = [r[1][1] for r in reps]
         curres = [(r[1][2], r[1][3]) for r in reps]
+        t0 = time.time()
         for rnd in range(8):
+            if time.time() - t0 > a.budget: print('(shrink budget exhausted)'); break
             cand = []  # (rep index, tree)
             for i, t in enumerate(cur):
                 if t is None: continue

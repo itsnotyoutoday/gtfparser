@@ -113,10 +113,18 @@ def run_items(items, which, timeout=20):
     return run_items(items[:h], which, timeout) + run_items(items[h:], which, timeout)
 
 
+def _par(items, which, timeout, chunk=6, workers=10):
+    from concurrent.futures import ThreadPoolExecutor
+    chunks = [items[i:i + chunk] for i in range(0, len(items), chunk)]
+    with ThreadPoolExecutor(workers) as ex:
+        res = list(ex.map(lambda c: run_items(c, which, timeout), chunks))
+    return [r for c in res for r in c]
+
+
 def compare(items, timeout=20):
-    """-> list of (index, tf_result, gtf_result) for diverging items."""
-    a = run_items(items, 'tf', timeout)
-    b = run_items(items, 'gtf', timeout)
+    """-> (list of (index, tf_result, gtf_result) for diverging items, tf results, gtf results)"""
+    a = _par(items, 'tf', timeout)
+    b = _par(items, 'gtf', timeout)
     return [(i, a[i], b[i]) for i in range(len(items)) if a[i] != b[i]], a, b
 
 

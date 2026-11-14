@@ -1,0 +1,8 @@
+/test input("abc def ghi")
+/test kbgoto(0)
+/test E(kb_nth_word(1))
+/test E(kb_nth_word(2))
+/test E(kb_nth_word(-1))
+/test kbgoto(4)
+/test kbdel(kb_nth_word(1))
+/test E(strcat(kbhead(), "|", kbtail()))

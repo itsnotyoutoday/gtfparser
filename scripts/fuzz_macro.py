@@ -9,15 +9,15 @@ dynamic scoping), sets some globals, then invokes m1 several ways: `/m1 args`, a
 and the values) goes to the capture file.  Failing programs are shrunk statement by statement
 and grouped by the set of constructs they use.
 """
-import argparse, os, random, sys, collections
+import argparse, os, random, sys, collections, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fuzz_common as C
 
-WORDS = ['foo', 'bar', 'a b', 'x', 'Q', '12', '3.5', '"q r"', "it's", '(', ')', '*', '#', ';', 'a;b', '-n', '=', '\\', 'ü', '[1]', '{', '}']
+WORDS = ['foo', 'bar', 'a b', 'x', 'Q', '12', '3.5', '"q r"', "it's", '(', ')', '*', '#', ';', 'a;b', '-n', '=', 'ü', '[1]', '{', '}']
 SUBST = ['%1', '%2', '%3', '%{1}', '%{2}', '%{3}', '%*', '%{*}', '%{#}', '%#', '%-1', '%{-1}', '%{-2}', '%{-3}', '%L', '%{L}',
          '%{L1}', '%{L2}', '%{-L1}', '%{-L}', '%{1-dflt}', '%{3-d f}', '%{nosuch-fb}', '%{v}', '%v', '%{w-W}', '%a', '%{a}', '%{i}',
          '%%', '%%1', '$$', '$${v}', '\\\\', '\\n', '\\t', '\\101', '\\$', '\\%', '$[1+2]', '$[{1}]', '$[strlen({*})]',
-         '$[{#} > 1 ? "many" : "few"]', '$[a]', '$[v . 1]', '$[strcat(v, {1})]', '$(/m2 %1)', '$(/m2 %*)', '$(/first %*)', '$(/rest %*)',
+         '$[{#} > 1 ? "many" : "few"]', '$[a]', '$[strcat(v, 1)]', '$[strcat(v, {1})]', '$(/m2 %1)', '$(/m2 %*)', '$(/first %*)', '$(/rest %*)',
          '$(/last %*)', '$(/nth 2 %*)', '$(/car %*)', '$(/length %*)', '${v}', '${w}', '%?', '%0', '%{0}', '%P1', '%{P1}', '%PL', '%PR', '%P0',
          '%{PL}', '%%{x}', '%{1}%{2}', '%1%2', '%1x', '%{1}x', '%1-%2']
 CONDS = ['{1} == "a"', '{#} > 1', '{#}', '!{#}', 'v =~ "x"', 'v !~ ""', 'a', 'i < 3', 'strlen({*}) > 2', '{1} =/ "a*"', 'regmatch("a(.)", {*})',
@@ -25,13 +25,20 @@ CONDS = ['{1} == "a"', '{#} > 1', '{#}', '!{#}', 'v =~ "x"', 'v !~ ""', 'a', 'i 
 ARGS = ['', 'a', 'a b c', '"q r" s', "'x y' z", '1 2 3', 'a  b', '-x foo', '%1 %2', '$[1+1] $(/echo hi)', 'foo;bar', '  lead trail  ', '3', '0', 'a "b c" d',
         '\\n \\\\ x', '{1} {*}', '100 200', 'foo bar baz qux', '(x)', 'a=b', '5 apples', 'x*y']
 FNARGS = ['', '"a"', '"a b", 2', '1, 2, 3', '"x", "", "z"', 'v, a', '"%1", "$$"', '3', '"a", "b", "c", "d"', '"", ""']
-EXPRS = ['{1}', '{#}', '{1} + 1', 'strcat({1}, {2})', 'v', 'a + 1', '{*}', '"s" . 1', 'strlen({*})', '{L}', '{-1}', 'a ? "y" : "n"', '0', '1', '$[1]', '{1} * 2', '{#} - 1']
+EXPRS = ['{1}', '{#}', '{1} + 1', 'strcat({1}, {2})', 'v', 'a + 1', '{*}', 'strcat("s", 1)', 'strlen({*})', '{L}', '{-1}', 'a ? "y" : "n"', '0', '1', '$[1]', '{1} * 2', '{#} - 1']
+
+
+LV = [0]
+
+
+IN_M2 = [False]
 
 
 def rt(rng, n=None):
-    """text = list of tokens"""
+    """text = list of tokens (m2 must not call itself: no recursion)"""
     n = n if n is not None else rng.randint(1, 4)
-    return [rng.choice(SUBST) if rng.random() < .55 else rng.choice(WORDS) for _ in range(n)]
+    subst = [x for x in SUBST if '/m2' not in x] if IN_M2[0] else SUBST
+    return [rng.choice(subst) if rng.random() < .55 else rng.choice(WORDS) for _ in range(n)]
 
 
 def rtext(t): return ' '.join(t)
@@ -44,7 +51,7 @@ def stmt(rng, d, inloop=False, depth_calls=True):
     if r < .35: return ('set', rng.choice(['v', 'w', 'g']), rt(rng, rng.randint(1, 2)))
     if r < .40: return ('test', rng.choice(['a := {1}', '++a', 'v := strcat(v, {1})', 'i := {#}', 'a += 2', 'echo(strcat("t:", {*}))',
                                               'regmatch("(a)(.)", {*})', 'regmatch("(.)", {1}), echo({P0}, {P1})', 'a := regmatch("o+", {*}) ? {PL} : "none"', '--i']))
-    if r < .43: return ('result', rng.choice(['return', 'result']), rng.choice(EXPRS + ['', 'v . "x"']))
+    if r < .43: return ('result', rng.choice(['return', 'result']), rng.choice(EXPRS + ['', 'strcat(v, "x")']))
     if r < .48: return ('shift', rng.choice(['', '', '1', '2', '0', '3']))
     if r < .53: return ('eval', rt(rng, rng.randint(1, 3)), rng.choice(['/echo', '/echo', '/let a=', '/shift', '/test']))
     if r < .62 and depth_calls: return ('call', rng.choice(['/m2', '/m2', '/first', '/rest', '/last']), rt(rng, rng.randint(0, 3)))
@@ -59,10 +66,12 @@ def stmt(rng, d, inloop=False, depth_calls=True):
             e.append(('else', None, [stmt(rng, d - 1, inloop) for _ in range(rng.randint(1, 2))]))
         return ('ifchain', e)
     if r < .85:
-        return ('iflist', rng.choice(['/@test {1} > 0', '/@test {#}', '/test a', '/@test v =~ "x"', '/m2 %1', '/@test regmatch("a", {*})']), [stmt(rng, d - 1, inloop) for _ in range(rng.randint(1, 2))],
+        return ('iflist', rng.choice(['/@test {1} > 0', '/@test {#}', '/test a', '/@test v =~ "x"', '/@test 1', '/@test regmatch("a", {*})']), [stmt(rng, d - 1, inloop) for _ in range(rng.randint(1, 2))],
                 [stmt(rng, d - 1, inloop) for _ in range(rng.randint(0, 1))])
     if r < .92:
-        return ('while', rng.choice(['i < 3', 'i < 2', '({#} > 0) & (i < 3)', 'shift(), {#}', 'a < 3']), [stmt(rng, d - 1, True) for _ in range(rng.randint(1, 2))], rng.random() < .3)
+        LV[0] += 1
+        v = 'n%d' % LV[0]
+        return ('while', rng.choice(['@ < 3', '@ < 2', '({#} > 0) & (@ < 3)', 'shift(), {#}', '@ <= 1 & {#}']), [stmt(rng, d - 1, True) for _ in range(rng.randint(1, 2))], rng.random() < .3, v)
     if r < .96:
         return ('for', rng.choice(['k', 'i']), rng.choice(['1', '0']), rng.choice(['2', '3', '{#}']), rt(rng, 1))
     if inloop: return ('break', rng.choice(CONDS))
@@ -97,8 +106,8 @@ def render_stmt(s):
         if s[3]: out += '%%;/else %s' % render_stmts(s[3])
         return out + '%;/endif'
     if k == 'while':
-        c = s[1]
-        v = 'a' if c.startswith('a <') else 'i'
+        c = s[1].replace('@', s[4])
+        v = s[4]
         pre = '' if 'shift' in c else '/let %s=0%%;' % v
         inc = '' if 'shift' in c else '%%;/test ++%s' % v
         return '%s/while (%s) %s%s%%;/done' % (pre, c, render_stmts(s[2]), inc)
@@ -114,7 +123,9 @@ def gen_prog(rng):
     p = {}
     p['globals'] = [('v', rng.choice(['x', 'hello', '', 'a b', '3'])), ('w', rng.choice(['W', '', 'w w'])), ('g', rng.choice(['G', '7']))]
     p['m1'] = [stmt(rng, rng.randint(1, 3)) for _ in range(rng.randint(1, 5))]
+    IN_M2[0] = True
     p['m2'] = [stmt(rng, 1, depth_calls=False) for _ in range(rng.randint(1, 3))]
+    IN_M2[0] = False
     calls = []
     for _ in range(rng.randint(1, 3)):
         r = rng.random()
@@ -182,7 +193,7 @@ def shrink_stmt(s):
         if s[3]: out.append(('iflist', s[1], s[2], []))
     elif k == 'while':
         for b in shrink_list(s[2]):
-            if b: out.append(('while', s[1], b, s[3]))
+            if b: out.append(('while', s[1], b, s[3], s[4]))
     return out
 
 
@@ -228,8 +239,9 @@ def main():
     ap.add_argument('--count', type=int, default=300)
     ap.add_argument('--batch', type=int, default=60)
     ap.add_argument('--no-shrink', action='store_true')
+    ap.add_argument('--budget', type=int, default=240, help='seconds allowed for shrinking')
     ap.add_argument('--gtf')
-    ap.add_argument('--timeout', type=int, default=30)
+    ap.add_argument('--timeout', type=int, default=4)
     ap.add_argument('--max-report', type=int, default=40)
     a = ap.parse_args()
     if a.gtf: C.GTF = a.gtf
@@ -244,12 +256,14 @@ def main():
     cur = [list(x) for x in div]
     if not a.no_shrink and cur:
         # shrink each divergence independently but batched; keep the divergence 'kind'
+        t0 = time.time()
         for rnd in range(25):
+            if time.time() - t0 > a.budget: print('(shrink budget exhausted)'); break
             cand = []
             for i, (p, ta, gb) in enumerate(cur):
                 ss = [s for s in shrink_prog(p) if psize(s) < psize(p)]
                 ss.sort(key=psize)
-                for s in ss[:45]: cand.append((i, s))
+                for s in ss[:25]: cand.append((i, s))
             if not cand: break
             d, ra, rb = C.compare([render_prog(s) for _, s in cand], a.timeout)
             dset = {i for i, _, _ in d}

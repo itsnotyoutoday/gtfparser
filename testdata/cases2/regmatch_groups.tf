@@ -1,0 +1,13 @@
+/def mkfile2 = /test h := tfopen("/tmp/gtf_c2_g.txt", "w")%; /test tfwrite(h, "apple pie")%; /test tfwrite(h, "banana split")%; /test tfwrite(h, "Apple tart")%; /test tfwrite(h, "cherry")%; /test tfclose(h)
+/mkfile2
+/test E(strstr("apple pie", "pie"))
+/test E("banana split" =/ "*split")
+/test E(regmatch("^a.*e$", "apple pie"))
+/test E(regmatch("(?i)apple", "Apple tart"))
+/test E(regmatch("^Apple", "apple"))
+/test E(regmatch("an", "banana"))
+/test E(strcat({PL}, "|", {P0}, "|", {PR}))
+/test regmatch("b(an)+", "xbananay")
+/test E(strcat({PL}, "|", {P0}, "|", {P1}, "|", {PR}))
+/test regmatch("(a)|(b)", "b")
+/test E(strcat("[", {P1}, "][", {P2}, "]"))

@@ -1,0 +1,37 @@
+; character (not byte) semantics of string functions in a UTF-8 build.
+; Kept apart from the other cases because real tf emits invalid UTF-8 for some of these.
+/test E(strlen("日本語"))
+/test E(strlen("café"))
+/test E(substr("日本語", 1, 1))
+/test E(substr("café", 3))
+/test E(strchr("日本語", "本"))
+/test E(strrchr("日本日", "日"))
+/test E(strstr("日本語", "語"))
+/test E(strstr("café", "é"))
+/test E(pad("日", 3))
+/test E(pad("é", -3))
+/test E(strrep("é", 3))
+/test E(replace("é", "e", "café"))
+/test E(regmatch("é", "café"))
+/test E(regmatch("^.{4}$", "café"))
+/test E(regmatch("^.{5}$", "café"))
+/test E(regmatch("[é]", "café"))
+/test E(strcat({PL}, "|", {P0}, "|", {PR}))
+/test E(ascii("é"))
+/test E(ascii("日"))
+/test E(char(233))
+/test E(char(26085))
+/test E(char(65))
+/test E(char(256))
+/test E(toupper("café"))
+/test E(tolower("CAFÉ"))
+/test E("é" =~ "é")
+/test E("é" =/ "?")
+/test E("日本語" =/ "日*")
+/test E("日本語" =/ "???")
+/test E(strncmp("日本", "日本語", 2))
+/test E(strncmp("é", "e", 1))
+/def u1 = /echo %{1} %{#} $[strlen({1})]
+/u1 日本語 é
+/def u2 = /echo $[substr({*}, 1, 2)]
+/u2 αβγδ
