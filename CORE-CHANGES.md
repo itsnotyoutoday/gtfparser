@@ -9,6 +9,49 @@ mid-task.
 Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 `Breaking` (and what a client must do).
 
+## Unreleased — state export (`SaveState` / `LoadState`)
+
+### core: a session can be carried to a fresh Interp
+For clients that re-exec themselves (`/restart`) and keep their sockets open: the new process
+builds a fresh `Interp` (same `Host`, commands, functions, match styles, `LibDirs`), calls
+`LoadState`, and has everything a running session holds, without running `stdlib.tf` or the user's
+`tfrc` again. Full description, section list and the list of what is not carried:
+`docs/state-export.md`.
+
+Added
+- `(*Interp).SaveState(io.Writer) error` and `(*Interp).LoadState(io.Reader) error`; `StateFormat`;
+  the errors `ErrStateTooNew`, `ErrStateCorrupt`, `ErrStateIncompatible` (use `errors.Is`).
+- Encoding: one canonical JSON document, `{"magic","format","minReader","sections":{name:{"v","required","data"}}}`.
+  A reader loads every older version of every section it knows, skips unknown or too-new optional
+  sections, and refuses (`ErrStateTooNew`) a required section or an envelope it cannot read.
+  Deterministic: save, load, save returns the same bytes. Sections: interp, globals, locals,
+  macros, worlds, history, procs, streams, terminal, limit, watch, mail (all version 1).
+- `LoadState` decodes and validates everything before it changes anything: on any error the
+  Interp is untouched. On a used Interp it replaces what the state covers; it never lowers
+  `/restrict`. Processes (`/repeat`, `/quote`) are re-armed relative to the Interp's clock with
+  their remaining times and numbers, so a Runner (which looks at `NextDue` after every call) or a
+  client driving `RunDue` just continues.
+- Carried: variables with their types and export flags (including every special variable),
+  top-level `/let` variables, macros with exact numbers, flags, shots, used counters, patterns
+  (recompiled), hooks, key bindings, the order of trigger and hook lists, the next macro number and
+  which library macros run their Go ports, the world database with the current world and
+  per-world histories, the input/local/global histories and the editor's input history, processes,
+  queue and file streams (reopened), logs (reopened for append), `/limit`, status fields,
+  prompts, the keyboard line and cursor, `/watchdog` settings, `nmail()` state, `%?`.
+- Not carried (the client's or impossible; see the doc): sockets, the macro stack, pipe streams,
+  the random generator, output-window (`SetMoreState`) state, client registrations.
+- Anything typed with echo off is never saved: the keyboard line is dropped when the foreground
+  world is in no-echo mode, and input-history lines recorded with the `g` attribute are saved blank.
+  World passwords are saved in clear text, as `/saveworld` writes them: protect the file (0600)
+  and delete it.
+
+Changed
+- `/limit` remembers the match style of its pattern (internal; the output is unchanged).
+
+Client: call `LoadState` after `New`, after registering commands, functions and match styles, and
+before the first command; then `SetCurrentWorld` and the other things the client owns, and start
+the Runner. Do not call `SaveState` while a command other than the one asking for the restart runs.
+
 ## v0.0.8 (2026-11-14) — stdlib.tf's library commands move into the engine
 
 ### core: 73 library commands are native
