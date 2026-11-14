@@ -9,6 +9,15 @@ mid-task.
 Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 `Breaking` (and what a client must do).
 
+## Unreleased
+
+### core: optional hook events SQUAT_CONNECT, SQUAT_DISCONNECT, SQUAT_PAIR
+Three optional hook events (like GMCP and MSDP: `/def -h<event>` is refused until the client calls
+`EnableHookEvents`) for a client that serves remote peers. Args: `device role`. Added
+- `hookTable` entries (alphabetical, after SIGUSR2), documented in `docs/engine/hooks.md`,
+- `TestSquatHooksOptional` (refused until enabled, then fire and run the macro).
+No behaviour changes for clients that do not enable them; `/list -h` and `/hook` listings do not show optional events.
+
 ## v0.0.8 (2026-11-14) — stdlib.tf's library commands move into the engine
 
 ### core: 73 library commands are native
