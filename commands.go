@@ -41,22 +41,29 @@ func init() {
 }
 
 func cmdEcho(in *Interp, args string) Value {
+	var o EchoOpts
+loop:
 	for {
 		w, r := firstWord(args)
 		switch {
-		case w == "-e" || w == "-p" || w == "-r" || w == "-n":
+		case w == "-e" || w == "-r" || w == "-n":
 			args = r
-			continue
+		case w == "-p":
+			o.Markup = true
+			args = r
 		case w == "-w":
-			_, args = firstWord(r)
-			continue
-		case strings.HasPrefix(w, "-a") && len(w) > 2 || strings.HasPrefix(w, "-w") && len(w) > 2:
+			o.World, args = firstWord(r)
+		case strings.HasPrefix(w, "-a") && len(w) > 2:
+			o.Attrs = w[2:]
 			args = r
-			continue
+		case strings.HasPrefix(w, "-w") && len(w) > 2:
+			o.World = w[2:]
+			args = r
+		default:
+			break loop
 		}
-		break
 	}
-	in.echo(args)
+	in.echoOpts(o, args)
 	return Int(1)
 }
 

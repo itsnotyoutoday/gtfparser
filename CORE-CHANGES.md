@@ -11,6 +11,36 @@ Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 
 ## Unreleased
 
+## v0.0.4 (2026-11-14) — what SquatClient needed
+
+### core: line results and world context
+Added `Interp.Process(line, live) LineResult` (matching macros with the byte
+range of each match and of its regexp groups; `live=false` runs no body and
+consumes no shot, for recomputing display effects of replayed history),
+`Interp.SetWorld` (the world the interpreter is acting for, read back with `CurrentWorld()`; `SetWorld` is `SetCurrentWorld`; macros and
+hooks defined with `-w` fire only for it; "" = any). `ProcessLine` is now
+`Process(line, true).Gag`. The engine still does not interpret `-a`
+attributes: `Match.Macro.Attrs` is handed to the client.
+
+### core: /echo options reach the host
+Added optional `EchoHost` (`EchoTo(EchoOpts{World, Attrs, Markup}, text)`).
+`/echo -w<world> -a<attrs> -p` call it when the host implements it; every
+other host (and captured/piped output) just gets `Echo(text)` as before.
+
+### core: UndefID
+Added `Interp.UndefID(id)`: remove a macro by its /list number (reaches
+unnamed macros, which `Undef(name)` cannot). Lets a client implement `/undefn`.
+
+### core: hook bodies expand when the hook fires inside a typed line
+Fixed: `Hook` ran bodies with substitution off when called while a typed line
+(which `Exec` leaves unexpanded) was executing, so a SEND hook saw a literal
+`%*`. Hooks now always expand their body, like triggers.
+
+### core: FireHook returns the macros that ran
+Added `Interp.FireHook(event, args) []*Macro` (`Hook` is now a wrapper). A
+client uses it to honour a gag attribute on a SEND hook (real tf then does not
+send the text; lib/tf/alias.tf relies on it).
+
 ## v0.0.3 (2026-11-14) — history, worlds, logging and other state builtins
 
 State that needs no terminal now lives in core (docs in `docs/engine/state-builtins.md`)

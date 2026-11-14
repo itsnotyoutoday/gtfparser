@@ -236,9 +236,18 @@ func (m *Macro) matches(line string) (ok bool, regs []string, left, right string
 // ProcessLine runs the triggers matching a line received from a world. It
 // reports whether the line was gagged.
 func (in *Interp) ProcessLine(line string) (gag bool) {
+	return in.Process(line, true).Gag
+}
+
+// Process runs the trigger stage over one received line and reports what
+// matched (see LineResult). With live false it only matches: no macro body
+// runs and no shot is consumed, so a client can recompute the display effects
+// of replayed history without side effects.
+func (in *Interp) Process(line string, live bool) LineResult {
+	var res LineResult
 	var hits []*Macro
 	for _, m := range in.list {
-		if m.Trigger == "" {
+		if m.Trigger == "" || !in.worldOK(m) {
 			continue
 		}
 		if m.Cond != "" && !in.condition(m.Cond) {
@@ -261,21 +270,24 @@ func (in *Interp) ProcessLine(line string) (gag bool) {
 			first, topPri = false, m.Priority
 		}
 		if m.Gag {
-			gag = true
+			res.Gag = true
 		}
-		in.runTrigger(m, line, regs, l, r)
-		if m.Shots > 0 {
-			m.Shots--
-			if m.Shots == 0 {
-				in.Undef(m.Name)
-				in.removeFromList(m)
+		res.Matches = append(res.Matches, in.matchOf(m, line))
+		if live {
+			in.runTrigger(m, line, regs, l, r)
+			if m.Shots > 0 {
+				m.Shots--
+				if m.Shots == 0 {
+					in.Undef(m.Name)
+					in.removeFromList(m)
+				}
 			}
 		}
 		if !m.Fall {
 			break
 		}
 	}
-	return gag
+	return res
 }
 
 func (in *Interp) runTrigger(m *Macro, line string, regs []string, l, r string) {
@@ -294,9 +306,14 @@ func (in *Interp) runTrigger(m *Macro, line string, regs []string, l, r string) 
 }
 
 // Hook fires macros hooked on an event.
-func (in *Interp) Hook(event, args string) {
+func (in *Interp) Hook(event, args string) { in.FireHook(event, args) }
+
+// FireHook fires the macros hooked on an event and returns the ones that ran
+// (so a client can act on, say, a gag attribute on a SEND hook: real tf then
+// does not send the text).
+func (in *Interp) FireHook(event, args string) (fired []*Macro) {
 	for _, m := range append([]*Macro(nil), in.list...) {
-		if m.Hook == "" {
+		if m.Hook == "" || !in.worldOK(m) {
 			continue
 		}
 		ev, pat := firstWord(m.Hook)
@@ -309,13 +326,18 @@ func (in *Interp) Hook(event, args string) {
 		if !match || (pat != "" && !globMatch(pat, args)) {
 			continue
 		}
+		fired = append(fired, m)
 		in.depth++
 		in.pushFrame(m.Name, args)
+		oldExp := in.noExp
+		in.noExp = false // a hook fired from a typed line (which is unexpanded) still expands its body
 		in.execText(m.Body)
+		in.noExp = oldExp
 		in.ctl = ctlNone
 		in.popFrame()
 		in.depth--
 	}
+	return fired
 }
 
 func qesc(s string) string {

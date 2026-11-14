@@ -70,6 +70,7 @@ type Interp struct {
 	exported    map[string]bool
 	cmdSpecs    map[string]CommandSpec
 	funcSpecs   map[string]FuncSpec
+	world       string // see SetWorld
 	// Policy, if set, can veto privileged operations on top of /restrict.
 	Policy Policy
 	// Now replaces the clock (tests); nil means time.Now.
@@ -1077,6 +1078,25 @@ func (in *Interp) echo(text string) {
 		if f.noOut {
 			return
 		}
+	}
+	in.Host.Echo(text)
+}
+
+// echoOpts is echo with /echo's options: a host that implements EchoHost
+// receives them; any other host just gets the text.
+func (in *Interp) echoOpts(o EchoOpts, text string) {
+	if o == (EchoOpts{}) {
+		in.echo(text)
+		return
+	}
+	for f := in.fr; f != nil; f = f.parent {
+		if f.noOut {
+			return
+		}
+	}
+	if h, ok := in.Host.(EchoHost); ok {
+		h.EchoTo(o, text)
+		return
 	}
 	in.Host.Echo(text)
 }
