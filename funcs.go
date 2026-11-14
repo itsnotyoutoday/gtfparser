@@ -106,7 +106,8 @@ func minmax(a []Value, max bool) (Value, error) {
 func fnRegmatch(in *Interp, a []Value) (Value, error) {
 	re, err := compileRegexp(str(a, 0))
 	if err != nil {
-		return Int(0), err
+		in.warn("regmatch: %v", err)
+		return Int(0), nil
 	}
 	s := str(a, 1)
 	loc := re.match(s, 0)
@@ -122,7 +123,11 @@ func fnRegmatch(in *Interp, a []Value) (Value, error) {
 		}
 	}
 	in.fr.regs, in.fr.pl, in.fr.pr = regs, s[:loc[0]], s[loc[1]:]
-	return Int(int64(len(regs))), nil
+	n := len(regs)
+	for n > 1 && loc[2*(n-1)] < 0 { // trailing groups that did not take part are not counted
+		n--
+	}
+	return Int(int64(n)), nil
 }
 
 func log10(x float64) float64 { return math.Log10(x) }

@@ -142,7 +142,7 @@ func (p *exprParser) parseTernary() (eval, error) {
 	p.take("?")
 	var a eval
 	if !p.peek(":") || p.peek(":=") {
-		a, err = p.parseAssign()
+		a, err = p.parseComma()
 		if err != nil {
 			return nil, err
 		}
@@ -150,7 +150,7 @@ func (p *exprParser) parseTernary() (eval, error) {
 	if !p.take(":") {
 		return nil, errors.New("expression: expected ':' in conditional")
 	}
-	b, err := p.parseAssign()
+	b, err := p.parseTernary()
 	if err != nil {
 		return nil, err
 	}

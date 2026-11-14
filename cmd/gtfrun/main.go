@@ -16,7 +16,7 @@ import (
 type stdHost struct{ w *bufio.Writer }
 
 func (h *stdHost) Echo(s string)         { fmt.Fprintln(h.w, s) }
-func (h *stdHost) Send(w, s string) bool { fmt.Fprintln(h.w, "[send] "+s); return true }
+func (h *stdHost) Send(w, s string) bool { fmt.Fprintln(h.w, "[send] "+s); return false }
 
 func main() {
 	file := flag.String("f", "", "script file to load")

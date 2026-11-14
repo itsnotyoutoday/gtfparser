@@ -120,7 +120,8 @@ func cmdSet(in *Interp, args string) Value {
 		}
 		return Bool(ok)
 	}
-	return Bool(in.setGlobal(name, Str(val)))
+	in.setGlobal(name, Str(val))
+	return Str("")
 }
 
 func cmdLet(in *Interp, args string) Value {
@@ -129,7 +130,7 @@ func cmdLet(in *Interp, args string) Value {
 		return Int(0)
 	}
 	in.fr.vars[name] = Str(val)
-	return Int(1)
+	return Str("")
 }
 
 func cmdUnset(in *Interp, args string) Value {
@@ -148,7 +149,7 @@ func cmdTest(in *Interp, args string) Value {
 }
 
 func cmdReturn(in *Interp, args string) Value {
-	in.retv = Str("")
+	in.retv = Int(0)
 	if strings.TrimSpace(args) != "" {
 		v, err := in.evalExpr(args)
 		if err != nil {

@@ -1083,6 +1083,10 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 	if in.ctl != ctlExit {
 		in.ctl = ctlNone
 	}
+	// regmatch() captures are global in tf: a macro's %P1... outlive it
+	if f.regs != nil && f.parent != nil {
+		f.parent.regs, f.parent.pl, f.parent.pr = f.regs, f.pl, f.pr
+	}
 	in.popFrame()
 	in.depth--
 	return res
