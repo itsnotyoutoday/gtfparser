@@ -1250,7 +1250,7 @@ func cmdSave(in *Interp, args string) Value {
 	}
 	path, err := in.writeLines(name, lines, app)
 	if err != nil {
-		in.warn("%s: %v", name, err)
+		in.warn("%s: %s", name, cErr(err))
 		return Int(0)
 	}
 	in.echo("% " + verb + " macros to " + path)
