@@ -25,16 +25,19 @@ func (in *Interp) initRegistry() {
 		in.funcs[k] = v
 	}
 	in.disabled = map[string]bool{}
+	in.placeholders = nil
 	// every builtin real tf has but this package lacks fails loudly
 	for _, n := range tfCommands {
 		if _, ok := in.cmds[n]; !ok {
 			name := n
+			in.placeholders = append(in.placeholders, "/"+n)
 			in.cmds[n] = func(in *Interp, args string) Value { return in.unsupported("/" + name) }
 		}
 	}
 	for _, n := range tfFunctions {
 		if _, ok := in.funcs[n]; !ok {
 			name := n
+			in.placeholders = append(in.placeholders, n+"()")
 			in.funcs[n] = func(in *Interp, a []Value) (Value, error) {
 				in.unsupported(name + "()")
 				return Int(0), nil
@@ -84,4 +87,13 @@ func (in *Interp) Function(name string) (FuncFunc, bool) {
 func (in *Interp) unsupported(what string) Value {
 	in.warn("%s: not supported by this client", what)
 	return Int(0)
+}
+
+// Placeholders lists the builtins real tf has that this interpreter only stubs
+// out ("/name" for commands, "name()" for functions): running one warns
+// "not supported by this client". A name leaves the list when the package
+// implements it. RegisterCommand/RegisterFunction do not change the list, so
+// it describes the engine's own coverage, not a particular embedding.
+func (in *Interp) Placeholders() []string {
+	return append([]string(nil), in.placeholders...)
 }

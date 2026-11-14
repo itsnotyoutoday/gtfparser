@@ -233,6 +233,8 @@ reports optional features off unless the client calls `SetFeature`.
 ## v0.0.2 (2026-11-14) — extension tables, parsed handlers, terminal builtins
 
 Added
+- `Interp.Placeholders()` lists the builtins real tf has that the engine only stubs
+  ("/name" / "name()"), so documentation and status tooling can be generated from the code.
 - `Extension`, `CommandSpec`, `FuncSpec` and `Interp.Load`: declare commands,
   functions, variables and disabled builtins as tables and load them in one
   validated call (argument-count checks, privilege checks via `Needs`, usage/help
