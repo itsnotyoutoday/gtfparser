@@ -214,6 +214,9 @@ noreturn returned [1]
 r0 returned []
 ```
 
+(The reference client returns `0` for a bare `/return`; see
+[FINDINGS](FINDINGS.md).)
+
 ## `/eval`
 
 `/eval text` runs `text` as a macro body: full substitution, in a new scope,
