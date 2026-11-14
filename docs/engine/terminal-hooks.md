@@ -72,14 +72,14 @@ and `TestTerminalStateIsCollected`.
 
 ## 3. Things in other files that interact with this work
 
-* `macro.go`: `/def -B name` is recorded in `Macro.set['B']` and honoured by
+* `macro.go`: `/def -B name` is recorded in `Macro.Keyname` and honoured by
   `Bindings()`; nothing else is needed. tf refuses `/bind` of a sequence that
   is a prefix of (or prefixed by) an existing binding ("is prefixed by an
   existing keybinding"); `cmdBind`/`Define` do not, and `KeyPressed` copes by
   preferring the longest match.
-* `macro.go`: `Macro.Gag` is never set (`/def -ag` does not gag), so a trigger
-  cannot gag a line passed through `fake_recv()` or `ProcessLine` yet; the
-  terminal code already honours `ProcessLine`'s return value.
+* `macro.go`: `/def -ag` gags (`Macro.Gag` mirrors the gag attribute), so a
+  trigger can gag a line passed through `fake_recv()` or `ProcessLine`; the
+  terminal code honours `ProcessLine`'s return value.
 * `expr.go`: builtin commands are not callable with function syntax
   (`status_add("...")`, `localecho()`), which tf allows; the differential
   corpora avoid it.

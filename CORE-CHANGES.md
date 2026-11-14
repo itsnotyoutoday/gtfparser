@@ -11,6 +11,81 @@ Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 
 ## Unreleased
 
+### core: trigger, hook, macro and attribute machinery rewritten after tf's macro.c
+The macro database, trigger matcher, hook table and display attributes were
+rewritten to follow tf 5 exactly (priority/fall-through selection, `-c`
+probability, `%max_trig`/`%max_hook`, `-P` partial hilites, `/substitute`,
+`-n` shots, `/list -s -u -S`, `/save`, `/def` option parsing). Docs:
+`docs/engine/triggers-hooks.md`, `docs/engine/hooks.md`. Corpora: `attrs
+defopts hooks hooks2 save shorthand triggers2 triggers3 used`.
+
+Added
+- `LineResult` (what `Process` returns) now also has `Line AttrString` (the
+  line to display: text after `/substitute`, line and per-character attributes),
+  `Original`, `NoLog`, `NoHistory`, `NoActivity`, `Bell`, `Substituted`,
+  `Matched []*Macro`, `Ran []MacroRun`, `Count`, `ShotsUsed`, `Suppressed`;
+  `Matches []Match` and `Gag` keep their meaning. `Match{Macro, Span, Groups}`
+  is unchanged.
+- `Interp.ProcessText(LineInput) *LineResult`: the full interface (incoming
+  attributes, per-line world, `WorldOnly`/`GlobalOnly`, `Dry`). `Process(line,
+  live)` is `ProcessText` for one plain line; `live` false is `Dry`: nothing
+  runs and no shot is consumed, but the selected macros' attributes are applied.
+- `Attr`/`AttrCtx`/`AttrString` (attrs.go): one attribute implementation.
+  `Interp.ParseAttrs`, `ColorName`, `ColorNumber`, `Attr.String()`. Status
+  lines, history/`/recall`/`/recordline`, `/log` and `/def -a` all use it.
+  `Macro.Attr` is the parsed `-a` set; `Macro.Attrs` (text) and `Macro.Gag`
+  remain as read-only mirrors.
+- Match styles are a registry: `RegisterMatchStyle(name, MatchStyle)`, `CompilePattern`;
+  `Macro.Trig`, `HArgs`, `WType` are `*Pattern`.
+- Hook table: `HookEvents()`, `EnableHookEvents`, `FireHookArgs(event, args...)
+  *HookResult`, `FireHookEvent(HookEvent)`, `AddHookFilter`, `HookDisplayHost`
+  (clients place hook messages), default messages for each event.
+  `HookResult{Count, Ran []*Macro, Message, Gag, Class, ...}`. `FireHook(event,
+  args string) []*Macro` is unchanged for callers: it returns the hook macros
+  selected (the ones that ran).
+- `TriggerObserver` (`AddObserver`), `AddPreLineFilter`, `AddPostLineFilter`
+  (veto or adjust a line), `SetRand`, `WorldInfoHost` (world type / existence
+  for `-T` and `-w`), `AttrEchoHost` (attributed `/echo`, `echo()`, hook
+  messages), `Interp.Macros()`, `FindMacro`, `FindBinding`, `ParseMacroSpec`,
+  `RemoveWorldMacros`, `Macro.Used` (`/list -u`).
+- `Define(*Macro)` returns the macro number (0 on failure) and accepts macros
+  described by the text fields (`Trigger`, `Hook`, `Attrs`, `Gag`,
+  `WorldType`) or by the parsed ones.
+- `/trigger`, `/hilite`, `/gag`, `/trigpc`, `/hook`, `/purge`, `/list`,
+  `/undefn` are real implementations; `/def -m` accepts every registered style.
+  Unknown commands and plain-text sends fire the `NOMACRO` and `SEND` hooks.
+
+Changed (now as in tf)
+- Equal-priority non-fall-through macros that match a line: exactly one is
+  chosen at random (`SetRand` makes it deterministic); fall-throughs all run.
+- A negative `-p`, `-c` or `-n` means "not given" (the default applies).
+- Macro names are case-insensitive; `#<number>` names a macro.
+- Redefining a macro identically is a no-op returning the old number; `%redef`
+  off refuses; the REDEF hook fires; a name that is a tf builtin fires CONFLICT.
+- `/edit` reinstalls an edited copy of the macro under the same number and
+  position (a `*Macro` held across an `/edit` is stale).
+- `/echo -a/-p` without an `EchoHost` now renders through `AttrEchoHost` (or
+  prints the text with `@{...}` decoded); an `EchoHost` still gets the raw
+  options. `echo(text, attrs, inline, dest)` handles attributes.
+- Display attributes: `f` and `d` (flash, dim) are accepted but not kept;
+  `h` expands to `%hiliteattr`; `E`/`W`/`I` to `%error_attr`/`%warning_attr`/
+  `%info_attr`; `/recall -ag` and history gag tests no longer misread the
+  letters inside a colour name; the "invalid colour" error lists tf's valid
+  values.
+- `getopts()` treats a lone `-` as the end of the options; glob literals fold
+  case for ASCII letters only (as tf's tolower).
+- Hook events are validated: `FireHook` with a name that is not in `HookEvents()`
+  warns. `LOG` and `REDEF world` messages come from the hook table.
+
+Breaking (adapting a client)
+- `Macro.Gag`, `Macro.Attrs`, `Macro.Trigger`, `Macro.Hook`, `Macro.WorldType`
+  are mirrors filled in when the macro is installed. Set the real fields
+  (`Attr` with `AttrGag`, `Trig`, `Hooks`/`HArgs`, `WType`) or define the macro
+  with `Define` before reading; changing a mirror after `Define` has no effect.
+  `Macro.OnlyInvis` is gone (it was an internal `/list` filter).
+- `HookResult` (new, from `FireHookArgs`) has `Count` where the standalone
+  hook engine had `Ran int`; `Ran` is the list of macros.
+
 ## v0.0.4 (2026-11-14) — what SquatClient needed
 
 ### core: line results and world context

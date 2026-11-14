@@ -80,7 +80,7 @@ file writes; `addworld()` and `/connect host port` are OpNewWorld.
 
 * **`/edit` on a plain macro**: tf marks it as a hook macro with an empty hook (`-h` in `/list`); that is a bug and is not reproduced. `/edit $text` (select by trigger text) is refused as unsupported.
 * **Time-of-day recall ranges** (`0:01`, `11:00-13:00`) work like TF's but are computed in the process's time zone with `in.Now`.
-* **`/log` wrapping** (`%wraplog`) breaks lines at blanks within `%wrapsize`/terminal width; TF uses ICU line breaking. `%ansi_log` encodes the line's attribute letters (bold, underline, flash, dim, italic, reverse, 16 colours) as SGR sequences.
+* **`/log` wrapping** (`%wraplog`) breaks lines at blanks within `%wrapsize`/terminal width; TF uses ICU line breaking. `%ansi_log` encodes the line's attribute letters (bold, underline, italic, reverse, 16 colours; flash and dim are accepted but not kept) as SGR sequences.
 * **`/liststreams`** shows the mode letter by reading the descriptor's flags (unix); autoflush is always `on` for writable streams since Go writes are unbuffered. Queue (`q`) and pipe (`p`/`P`) streams are not supported by `tfopen` in this package.
 * **`/limit` return values** depend on the client's screen (see `LimitHost`).
 * **`features()`** is not a function in tf and is not defined; use `/features`.
@@ -92,6 +92,6 @@ file writes; `addworld()` and `/connect host port` are OpNewWorld.
 
 * `ds()` (misc_state.go) finds per-Interp state through a weak side table because `interp.go` was off limits. If `Interp` gains a field `data *dataState`, replace the body of `ds()` with a lazy field access.
 * `outIsScreen()` (history.go) detects piping with `in.Host.(*captureHost)`; keep that name or adapt.
-* `cmdEdit` mutates `*Macro` in place (fields `ID Trigger Hook Bind Matching ... re set hasBody`) and `saveload.go`/`worlds.go` use `in.macros`, `in.removeFromList`, `in.parseDef`, `in.listMatch`, `Macro.printDef`.
-* `${world_name}`: `interp.go`'s `${...}` lookup should try `in.WorldMacroBody(name)` before `in.macros[name]` (tf's `macro_body`). `%{world_name}` already works (the variables are maintained).
-* `in.Hook(event, args)` is used for `LOG` and `REDEF`.
+* `/edit` parses its options with the shared macro spec parser (`parseSpec`), applies them to a copy of the macro and reinstalls it under the same number (`completeMacro(nm, old.ID)`); `/save`, `/undefn`, `/list` and `/purge` live in `macro.go`.
+* `${world_name}`: `interp.go`'s `${...}` lookup tries `in.WorldMacroBody(name)` before `in.findMacro(name)` (tf's `macro_body`). `%{world_name}` already works (the variables are maintained).
+* `FireHookArgs` is used for `LOG` and `REDEF`; the event table (`hooks.go`) supplies their messages.
