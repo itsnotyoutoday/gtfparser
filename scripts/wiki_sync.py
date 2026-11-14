@@ -122,6 +122,7 @@ def main():
         r = subprocess.run(['git', 'clone', url, wiki], capture_output=True, text=True)
         if r.returncode != 0:
             sys.exit('cannot clone the wiki repo (enable Wikis on the repository and create the first page once in the web UI):\n' + r.stderr)
+        subprocess.run(['git', '-C', wiki, 'rm', '-q', '--cached', '-r', '.'], check=True)
         for f in os.listdir(wiki):
             if f.endswith('.md'):
                 os.remove(os.path.join(wiki, f))
