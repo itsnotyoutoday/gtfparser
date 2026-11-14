@@ -91,10 +91,14 @@ func cmdBind(in *Interp, args string) Value {
 
 func cmdUnbind(in *Interp, args string) Value {
 	seq := strings.TrimSpace(args)
+	if seq == "" {
+		return Int(0)
+	}
 	if o := in.FindBinding(seq); o != nil {
 		in.killMacro(o)
 		return Int(1)
 	}
+	in.warn("/unbind: No binding for %s", seq)
 	return Int(0)
 }
 

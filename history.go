@@ -579,7 +579,17 @@ func cmdRecall(in *Interp, args string) Value {
 	want := len(h.lines)
 	var tv0, tv1 time.Time
 	have0, have1 := false, false
-	synErr := func() Value { in.warn("/recall: syntax error in recall range"); return Int(0) }
+	synErr := func(s string) Value {
+		j := 0
+		for j < len(s) && s[j] >= '0' && s[j] <= '9' {
+			j++
+		}
+		if _, err := strconv.ParseInt(s[:j], 10, 64); j > 0 && err != nil && (j == len(s) || (s[j] != '.' && s[j] != ':')) {
+			in.warn("/recall: integer value too large")
+		}
+		in.warn("/recall: syntax error in recall range")
+		return Int(0)
+	}
 	switch {
 	case ptr == "":
 		in.warn("/recall: missing arguments")
@@ -587,7 +597,7 @@ func cmdRecall(in *Interp, args string) Value {
 	case ptr[0] == '-':
 		num, ok := parseTFNumber(ptr[1:])
 		if !ok {
-			return synErr()
+			return synErr(ptr[1:])
 		}
 		ptr = num.rest
 		if num.hasTime {
@@ -607,7 +617,7 @@ func cmdRecall(in *Interp, args string) Value {
 	case ptr[0] >= '0' && ptr[0] <= '9':
 		num, ok := parseTFNumber(ptr)
 		if !ok {
-			return synErr()
+			return synErr(ptr)
 		}
 		ptr = num.rest
 		if num.hasTime {
@@ -632,7 +642,7 @@ func cmdRecall(in *Interp, args string) Value {
 			if len(ptr) > 0 && ptr[0] >= '0' && ptr[0] <= '9' { // x-y
 				y, ok := parseTFNumber(ptr)
 				if !ok {
-					return synErr()
+					return synErr(ptr)
 				}
 				ptr = y.rest
 				if y.hasTime {

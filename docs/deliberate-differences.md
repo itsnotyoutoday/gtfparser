@@ -52,6 +52,13 @@ Tests: `testdata/deviations/strings`.
 The ceiling is `Limits.MaxString` (default 16 MiB), owned by the embedding program.
 Tests: `TestDeviationWarnings`.
 
+## Implementation defect: internal-error block after a macro syntax error
+
+Reference tf follows some macro syntax errors with `Internal error at expr.c:702 ... bad op
+0x0000` and a `cmd:` dump (the compiler leaves a dangling opcode behind). gtfparser prints only the
+syntax error; the macro does not run in either. Test: `TestDiagnosticsMatchTf` (each syntax-error
+case expects exactly one line) and `TestBrokenBodyRunsNothing`.
+
 ## Matched quirks that look like bugs (not deviations)
 
 These follow tf's own rules and are reproduced: float printing without a trailing `.` for negative
@@ -59,6 +66,10 @@ numbers (`-2.0*1` prints `-2`), `nan`/`inf`, evaluation order of identifiers (`y
 `++f` truncating a float, `strcmp` returning the byte difference, `tan("1:30")` using `strtod`
 (1) while arithmetic reads `"1:30"` as a time, `tfopen(x)` taking a single argument as the mode,
 `1 ? 2:3` being a syntax error.
+
+After `Invalid command. Aborting.` tf also prints `last command is incomplete because of trailing \`
+(its loop breaks without clearing the command buffer). The message is misleading but harmless, so it
+is reproduced (`TestDiagnosticsMatchTf`, "non-command line aborts load").
 
 ## Known differences not replicated
 

@@ -2,6 +2,8 @@ package gtfparser
 
 import (
 	"bufio"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -65,6 +67,13 @@ loop:
 			break loop
 		}
 	}
+	if o.World != "" && !in.worldKnown("ECHO", o.World) {
+		old := in.curCmd
+		in.curCmd = "echo" // tf runs /echo as a macro of that name
+		in.warn("No world %s", o.World)
+		in.curCmd = old
+		return Int(0)
+	}
 	return in.echoOpts(o, args)
 }
 
@@ -109,32 +118,126 @@ func nameValue(args string) (name, val string, has bool) {
 	return name, strings.TrimLeft(args[i:], " \t"), true
 }
 
+// varNameEnd is spanvar(): the length of the variable name at the start of s.
+func varNameEnd(s string) int {
+	i := 0
+	for i < len(s) && (s[i] == '_' || s[i] >= 'a' && s[i] <= 'z' || s[i] >= 'A' && s[i] <= 'Z' || i > 0 && s[i] >= '0' && s[i] <= '9') {
+		i++
+	}
+	return i
+}
+
+// setDelim is setdelim() in variable.c: it reads what follows the name in
+// /set and /let. kind: -1 invalid, 0 no value, 1 a value (val).
+func (in *Interp) setDelim(rest string) (kind int, val string) {
+	switch {
+	case rest == "":
+		return 0, ""
+	case rest[0] == ' ' || rest[0] == '\t':
+		rest = strings.TrimLeft(rest, " \t")
+		if rest == "" {
+			// tf decides "no value" from the unexpanded text: "/set x %*" has a
+			// value part that may expand to nothing. The text arrives expanded,
+			// so a trailing blank after the name is taken as that case.
+			return 1, ""
+		}
+		if rest[0] == '=' {
+			in.warn("Warning: '=' following space is part of value.")
+		}
+		return 1, rest
+	case rest[0] == '=':
+		return 1, rest[1:]
+	}
+	return -1, ""
+}
+
+// varNameSpecial matches the names tf's looks_like_special_sub accepts.
+func varNameSpecial(n string) bool {
+	switch {
+	case n == "R", n == "PL", n == "PR":
+		return true
+	case len(n) > 0 && (n[0] == 'L' || n[0] == 'P'):
+		for _, c := range n[1:] {
+			if c < '0' || c > '9' {
+				return false
+			}
+		}
+		return n[0] == 'L' || len(n) > 1
+	}
+	return false
+}
+
+func (in *Interp) setArgs(cmd, args string) (name, val string, kind int) {
+	args = strings.TrimLeft(args, " \t")
+	n := varNameEnd(args)
+	name = args[:n]
+	kind, val = in.setDelim(args[n:])
+	if kind == -1 {
+		j := 0
+		for j < len(args) && args[j] != ' ' && args[j] != '\t' && args[j] != '=' {
+			j++
+		}
+		old := in.curCmd
+		in.curCmd = cmd // an invalid name falls through to the command proper, which is named
+		in.warn("illegal variable name: %s", args[:j])
+		in.curCmd = old
+	}
+	return
+}
+
 func cmdSet(in *Interp, args string) Value {
-	name, val, has := nameValue(args)
-	if name == "" {
+	if strings.TrimSpace(args) == "" {
 		return Int(0)
 	}
-	if !has {
-		v, ok := in.lookup(name)
-		if ok {
+	name, val, kind := in.setArgs("SET", args)
+	switch kind {
+	case -1:
+		return Int(0)
+	case 0:
+		if v, ok := in.globals[name]; ok {
 			in.echo("% " + name + "=" + v.String())
+			return Int(1)
 		}
-		return Bool(ok)
+		in.echo("% " + name + " not set globally")
+		return Int(0)
 	}
 	return Bool(in.setGlobal(name, Str(val)))
 }
 
 func cmdLet(in *Interp, args string) Value {
-	name, val, has := nameValue(args)
-	if name == "" || !has {
+	if strings.TrimSpace(args) == "" {
 		return Int(0)
+	}
+	name, val, kind := in.setArgs("LET", args)
+	if kind == -1 {
+		return Int(0)
+	}
+	if kind == 0 {
+		if v, ok := in.fr.vars[name]; ok {
+			in.echo("% " + name + "=" + v.String())
+			return Int(1)
+		}
+		in.echo("% " + name + " not set locally")
+		return Int(0)
+	}
+	if _, has := in.fr.vars[name]; !has {
+		if _, g := in.globals[name]; g {
+			in.FireHookArgs("SHADOW", name)
+		}
 	}
 	in.fr.vars[name] = Str(val)
 	return Int(1)
 }
 
 func cmdUnset(in *Interp, args string) Value {
-	name, _ := firstWord(args)
+	name := strings.TrimSpace(args)
+	if sp, ok := specialVars[name]; ok && sp.kind == "pos" {
+		in.warn("%s must be a positive integer, so can not be unset.", name)
+		return Int(0)
+	}
+	if _, ok := in.globals[name]; !ok {
+		return Int(0)
+	}
 	delete(in.globals, name)
 	return Int(1)
 }
@@ -195,7 +298,9 @@ func cmdEval(in *Interp, args string) Value {
 	in.pushFrame(in.fr.name, in.fr.text)
 	in.fr.words, in.fr.offs, in.fr.regs = in.fr.parent.words, in.fr.parent.offs, in.fr.parent.regs
 	in.fr.asFunc = in.fr.parent.asFunc
+	in.inEval++
 	res := in.execText(args)
+	in.inEval--
 	in.popFrame()
 	return res
 }
@@ -260,26 +365,52 @@ func cmdLoad(in *Interp, args string) Value {
 	for strings.HasPrefix(args, "-") {
 		var w string
 		w, args = firstWord(args)
-		if strings.Contains(w, "q") {
+		for _, c := range w[1:] {
+			if c != 'q' {
+				return Int(0)
+			}
 			quiet = true
 		}
 	}
-	name, _ := firstWord(args)
+	name := strings.TrimSpace(args)
 	if !in.allow(OpFileRead, "/load", name) {
 		return Int(0)
 	}
+	if name == "" {
+		in.warn("/load: missing filename")
+		return Int(0)
+	}
+	if quiet {
+		in.quietLoad++
+		defer func() { in.quietLoad-- }()
+	}
 	p, ok := in.findFile(name)
 	if !ok {
-		if !quiet {
-			in.warn("/load: %s: %s", name, cErr(syscall.ENOENT))
+		in.loadFail(name, cErr(syscall.ENOENT))
+		return Int(0)
+	}
+	if st, err := os.Stat(p); err == nil && st.IsDir() {
+		in.loadFail(name, cErr(syscall.EISDIR))
+		return Int(0)
+	}
+	in.FireHookEvent(HookEvent{Name: "LOAD", Args: []string{p}, NoMessage: in.quietLoad > 0})
+	if err := in.LoadFile(p); err != nil {
+		if err != errLoadAborted {
+			in.loadFail(name, cErr(err))
 		}
 		return Int(0)
 	}
-	if err := in.LoadFile(p); err != nil {
-		in.warn("/load: %s: %s", name, cErr(err))
-		return Int(0)
-	}
 	return Int(1)
+}
+
+// loadFail reports a failed /load through the LOADFAIL hook, as tf does (the
+// default message is an error line; a gagging hook, such as the one stdlib.tf
+// installs around its optional local.tf, silences it).
+func (in *Interp) loadFail(name, reason string) {
+	old := in.curCmd
+	in.curCmd = "LOAD"
+	defer func() { in.curCmd = old }()
+	in.FireHookArgs("LOADFAIL", name, reason)
 }
 
 func cmdRequire(in *Interp, args string) Value {
@@ -287,7 +418,7 @@ func cmdRequire(in *Interp, args string) Value {
 	if in.loaded[name] {
 		return Int(1)
 	}
-	return cmdLoad(in, name)
+	return cmdLoad(in, "-q "+name)
 }
 
 func cmdLoaded(in *Interp, args string) Value {
@@ -326,66 +457,90 @@ func (in *Interp) LoadFile(path string) error {
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 1<<20), 16<<20)
 	var cur strings.Builder
-	exited := false
-	oldName, oldStart, oldLine := in.loadName, in.loadStart, in.loadLine
-	in.loadName = path
-	defer func() { in.loadName, in.loadStart, in.loadLine = oldName, oldStart, oldLine }()
-	lineNo, startNo := 0, 0
-	flush := func() {
-		line := cur.String()
-		cur.Reset()
-		if strings.TrimSpace(line) == "" {
-			return
+	exited, failed := false, false
+	oldName, oldStart, oldLine, oldCmd := in.loadName, in.loadStart, in.loadLine, in.curCmd
+	in.loadName, in.curCmd = path, ""
+	defer func() { in.loadName, in.loadStart, in.loadLine, in.curCmd = oldName, oldStart, oldLine, oldCmd }()
+	lineNo, startNo, lastCmdLine := 0, 0, 0
+	newCmd := true
+	for sc.Scan() && !exited {
+		l := strings.TrimRight(sc.Text(), "\r")
+		lineNo++
+		if newCmd {
+			startNo = lineNo
 		}
+		if l != "" && (l[0] == ';' || l[0] == '#') {
+			continue // a comment: ';' or '#' in the first column (also inside a continued line)
+		}
+		t := strings.TrimLeft(l, " \t")
+		if t != "" {
+			if newCmd && (l[0] == ' ' || l[0] == '\t') && lastCmdLine > 0 {
+				in.Warn(fmt.Sprintf("%s: line %d: Warning: possibly missing trailing \\", path, lastCmdLine))
+			}
+			lastCmdLine = lineNo
+			cur.WriteString(t)
+			// a trailing backslash continues the line unless it follows a '%' (tf's do_file_load)
+			if strings.HasSuffix(t, "\\") {
+				if len(t) < 2 || t[len(t)-2] != '%' {
+					s := cur.String()
+					cur.Reset()
+					cur.WriteString(s[:len(s)-1])
+					newCmd = false
+					continue
+				}
+			} else if strings.HasSuffix(strings.TrimRight(t, " \t"), "\\") {
+				in.loadStart, in.loadLine = startNo, lineNo
+				in.curCmd = oldCmd // the loader's own diagnostics name the command that loads
+				in.warn("Warning: whitespace following final '\\'")
+				in.curCmd = ""
+			}
+		} else {
+			lastCmdLine = 0
+		}
+		newCmd = true
+		if cur.Len() == 0 {
+			continue
+		}
+		line := cur.String()
+		if line[0] != '/' {
+			in.loadStart, in.loadLine = startNo, lineNo
+			in.curCmd = oldCmd
+			in.warn("Invalid command. Aborting.")
+			in.curCmd = ""
+			failed = true
+			break
+		}
+		cur.Reset()
 		in.depth = 0
 		in.loadStart, in.loadLine = startNo, lineNo
 		in.exitReq = false
-		in.Exec(strings.TrimLeft(line, " \t"))
+		in.Exec(line)
 		if in.exitReq {
 			exited = true
 			in.exitReq = false
 		}
 		in.ctl = ctlNone
 	}
-	for sc.Scan() && !exited {
-		l := strings.TrimRight(sc.Text(), "\r")
-		lineNo++
-		if cur.Len() == 0 {
-			startNo = lineNo
-		}
-		if l != "" && (l[0] == ';' || l[0] == '#') {
-			continue // a comment: ';' or '#' in the first column (also inside a continued line)
-		}
-		// a trailing backslash continues the line unless it follows a '%' (tf's do_file_load)
-		if cont := strings.HasSuffix(l, "\\") && !strings.HasSuffix(l, "%\\"); cont {
-			if cur.Len() > 0 {
-				l = strings.TrimLeft(l, " \t")
-			}
-			cur.WriteString(l[:len(l)-1])
-			continue
-		}
-		if cur.Len() > 0 {
-			l = strings.TrimLeft(l, " \t")
-		}
-		cur.WriteString(l)
-		flush()
-	}
 	if cur.Len() > 0 {
-		flush()
+		in.Warn(fmt.Sprintf("%s: line %d: last command is incomplete because of trailing \\", path, lastCmdLine))
+	}
+	if failed {
+		return errLoadAborted
 	}
 	return sc.Err()
 }
 
+var errLoadAborted = errors.New("load aborted")
+
 // /export name... marks variables for export to child processes (/sh, /quote !).
 func cmdExport(in *Interp, args string) Value {
-	ok := false
-	for _, n := range strings.Fields(args) {
-		if _, has := in.lookup(n); has {
-			in.exported[n] = true
-			ok = true
-		}
+	n := strings.TrimSpace(args)
+	if _, has := in.globals[n]; !has {
+		in.warn("%s not defined.", n)
+		return Int(0)
 	}
-	return Bool(ok)
+	in.exported[n] = true
+	return Int(1)
 }
 
 // childEnv is the environment given to shell commands: the process

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 	"strings"
 )
 
@@ -14,14 +15,28 @@ import (
 type eval func() (Value, error)
 
 type exprParser struct {
-	in  *Interp
-	s   string
-	pos int
+	in    *Interp
+	s     string
+	pos   int
+	kind  string   // "expression" (default) or "condition": the noun in syntax errors
+	warns []string // compile-time warnings, shown each time the expression runs
+	pend  int      // operands waiting for the right side of an operator (tf's value stack)
 }
 
+// syntaxError is a compile-time (parse) error of an expression.
+type syntaxError struct{ msg string }
+
+func (e *syntaxError) Error() string { return e.msg }
+
+// overflowError is a floating-point overflow in an arithmetic operator.
+type overflowError struct{ label string }
+
+func (e *overflowError) Error() string { return e.label + " operator: arithmetic overflow" }
+
 type exprEntry struct {
-	f   eval
-	err error
+	f     eval
+	err   error
+	warns []string
 }
 
 // EvalExpr evaluates a TF expression.
@@ -43,11 +58,14 @@ func (in *Interp) evalExpr(src string) (Value, error) {
 				err = p.syntaxErr("end of expression")
 			}
 		}
-		e = &exprEntry{f: f, err: err}
+		e = &exprEntry{f: f, err: err, warns: p.warns}
 		if len(in.exprCache) >= cacheMax {
 			in.exprCache = map[string]*exprEntry{}
 		}
 		in.exprCache[src] = e
+	}
+	for _, w := range e.warns {
+		in.warn("%s", w)
 	}
 	if e.err != nil {
 		return Int(0), e.err
@@ -118,6 +136,9 @@ func (p *exprParser) parseAssign() (eval, error) {
 						cur, _ := p.in.lookup(id)
 						r, err = arith(op[:1], cur, r)
 						if err != nil {
+							if oe, ok := err.(*overflowError); ok {
+								err = &overflowError{map[string]string{"+": "ADDA", "-": "SUBA", "*": "MULA", "/": "DIVA"}[oe.label]}
+							}
 							return Int(0), err
 						}
 					}
@@ -128,7 +149,16 @@ func (p *exprParser) parseAssign() (eval, error) {
 		}
 	}
 	p.pos = start
-	return p.parseTernary()
+	t, err := p.parseTernary()
+	if err == nil {
+		p.ws()
+		for _, op := range assignOps {
+			if p.peek(op) {
+				return nil, errors.New("illegal object of assignment")
+			}
+		}
+	}
+	return t, err
 }
 
 func (p *exprParser) parseTernary() (eval, error) {
@@ -240,10 +270,36 @@ func (p *exprParser) binLevel(ops []string, next func() (eval, error)) (eval, er
 			return l, nil
 		}
 		p.take(op)
+		if op == "/" {
+			// "1 /echo": a command name after '/' suggests a missing "%;"
+			p.ws()
+			if p.pos < len(p.s) && isIdentStart(p.s[p.pos]) {
+				st := p.pos
+				for st < len(p.s) && isIdentChar(p.s[st]) {
+					st++
+				}
+				nm := p.s[p.pos:st]
+				if ctlKeywords[strings.ToLower(nm)] || tfCmdSet[strings.ToLower(nm)] || p.in.macroNamed(nm) {
+					p.warns = append(p.warns, fmt.Sprintf("Warning: possibly missing '%%;' or ')' before /%s", nm))
+				}
+			}
+		}
+		if op == "=" && p.in.flag("pedantic") {
+			p.warns = append(p.warns, "suggestion: use == instead of =")
+		}
+		lEnd, rStart := p.pos-len(op), p.pos
+		lreg := (op == "==" || op == "!=") && isRegmatchCall(p.s[start:lEnd])
+		p.pend++
+		if p.pend >= 512 { // tf's value stack holds 512 operands
+			p.pend--
+			return nil, errors.New("expression stack overflow")
+		}
 		r, err := next()
+		p.pend--
 		if err != nil {
 			return nil, err
 		}
+		rreg := (op == "==" || op == "!=") && isRegmatchCall(p.s[rStart:p.pos])
 		l0, op0, id := l, op, lazy
 		l = func() (Value, error) {
 			var a Value
@@ -260,6 +316,18 @@ func (p *exprParser) binLevel(ops []string, next func() (eval, error)) (eval, er
 			}
 			if id != "" {
 				a, _ = p.in.lookup(id)
+			}
+			if op0 == "=/" || op0 == "!/" {
+				if gerr := globCheck(b.String()); gerr != nil {
+					p.in.warn("%v", gerr) // tf: a bad pattern matches nothing, for =/ and !/ alike
+					return Int(0), nil
+				}
+			}
+			if (lreg && (rreg || b.Int() == 1)) || (rreg && a.Int() == 1) {
+				p.in.warn("Warning: regmatch() may return >= 1 for success.")
+			}
+			if (op0 == "+" || op0 == "*" || op0 == "/") && a.k == kDec && a.tt == ttAtime && b.k == kDec && b.tt == ttAtime {
+				p.in.warn("Warning: invalid operation %s on absolute time values.", op0)
 			}
 			return binary(op0, a, b)
 		}
@@ -347,6 +415,9 @@ func (p *exprParser) parseUnary() (eval, error) {
 			if err != nil {
 				return v, err
 			}
+			if op == "-" && v.k == kDec && v.tt == ttAtime {
+				p.in.warn("Warning: invalid operation - on absolute time value.")
+			}
 			return reduce(op, v, Int(0), false)
 		}, nil
 	}
@@ -387,6 +458,17 @@ func (p *exprParser) ident() (string, bool) {
 }
 
 func (p *exprParser) parsePrimary() (eval, error) {
+	e, err := p.parsePrimary0()
+	if err == nil {
+		p.ws()
+		if p.pos < len(p.s) && p.s[p.pos] == '(' {
+			return nil, errors.New("function name must be an identifier.")
+		}
+	}
+	return e, err
+}
+
+func (p *exprParser) parsePrimary0() (eval, error) {
 	p.ws()
 	if p.pos >= len(p.s) {
 		return nil, p.syntaxErr("operand")
@@ -418,9 +500,18 @@ func (p *exprParser) parsePrimary() (eval, error) {
 	case c == '%':
 		// macro-style substitution inside an expression
 		n, text := p.in.expandOne(p.s[p.pos:])
+		if n > 1 && !p.in.subWarned || n > 1 && p.in.flag("pedantic") {
+			p.in.subWarned = true
+			sub := p.s[p.pos : p.pos+n]
+			p.warns = append(p.warns, fmt.Sprintf("Warning: \"%s\" substitution in expression is legal, but can be confusing.  Try using \"{%s}\" instead.", sub, strings.TrimSuffix(strings.TrimPrefix(sub[1:], "{"), "}")))
+		}
 		p.pos += n
 		return func() (Value, error) { return Str(text()), nil }, nil
 	case c == '$':
+		if p.pos+1 < len(p.s) && p.s[p.pos+1] == '[' && (!p.in.dollarWarned || p.in.flag("pedantic")) {
+			p.in.dollarWarned = true
+			p.warns = append(p.warns, "Warning: $[...] substitution in expression is legal, but redundant.  Try using (...) instead.")
+		}
 		n, text := p.in.expandOne(p.s[p.pos:])
 		if n == 0 {
 			return nil, errors.New("expression: stray '$'")
@@ -433,7 +524,10 @@ func (p *exprParser) parsePrimary() (eval, error) {
 			return p.call(id)
 		}
 		return func() (Value, error) {
-			v, _ := p.in.lookup(id)
+			v, ok := p.in.lookup(id)
+			if !ok && varNameSpecial(id) {
+				p.in.warn("Warning: \"%s\" in an expression is a variable reference, and is not the same as special substitution \"{%s}\".", id, id)
+			}
 			return v, nil
 		}, nil
 	}
@@ -456,7 +550,11 @@ func (p *exprParser) syntaxErr(expect string) error {
 		}
 		found = "'" + p.s[p.pos:end] + "'"
 	}
-	return fmt.Errorf("expression syntax error: expected %s, found %s.", expect, found)
+	kind := p.kind
+	if kind == "" {
+		kind = "expression"
+	}
+	return &syntaxError{fmt.Sprintf("%s syntax error: expected %s, found %s.", kind, expect, found)}
 }
 
 func (p *exprParser) number() (eval, error) {
@@ -489,7 +587,17 @@ func (p *exprParser) number() (eval, error) {
 			}
 		}
 	}
-	v := parseNumPrefix(p.s[st:p.pos])
+	lit := p.s[st:p.pos]
+	if strings.Contains(lit, ":") {
+		h := lit[:strings.IndexByte(lit, ':')]
+		if _, err := strconv.ParseInt(h, 10, 64); err != nil {
+			return nil, errors.New("time value too large")
+		}
+	}
+	v := parseNumPrefix(lit)
+	if v.k == kReal && math.IsInf(v.f, 0) {
+		return nil, errors.New("numeric value too large")
+	}
 	return func() (Value, error) { return v, nil }, nil
 }
 
@@ -518,6 +626,7 @@ func (p *exprParser) call(name string) (eval, error) {
 	p.take("(")
 	var args []eval
 	var ids []string // arguments that are bare variables are read after the others are evaluated
+	tfreadVar := false
 	p.ws()
 	if !p.take(")") {
 		for {
@@ -536,6 +645,7 @@ func (p *exprParser) call(name string) (eval, error) {
 				save := p.pos
 				if id, ok := p.ident(); ok && p.peek(")") {
 					a = func() (Value, error) { return Str(id), nil }
+					tfreadVar = true
 				} else {
 					p.pos = save
 				}
@@ -575,8 +685,11 @@ func (p *exprParser) call(name string) (eval, error) {
 		}
 	} else if _, isFn := p.in.funcs[name]; !isFn && len(args) > 1 {
 		if _, isCmd := p.in.cmds[strings.ToLower(name)]; isCmd && p.in.isTfCommand(name) {
-			return nil, fmt.Errorf("%s: command called as function must have 0 or 1 argument", name)
+			return nil, fmt.Errorf("%s: command called as function must have 0 or 1 argument", strings.ToUpper(name))
 		}
+	}
+	if _, isFn := p.in.funcs[name]; !isFn && strings.EqualFold(name, "exit") {
+		return nil, errors.New("EXIT: not a function")
 	}
 	_, isTfFunc := funcArity[name]
 	return func() (Value, error) {
@@ -595,6 +708,13 @@ func (p *exprParser) call(name string) (eval, error) {
 			if id != "" {
 				vals[i], _ = p.in.lookup(id)
 			}
+		}
+		if name == "tfread" && !tfreadVar {
+			old := p.in.curCmd
+			p.in.curCmd = name
+			p.in.warn("arg %d: illegal object of assignment", len(ids))
+			p.in.curCmd = old
+			return Int(-1), nil
 		}
 		return p.in.callFuncTf(name, vals, isTfFunc)
 	}, nil
@@ -818,7 +938,23 @@ func reduce(op string, a, b Value, binary bool) (Value, error) {
 		return Int(0), fmt.Errorf("expression: bad operator %s", op)
 	}
 	if math.IsInf(r, 0) {
-		return Int(0), fmt.Errorf("%s operator: arithmetic overflow", op)
+		return Int(0), &overflowError{op}
 	}
 	return Real(r), nil
+}
+
+func (in *Interp) macroNamed(name string) bool {
+	_, ok := in.macros[name]
+	return ok
+}
+
+// isRegmatchCall reports whether s is exactly one regmatch(...) call: tf marks
+// such a value so that comparing it with 1 can be flagged.
+func isRegmatchCall(s string) bool {
+	s = strings.TrimSpace(s)
+	if !strings.HasPrefix(s, "regmatch") {
+		return false
+	}
+	r := strings.TrimLeft(s[len("regmatch"):], " \t")
+	return strings.HasPrefix(r, "(") && matchClose(r, 0, '(', ')') == len(r)-1
 }

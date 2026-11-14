@@ -157,13 +157,29 @@ func parseOptions(spec, text string) (opts map[byte]Value, rest string, errMsg, 
 func fnGetopts(in *Interp, a []Value) (Value, error) {
 	spec := str(a, 0)
 	f := in.fr
+	// tf reports these under the command that called getopts()
+	parent := in.fnParent
+	if f.name == "" {
+		old := in.curCmd
+		in.curCmd = parent
+		in.warn("getopts may only be called from a command.")
+		in.curCmd = old
+		return Int(0), nil
+	}
 	if len(a) > 1 {
 		for i := 0; i < len(spec); i++ {
 			c := spec[i]
-			if c == ':' || c == '#' || c == '@' {
-				continue
+			if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z') {
+				old := in.curCmd
+				in.curCmd = parent
+				in.warn("getopts: invalid option specifier: %c", c)
+				in.curCmd = old
+				return Int(0), nil
 			}
 			f.vars["opt_"+string(c)] = a[1]
+			if i+1 < len(spec) && (spec[i+1] == ':' || spec[i+1] == '#' || spec[i+1] == '@') {
+				i++
+			}
 		}
 	}
 	opts, rest, errMsg, usage := parseOptions(spec, f.text)

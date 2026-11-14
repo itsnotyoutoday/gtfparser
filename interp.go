@@ -36,53 +36,58 @@ type frame struct {
 
 // Interp is one TinyFugue scripting environment.
 type Interp struct {
-	Host        Host
-	globals     map[string]Value
-	macros      map[string]*Macro
-	mac         *macState // trigger, hook and match-style state (see triggers.go)
-	list        []*Macro
-	nextID      int
-	fr          *frame
-	lastRet     Value
-	retv        Value
-	ctl         ctl
-	brk         int
-	depth       int
-	loaded      map[string]bool
-	noExp       bool
-	noEnv       bool
-	Quit        bool
-	streams     map[string]*stream
-	nextFd      int
-	tfin        []string
-	pendingArgs []string
-	templates   map[string]*template
-	stmtCache   map[string][]string
-	exprCache   map[string]*exprEntry
-	procs       []*Proc
-	nextPID     int
-	cmds        map[string]cmdFunc // this interpreter's builtin commands (see registry.go)
-	funcs       map[string]fn      // ... and functions
-	disabled    map[string]bool
-	restriction int
-	limits      Limits
-	interrupted atomic.Bool
-	instr       int64
-	nest        int
-	asFuncCmd   int    // >0 while a builtin command runs as a function
-	exitReq     bool   // /exit ran: the enclosing /load stops (see LoadFile)
-	curCmd      string // name of the running macro, builtin command or function (diagnostics)
-	loadName    string // file being loaded, and the lines of the logical line being run
-	loadStart   int
-	loadLine    int
-	userRes     Value // tf's user_result: the value of the last command that sets one (not /set, /let); what a macro called as a function returns
-	readDepth   int
-	mail        map[string]*mailInfo
-	subFail     bool // a $[...] substitution failed: the statement and its macro are abandoned
-	exported    map[string]bool
-	cmdSpecs    map[string]CommandSpec
-	funcSpecs   map[string]FuncSpec
-	world       string // see SetWorld
+	Host                    Host
+	globals                 map[string]Value
+	macros                  map[string]*Macro
+	mac                     *macState // trigger, hook and match-style state (see triggers.go)
+	list                    []*Macro
+	nextID                  int
+	fr                      *frame
+	lastRet                 Value
+	retv                    Value
+	ctl                     ctl
+	brk                     int
+	depth                   int
+	loaded                  map[string]bool
+	noExp                   bool
+	noEnv                   bool
+	Quit                    bool
+	streams                 map[string]*stream
+	nextFd                  int
+	tfin                    []string
+	pendingArgs             []string
+	templates               map[string]*template
+	stmtCache               map[string]*compiled
+	exprCache               map[string]*exprEntry
+	procs                   []*Proc
+	nextPID                 int
+	cmds                    map[string]cmdFunc // this interpreter's builtin commands (see registry.go)
+	funcs                   map[string]fn      // ... and functions
+	disabled                map[string]bool
+	restriction             int
+	limits                  Limits
+	interrupted             atomic.Bool
+	instr                   int64
+	nest                    int
+	asFuncCmd               int    // >0 while a builtin command runs as a function
+	exitReq                 bool   // /exit ran: the enclosing /load stops (see LoadFile)
+	curCmd                  string // name of the running macro, builtin command or function (diagnostics)
+	subWarned, dollarWarned bool   // one-time expression warnings (tf's statics)
+	fnParent                string // the command that was running when the current builtin function was called
+	inEval                  int    // depth of /eval (see warnEval)
+	loadWarned              string // file already warned about for readable passwords
+	quietLoad               int    // depth of /load -q (suppresses 'Loading commands from')
+	loadName                string // file being loaded, and the lines of the logical line being run
+	loadStart               int
+	loadLine                int
+	userRes                 Value // tf's user_result: the value of the last command that sets one (not /set, /let); what a macro called as a function returns
+	readDepth               int
+	mail                    map[string]*mailInfo
+	subFail                 bool // a $[...] substitution failed: the statement and its macro are abandoned
+	exported                map[string]bool
+	cmdSpecs                map[string]CommandSpec
+	funcSpecs               map[string]FuncSpec
+	world                   string // see SetWorld
 	// Policy, if set, can veto privileged operations on top of /restrict.
 	Policy Policy
 	// Now replaces the clock (tests); nil means time.Now.
@@ -115,7 +120,7 @@ func New(h Host, opts ...Option) *Interp {
 	in := &Interp{
 		limits:    DefaultLimits(),
 		templates: map[string]*template{},
-		stmtCache: map[string][]string{},
+		stmtCache: map[string]*compiled{},
 		exprCache: map[string]*exprEntry{},
 		exported:  map[string]bool{},
 		Host:      h,
@@ -171,6 +176,17 @@ func (e *cmdErr) Unwrap() error { return e.err }
 // while loading, then the name of the command, macro or function that is
 // running ("/cmd: " at the start of the message names a builtin command and
 // is shown as tf shows it, upper case), then the message.
+// warnEval is warn for diagnostics of the substitution/compile phase of a
+// line: while /eval runs, tf shows EVAL as the command for these (but not for
+// errors raised later, when the evaluated text runs).
+func (in *Interp) warnEval(f string, a ...any) {
+	if in.curCmd == "" && in.inEval > 0 {
+		in.curCmd = "EVAL"
+		defer func() { in.curCmd = "" }()
+	}
+	in.warn(f, a...)
+}
+
 func (in *Interp) warn(f string, a ...any) {
 	cmd := in.curCmd
 	for _, x := range a {
@@ -188,6 +204,16 @@ func (in *Interp) warn(f string, a ...any) {
 				if opt != "" {
 					cmd += " " + opt
 				}
+			}
+		}
+	}
+	if cmd != "" {
+		// a message that names the function or command already named by the
+		// context prefix ("addworld(): restricted") must not repeat it
+		for _, p := range []string{cmd + "(): ", cmd + ": "} {
+			if strings.HasPrefix(msg, p) {
+				msg = msg[len(p):]
+				break
 			}
 		}
 	}
@@ -568,14 +594,18 @@ func (in *Interp) runSub(kind byte, arg string) string {
 	case subExpr:
 		v, err := in.evalExpr(arg)
 		if err != nil {
-			in.warn("%v", err)
+			if se, ok := err.(*syntaxError); ok {
+				in.warnEval("%s", strings.Replace(se.msg, "expected end of expression", "expected operator or ']'", 1))
+			} else {
+				in.warn("%v", err)
+			}
 			in.subFail = true
 		}
 		return v.String()
 	case subCmd:
 		return in.captureCmd(arg)
 	case subErr:
-		in.warn("%s", arg)
+		in.warnEval("%s", arg)
 		in.subFail = true
 		return ""
 	}
@@ -586,6 +616,7 @@ func (in *Interp) runSub(kind byte, arg string) string {
 	if m, ok := in.findMacro(arg); ok {
 		return m.Body
 	}
+	in.echo("% macro not defined: " + arg)
 	return ""
 }
 
@@ -785,7 +816,7 @@ func (in *Interp) Exec(text string) Value {
 	in.noExp = true
 	defer func() { in.noExp = old }()
 	switch stmtWord(t) {
-	case "/if", "/while", "/break":
+	case "/if", "/while", "/break", "/else", "/elseif", "/endif", "/done", "/then", "/do":
 		return in.execText(t)
 	}
 	if t == "" {
@@ -805,21 +836,30 @@ func (in *Interp) ExecFull(text string) Value {
 }
 
 func (in *Interp) execText(text string) Value {
-	return in.execStmts(in.split(text))
+	c := in.split(text)
+	if len(c.diags) > 0 {
+		for _, d := range c.diags {
+			in.warn("%s", d)
+		}
+		if c.failed {
+			return in.leaf(Int(0))
+		}
+	}
+	return in.execStmts(c.stmts)
 }
 
-// split is splitList with a per-interpreter cache; the result must not be
-// modified (execStmts copies before it does).
-func (in *Interp) split(text string) []string {
-	if st, ok := in.stmtCache[text]; ok {
-		return st
+// split is splitList plus the structural check, with a per-interpreter
+// cache; the result must not be modified (execStmts copies before it does).
+func (in *Interp) split(text string) *compiled {
+	if c, ok := in.stmtCache[text]; ok {
+		return c
 	}
-	st := splitList(text)
+	c := in.compileStmts(splitList(text), false)
 	if len(in.stmtCache) >= cacheMax {
-		in.stmtCache = map[string][]string{}
+		in.stmtCache = map[string]*compiled{}
 	}
-	in.stmtCache[text] = st
-	return st
+	in.stmtCache[text] = c
+	return c
 }
 
 func firstWord(s string) (w, rest string) {
@@ -848,6 +888,10 @@ func (in *Interp) execStmts(stmts []string) Value {
 				copied = true
 			}
 			stmts[i] = st // marker (if any) consumed
+		}
+		if st == blankStmt {
+			res = in.leaf(in.sendLine(""))
+			continue
 		}
 		var pipeHost *captureHost
 		if i+1 < len(stmts) && strings.HasPrefix(stmts[i+1], "\x00") {
@@ -1124,6 +1168,9 @@ func (in *Interp) execOne(st string) Value {
 		if ln != "set" && ln != "let" {
 			in.userRes = res
 		}
+	} else if forceBuiltin {
+		in.warnEval("%s: not a builtin command", nm)
+		res = in.leaf(Int(0))
 	} else {
 		in.noMacro(nm)
 		res = in.leaf(Int(0))
@@ -1183,7 +1230,7 @@ func (in *Interp) callMacroArgs(m *Macro, args []string) Value {
 // callMacro runs a macro body in a new scope with the given arguments.
 func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 	if in.depth >= in.maxRecur() {
-		in.warn("%s: too many nested calls", m.Name)
+		in.warn("recursion count exceeded %%max_recur (%d)", in.maxRecur())
 		return Int(0)
 	}
 	in.noteCall(m)
@@ -1248,6 +1295,7 @@ func (in *Interp) callFuncTf(name string, args []Value, isTf bool) (Value, error
 			return Int(0), &cmdErr{name, fmt.Errorf("disabled")}
 		}
 		old := in.curCmd
+		in.fnParent = old
 		if isTf {
 			in.curCmd = name
 		}
@@ -1351,7 +1399,7 @@ func validBraceSel(sel string) bool {
 }
 
 func braceSelError(sel string) string {
-	if strings.HasPrefix(sel, "-0") {
+	if strings.HasPrefix(sel, "-0") || (strings.HasPrefix(sel, "-") && (len(sel) == 1 || !(sel[1] >= '1' && sel[1] <= '9' || sel[1] == 'L'))) {
 		return "illegal character '-' in substitution"
 	}
 	i := 0

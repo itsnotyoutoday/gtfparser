@@ -204,12 +204,7 @@ func (in *Interp) compilePattern(style, s string) (*Pattern, error) {
 		p.g = parseGlob(s)
 		p.lit = globPrefix(s)
 	case MatchRegexp:
-		if i := firstUnescaped(s, '{'); i >= 0 && i+1 < len(s) && (s[i+1] >= '0' && s[i+1] <= '9' || s[i+1] == ',') {
-			if in.globals["warn_curly_re"].String() != "off" {
-				in.warn("Warning: regexp contains '{', which has a new meaning in version 5.0.  (This warning can be disabled with '/set warn_curly_re=off'.)")
-			}
-		}
-		re, err := compileRegexp(s)
+		re, err := in.compileRe(s)
 		if err != nil {
 			return nil, err
 		}

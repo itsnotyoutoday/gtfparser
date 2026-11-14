@@ -94,6 +94,15 @@ func (in *Interp) setGlobal(name string, v Value) bool {
 			setSigFigs(int(cv.Int()))
 		}
 	}
+	if _, exists := in.globals[name]; !exists && varNameSpecial(name) {
+		in.warn("Warning: \"%s\" conflicts with the name of a special substitution, so it will not be accessible with a \"%%%s\" or \"{%s}\" substitution.", name, name, name)
+	}
+	switch name {
+	case "prompt_sec", "prompt_usec":
+		in.warn("Warning: %s is obsolete.  Use prompt_wait instead.", name)
+	case "virtscreen":
+		in.warn("Warning: %s is undocumented, possibly unstable, and may be removed in a future version.", name)
+	}
 	in.globals[name] = v
 	return true
 }

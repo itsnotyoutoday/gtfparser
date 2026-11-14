@@ -227,7 +227,11 @@ func (in *Interp) sendLine(line string) Value {
 			return Int(1)
 		}
 	}
-	return Bool(in.Host.Send("", line))
+	if !in.Host.Send("", line) {
+		in.warn("Not connected.")
+		return Int(0)
+	}
+	return Int(1)
 }
 
 // noMacro is what a call to an undefined command does: the NOMACRO hook

@@ -235,6 +235,7 @@ func fnFtime(in *Interp, a []Value) (Value, error) {
 	} else {
 		var ok bool
 		if sec, usec, ok = valTime(a[1]); !ok {
+			in.warn("real value too large to convert to time")
 			return Str(""), nil
 		}
 	}
@@ -298,7 +299,7 @@ func fnFwrite(in *Interp, a []Value) (Value, error) {
 	}
 	f, err := os.OpenFile(name, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o666)
 	if err != nil {
-		in.warn("%s: %v", a[0].String(), err)
+		in.warn("%s: %s", a[0].String(), cErr(err))
 		return Int(0), nil
 	}
 	defer f.Close()

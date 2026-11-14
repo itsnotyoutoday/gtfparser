@@ -78,7 +78,7 @@ func (in *Interp) allow(op Op, who, detail string) bool {
 func cmdRestrict(in *Interp, args string) Value {
 	w, _ := firstWord(args)
 	if w == "" {
-		in.echo("% restriction level: " + restrictNames[in.restriction])
+		in.echo("% restriction level: " + strings.ToLower(restrictNames[in.restriction]))
 		return Int(int64(in.restriction))
 	}
 	for i, n := range restrictNames {

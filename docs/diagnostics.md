@@ -40,9 +40,31 @@ are in `src/tfio.c` (`eprintf`, `tf_wprintf`, `oprintf`, `eprefix`):
 * `Warning: ` follows the command for `tf_wprintf` messages.
 * Several messages are unaffected by the context (`oprintf`), see the `context` column below.
 
-gtfparser today prints `% /test: nofunc: no such function` (slash plus lower-case command, no
-location, no macro name). `docs/diagnostics.md` does not prescribe the fix; `scripts/warncheck.py`
-reports "context" mismatches separately from "body" mismatches so each can be fixed on its own.
+gtfparser builds the same line in `Interp.warn` (location of the `/load`ed file and line, the
+innermost command, macro or function, `Warning: ` for warnings), so `/test nofunc(1)` in a macro `f`
+called from line 3 of a file prints `% file.tf, line 3: f: nofunc: no such function`, exactly as tf
+does. `scripts/warncheck.py` reports "context" mismatches separately from "body" mismatches.
+
+Rules the engine follows (each is pinned by a case in `testdata/warnings` and by `diag_test.go`):
+
+* The loader (`LoadFile`) names no command for the lines it runs; its own diagnostics
+  (`Invalid command. Aborting.`, `whitespace following final '\'`) name the command that started the
+  load (`LOAD` for `/load`, nothing for the startup file). A line of a loaded file that does not
+  start with `/` aborts the load.
+* A macro body, typed line or `/eval` text is checked as a whole before anything in it runs, as
+  tf's compiler does: an unbalanced `/if` `/while`, a stray `/endif` `/done`, a `%|` into text and
+  similar produce one `macro syntax error` / `unexpected /X in ...` line and the body does not run
+  (so a loop that cannot be compiled can neither spin nor repeat its message). The check is
+  `compileStmts` in `compile.go`; its result is cached per text and replayed on every run.
+* Compile-time diagnostics of an `/eval` (`unmatched $[`, `/@name: not a builtin command`) name
+  `EVAL`; errors raised while the evaluated text runs do not.
+* Messages of functions carry the function name as context (`mod: `), never repeated in the text.
+* Text sent with no connection (`Host.Send` returning false) prints `Not connected.`.
+* `/load` fires the `LOAD` and `LOADFAIL` hooks (`-q` silences only the "Loading commands from"
+  line, also for nested loads); that is how `stdlib.tf` loads its optional `local.tf` silently.
+
+Messages of commands and functions that a client registers through the public API keep their own
+form (for example `/version`, `/help`, `/connect`, the squat bridge commands).
 
 ## The catalog: `testdata/warnings/catalog.tsv`
 
@@ -119,6 +141,11 @@ grouped by root cause and priority.
 
 ## Caveats
 
+* gtfparser's `% ` lines are collected from both stdout and stderr (informational output such as
+  `% Logging to file ...` is echoed; errors go to the `Warn` hook).
+* `/set name` followed only by blanks is taken as "set to the empty value" (tf decides from the
+  unexpanded text whether `/set x %*` has a value part; the engine sees the expanded text). A typed
+  `/set x ` therefore sets x instead of listing it.
 * The harness compares what tf prints on a pty at width 4000; messages that include the screen
   width (`total status width (N) is wider than screen (M)`) depend on that.
 * Some real-tf behaviours are bugs, not targets: macro syntax errors are followed by an `Internal

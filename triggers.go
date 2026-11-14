@@ -848,7 +848,7 @@ func (in *Interp) runMatch(m *Macro, text string, caps []int, rq *matchReq) int 
 // arguments and the regexp sub-matches visible as %Pn.
 func (in *Interp) runBody(m *Macro, text string, caps []int, hook bool) {
 	if in.depth >= in.maxRecur() {
-		in.warn("%s: too many nested calls", m.Name)
+		in.warn("recursion count exceeded %%max_recur (%d)", in.maxRecur())
 		return
 	}
 	if hook {
@@ -861,6 +861,9 @@ func (in *Interp) runBody(m *Macro, text string, caps []int, hook bool) {
 		name = "#" + strconv.Itoa(m.ID)
 	}
 	in.depth++
+	oldCmd := in.curCmd
+	in.curCmd = name
+	defer func() { in.curCmd = oldCmd }()
 	f := in.pushFrame(name, text)
 	if caps != nil {
 		f.regs, f.pl, f.pr = capStrings(text, caps)
