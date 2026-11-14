@@ -18,6 +18,10 @@ var builtinCmds = map[string]cmdFunc{}
 func init() {
 	for k, v := range map[string]cmdFunc{
 		"echo":    cmdEcho,
+		"_echo":   func(in *Interp, args string) Value { return in.echoOpts(EchoOpts{}, args) },
+		"true":    func(*Interp, string) Value { return Int(1) },
+		"false":   func(*Interp, string) Value { return Int(0) },
+		":":       func(*Interp, string) Value { return Int(1) },
 		"set":     cmdSet,
 		"setenv":  cmdSet,
 		"let":     cmdLet,

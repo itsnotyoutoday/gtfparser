@@ -65,6 +65,7 @@ Changed (behavior)
   as in tf: the engine decides from the unexpanded line (`Interp.rawSetValue`).
 
 Added
+- Native `/_echo`, `/true`, `/false` and `/:` (tf defines them as stdlib macros); `/echo` was already native.
 - `diag_test.go`: pins the most common messages without needing real tf.
 - `scripts/warncheck.py` reads gtfparser's stdout `% ` lines too; `warn_baseline.py` and
   `BASELINE.md` regenerated; `known.tsv` lists only genuine remaining differences.
