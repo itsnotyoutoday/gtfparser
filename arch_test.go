@@ -89,7 +89,7 @@ func TestLimitsAndInterrupt(t *testing.T) {
 	h.out = nil
 	in.Exec("/def rec = /rec")
 	in.ExecFull("/rec")
-	if !strings.Contains(strings.Join(h.out, "|"), "too many nested") {
+	if !strings.Contains(strings.Join(h.out, "|"), "recursion count exceeded") {
 		t.Fatalf("recursion not limited: %v", h.out)
 	}
 	// scripts cannot raise the ceiling
