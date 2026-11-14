@@ -171,3 +171,27 @@ func init() {
 	builtinCmds["relimit"] = cmdRelimit
 	builtinCmds["unlimit"] = cmdUnlimit
 }
+
+// LimitFilter returns a snapshot of world's /limit filter as a function
+// reporting whether a line is hidden (line text, display attributes), or nil
+// when no limit is in effect. The function holds no reference to the
+// interpreter and is safe to call from any goroutine, so a client can keep it
+// next to its scrollback and filter there without going through the
+// interpreter's goroutine. Take a new snapshot when the "limit" event or
+// LimitHost.Redraw says the filter changed.
+func (in *Interp) LimitFilter(world string) func(line, attrs string) bool {
+	f := in.screenFilter(world)
+	if !f.enabled {
+		return nil
+	}
+	c := *f
+	return func(line, attrs string) bool {
+		if c.attr {
+			return !interesting(attrs)
+		}
+		if c.match == nil {
+			return c.sense
+		}
+		return c.match(line) != c.sense
+	}
+}

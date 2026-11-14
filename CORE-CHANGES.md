@@ -11,6 +11,17 @@ Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 
 ## Unreleased
 
+### core: tflib
+Added package `tflib`: the real tf library (unmodified `lib/tf`, GPL, see `tflib/NOTICE.md`)
+embedded with go:embed so every client ships the same one. `tflib.FS`, `Extract(dir)`,
+`CacheDir()`, `Setup(in, dir)` (extracts and prepends to `LibDirs`), `Version()`. The engine
+loads library files from disk, so clients extract to a cache directory. No change to existing packages.
+
+### core: LimitFilter
+Added `Interp.LimitFilter(world) func(line, attrs string) bool`: a goroutine-safe
+snapshot of a world's /limit filter (nil when none), so a client can filter its
+scrollback without calling into the interpreter from another goroutine.
+
 ## v0.0.5 (2026-11-14) — faithful triggers, hooks, macros and attributes
 
 ### core: trigger, hook, macro and attribute machinery rewritten after tf's macro.c

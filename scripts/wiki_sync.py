@@ -29,7 +29,8 @@ def wiki_name(rel):
         if parts[0] == folder:
             if len(parts) == 2 and parts[1] == 'README':
                 return {'language': 'Language-Guide', 'reference': 'Built-in-Reference', 'engine': 'Engine-Notes'}[folder]
-            return prefix + '-' + '-'.join(parts[1:])
+            tail = ['Known-Differences' if x == 'FINDINGS' else x for x in parts[1:]]
+            return prefix + '-' + '-'.join(tail)
     return '-'.join(parts)
 
 def collect(docs):
@@ -75,11 +76,11 @@ def sidebar(pages):
         lines += ['', f'**{title}**']
         idx = [r for r in rels if r.endswith('/README')]
         for r in idx:
-            lines.append(f'- [Overview]({names[r]})')
+            lines.append(f'- [{title} index]({names[r]})')
         for r in rels:
-            if r.endswith('/README') or r.endswith('/FINDINGS'):
+            if r.endswith('/README'):
                 continue
-            label = r.split('/', 1)[1].replace('-', ' ')
+            label = r.split('/', 1)[1].replace('FINDINGS', 'Known differences').replace('-', ' ')
             lines.append(f'- [{label}]({names[r]})')
     lines += ['', '[Source on GitHub](https://github.com/' + REPO + ')']
     return '\n'.join(lines) + '\n'
@@ -96,12 +97,10 @@ def build(docs, out):
                 shutil.rmtree(p) if os.path.isdir(p) else os.remove(p)
     os.makedirs(out, exist_ok=True)
     for rel, path in pages.items():
-        if rel.endswith('/FINDINGS'):
-            continue  # working notes, not documentation
         text = open(path).read()
         text = rewrite(text, rel, pages)
         open(os.path.join(out, wiki_name(rel) + '.md'), 'w').write(text)
-    open(os.path.join(out, '_Sidebar.md'), 'w').write(sidebar({r: p for r, p in pages.items() if not r.endswith('/FINDINGS')}))
+    open(os.path.join(out, '_Sidebar.md'), 'w').write(sidebar(pages))
     open(os.path.join(out, '_Footer.md'), 'w').write(FOOTER)
     return len(pages)
 
