@@ -845,6 +845,19 @@ func (in *Interp) completeMacro(m *Macro, num int) int {
 func (in *Interp) addNumbered(m *Macro, num int) int {
 	ms := in.macs()
 	if m.Bind != "" {
+		for k, o := range ms.binds {
+			if o.dead || k == m.Bind || k == "" {
+				continue
+			}
+			if strings.HasPrefix(m.Bind, k) {
+				in.cmdErr("DEF", 0, "'%s' is prefixed by an existing keybinding.", m.Bind)
+				return 0
+			}
+			if strings.HasPrefix(k, m.Bind) {
+				in.cmdErr("DEF", 0, "'%s' is a prefix of an existing keybinding.", m.Bind)
+				return 0
+			}
+		}
 		if orig := ms.binds[m.Bind]; orig != nil && !orig.dead {
 			if macroEqual(orig, m) {
 				return orig.ID

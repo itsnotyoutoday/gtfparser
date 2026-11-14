@@ -20,6 +20,7 @@ type exprParser struct {
 	pos   int
 	kind  string   // "expression" (default) or "condition": the noun in syntax errors
 	warns []string // compile-time warnings, shown each time the expression runs
+	pend  int      // operands waiting for the right side of an operator (tf's value stack)
 }
 
 // syntaxError is a compile-time (parse) error of an expression.
@@ -283,7 +284,13 @@ func (p *exprParser) binLevel(ops []string, next func() (eval, error)) (eval, er
 				}
 			}
 		}
+		p.pend++
+		if p.pend >= 512 { // tf's value stack holds 512 operands
+			p.pend--
+			return nil, errors.New("expression stack overflow")
+		}
 		r, err := next()
+		p.pend--
 		if err != nil {
 			return nil, err
 		}
@@ -309,6 +316,9 @@ func (p *exprParser) binLevel(ops []string, next func() (eval, error)) (eval, er
 					p.in.warn("%v", gerr) // tf: a bad pattern matches nothing, for =/ and !/ alike
 					return Int(0), nil
 				}
+			}
+			if (op0 == "+" || op0 == "*" || op0 == "/") && a.k == kDec && a.tt == ttAtime && b.k == kDec && b.tt == ttAtime {
+				p.in.warn("Warning: invalid operation %s on absolute time values.", op0)
 			}
 			return binary(op0, a, b)
 		}
@@ -395,6 +405,9 @@ func (p *exprParser) parseUnary() (eval, error) {
 			v, err := x()
 			if err != nil {
 				return v, err
+			}
+			if op == "-" && v.k == kDec && v.tt == ttAtime {
+				p.in.warn("Warning: invalid operation - on absolute time value.")
 			}
 			return reduce(op, v, Int(0), false)
 		}, nil
