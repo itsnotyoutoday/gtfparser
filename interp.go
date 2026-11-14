@@ -69,7 +69,7 @@ type Interp struct {
 	interrupted atomic.Bool
 	instr       int64
 	nest        int
-	exitReq     bool // /exit ran: the enclosing /load stops (see LoadFile)
+	exitReq     bool   // /exit ran: the enclosing /load stops (see LoadFile)
 	curCmd      string // name of the running macro, builtin command or function (diagnostics)
 	loadName    string // file being loaded, and the lines of the logical line being run
 	loadStart   int
@@ -575,7 +575,7 @@ func (in *Interp) runSub(kind byte, arg string) string {
 		in.subFail = true
 		return ""
 	}
-	arg = in.expand(arg) // the name may itself contain substitutions: ${%{L}}
+	arg = in.expand(arg)                     // the name may itself contain substitutions: ${%{L}}
 	if b, ok := in.WorldMacroBody(arg); ok { // ${world_name} and friends read the current world
 		return b
 	}

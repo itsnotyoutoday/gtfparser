@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // compatRun loads a script as a file would (so diagnostics carry file and
@@ -114,5 +115,123 @@ func TestNanAndInfPrint(t *testing.T) {
 	out, _ := compatRun(t, "/def t = /echo [$[0/0.0]] [$[sqrt(-1)]] [$[ln(0)]] [$[exp(1000)]] [$[-1.0*0]] [$[-2.0*1]] [$[2.0*1]]\n/t\n")
 	if got := strings.Join(out, "|"); got != "[nan] [nan] [-inf] [inf] [-0] [-2] [2.]" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestExitEndsLoad(t *testing.T) {
+	out, _ := compatRun(t, "/def ex = /echo before%; /exit%; /echo after\n/ex\n/echo still\n")
+	if got := strings.Join(out, "|"); got != "before" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestEvaluationOrder(t *testing.T) {
+	// identifiers are read when the operator reduces, as in tf's stack machine
+	out, _ := compatRun(t, "/def t = /echo $[y:=5, y + ++y] $[y := 5, y - --y] $[++f]\n/set f=1.5\n/t\n")
+	if got := strings.Join(out, "|"); got != "12 0 2" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestStringFunctionsLikeTf(t *testing.T) {
+	out, _ := compatRun(t, strings.Join([]string{
+		`/def t = /echo [$[strcmp("A","a")]] [$[strncmp("abc","abd",-1)]] [$[substr("hello",-2)]] [$[substr("hello",2,-1)]] [$[strstr("hello","l",3)]] [$[strrchr("hello","lh",2)]]`,
+		`/def u = /echo [$[strlen("日本語")]] [$[substr("日本語",1,1)]] [$[pad("日本",5,"x",-3)]] [$[replace("","b","banana")]] [$[toupper("hello",2)]]`,
+		`/def v = /echo [$[mod(7,3)]] [$[abs(-4)]] [$[strcat("a","b","c")]] [$[strrep("ab",3)]] [$[regmatch("(a)(b)?","a")]]`,
+		"/t", "/u", "/v",
+	}, "\n")+"\n")
+	want := []string{
+		"[-32] [-1] [lo] [ll] [3] [2]",
+		"[3] [本] [   日本x  ] [banana] [HEllo]",
+		"[1] [4] [abc] [ababab] [2]",
+	}
+	if strings.Join(out, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("got %q", out)
+	}
+}
+
+type ttyHost struct {
+	tHost
+	tty bool
+}
+
+func (h *ttyHost) IsTTY() bool { return h.tty }
+
+func TestHostDependentFunctions(t *testing.T) {
+	h := &ttyHost{tty: true}
+	in := New(h)
+	if v := in.ExecFull(`/test isatty()`); v.Int() != 1 {
+		t.Fatalf("isatty with a tty host: %v", v)
+	}
+	h.tty = false
+	if v := in.ExecFull(`/test isatty()`); v.Int() != 0 {
+		t.Fatalf("isatty without: %v", v)
+	}
+	if v := in.ExecFull(`/test nread()`); v.Int() != 0 {
+		t.Fatalf("nread: %v", v)
+	}
+	in.SetReadDepth(2)
+	if v := in.ExecFull(`/test nread()`); v.Int() != 2 {
+		t.Fatalf("nread depth: %v", v)
+	}
+	// nmail(): a non-empty file whose mtime is newer than its atime is unread mail
+	dir := t.TempDir()
+	mf := filepath.Join(dir, "mbox")
+	in.SetVar("MAIL", mf)
+	if v := in.ExecFull(`/test nmail()`); v.Int() != 0 {
+		t.Fatalf("nmail without a file: %v", v)
+	}
+	os.WriteFile(mf, []byte("From x\n"), 0o644)
+	now := time.Now()
+	os.Chtimes(mf, now.Add(-time.Hour), now) // atime older than mtime
+	in.ExecFull(`/test nmail()`)             // first look
+	os.Chtimes(mf, now.Add(-time.Hour), now.Add(time.Minute))
+	if v := in.ExecFull(`/test nmail()`); v.Int() != 1 {
+		t.Fatalf("nmail with unread mail: %v", v)
+	}
+}
+
+func TestBuiltinCommandsAsFunctions(t *testing.T) {
+	out, _ := compatRun(t, strings.Join([]string{
+		`/def t = /echo [$[def("zz = /echo zap") > 0]] [$[set("qq=1")]] [$[qq]] [$[shift()]] [$[limit()]]`,
+		"/t a b",
+		"/def s = /test shift()%; /echo %1 %{#}",
+		"/s a b c",
+		"/shift -1",
+		"/echo ok",
+	}, "\n")+"\n")
+	want := "[1] [1] [1] [1] [0]|b 2|ok"
+	if strings.Join(out, "|") != want {
+		t.Fatalf("got %q", out)
+	}
+}
+
+func TestStreams(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "a.txt")
+	out, warns := compatRun(t, strings.Join([]string{
+		`/def t = /test q := tfopen()%; /test tfwrite(q, "alpha")%; /test tfread(q, a)%; ` +
+			`/echo [%a] [$[tfclose(q)]] [$[tfclose(12345)]] [$[tfflush(12345)]] [$[tfreadable("o")]] [$[tfopen("x")]]`,
+		`/def u = /test w := tfopen("` + f + `", "w")%; /echo [$[tfwrite(w, "x")]] [$[tfwrite(w, "y")]] [$[tfreadable(w)]] [$[tfclose(w)]]`,
+		`/def p = /test p := tfopen("echo hi; echo there", "p")%; /test tfread(p, v)%; /echo [%v] [$[tfclose(p)]]`,
+		"/t", "/u", "/p",
+	}, "\n")+"\n")
+	want := []string{"[alpha] [0] [-1] [-1] [1] [-1]", "[1] [1] [1] [0]", "[hi] [0]"}
+	if strings.Join(out, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("out %q warns %q", out, warns)
+	}
+	wantW := []string{
+		"CASE, line 4: tfclose: 12345: bad handle",
+		"CASE, line 4: tfflush: 12345: bad handle",
+		"CASE, line 4: tfreadable: stream o is not readable",
+		"CASE, line 4: tfopen: invalid mode 'x'",
+		"CASE, line 5: tfreadable: stream 2 is not readable",
+	}
+	if strings.Join(warns, "\n") != strings.Join(wantW, "\n") {
+		t.Fatalf("warnings %q", warns)
+	}
+	data, _ := os.ReadFile(f)
+	if string(data) != "x\ny\n" {
+		t.Fatalf("file: %q", data)
 	}
 }
