@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 type cmdFunc func(in *Interp, args string) Value
@@ -141,7 +142,7 @@ func cmdUnset(in *Interp, args string) Value {
 func cmdTest(in *Interp, args string) Value {
 	v, err := in.evalExpr(args)
 	if err != nil {
-		in.warn("/test: %v", err)
+		in.warn("%v", err)
 		return Int(0)
 	}
 	return v
@@ -152,7 +153,7 @@ func cmdReturn(in *Interp, args string) Value {
 	if strings.TrimSpace(args) != "" {
 		v, err := in.evalExpr(args)
 		if err != nil {
-			in.warn("/return: %v", err)
+			in.warn("%v", err)
 		}
 		in.retv = v
 	}
@@ -265,12 +266,12 @@ func cmdLoad(in *Interp, args string) Value {
 	p, ok := in.findFile(name)
 	if !ok {
 		if !quiet {
-			in.warn("/load: %s: no such file", name)
+			in.warn("/load: %s: %s", name, cErr(syscall.ENOENT))
 		}
 		return Int(0)
 	}
 	if err := in.LoadFile(p); err != nil {
-		in.warn("/load: %v", err)
+		in.warn("/load: %s: %s", name, cErr(err))
 		return Int(0)
 	}
 	return Int(1)
@@ -321,6 +322,10 @@ func (in *Interp) LoadFile(path string) error {
 	sc.Buffer(make([]byte, 1<<20), 16<<20)
 	var cur strings.Builder
 	exited := false
+	oldName, oldStart, oldLine := in.loadName, in.loadStart, in.loadLine
+	in.loadName = path
+	defer func() { in.loadName, in.loadStart, in.loadLine = oldName, oldStart, oldLine }()
+	lineNo, startNo := 0, 0
 	flush := func() {
 		line := cur.String()
 		cur.Reset()
@@ -328,6 +333,7 @@ func (in *Interp) LoadFile(path string) error {
 			return
 		}
 		in.depth = 0
+		in.loadStart, in.loadLine = startNo, lineNo
 		in.Exec(strings.TrimLeft(line, " \t"))
 		if in.ctl == ctlExit {
 			exited = true
@@ -336,6 +342,10 @@ func (in *Interp) LoadFile(path string) error {
 	}
 	for sc.Scan() && !exited {
 		l := strings.TrimRight(sc.Text(), "\r")
+		lineNo++
+		if cur.Len() == 0 {
+			startNo = lineNo
+		}
 		if cur.Len() > 0 && strings.HasPrefix(strings.TrimLeft(l, " \t"), ";") {
 			continue // a comment line inside a continued line
 		}

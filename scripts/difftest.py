@@ -29,7 +29,7 @@ def run_tf(tf, lib, script, timeout=20):
             try: SCREEN.append(os.read(m, 65536))
             except OSError: break
     if p.poll() is None: p.kill()
-    return open(out).read() if os.path.exists(out) else '<no output>'
+    return open(out, errors='replace').read() if os.path.exists(out) else '<no output>'
 
 def run_gtf(gtf, lib, script):
     d = tempfile.mkdtemp()
@@ -52,6 +52,22 @@ a = ap.parse_args()
 bad = 0
 for c in a.cases:
     script = open(c).read()
+    if '/deviations/' in c:
+        # registered deliberate deviation: gtfparser must print the documented
+        # .out file, and real tf must still differ (otherwise it is stale)
+        want = open(c[:-3] + '.out').read()
+        got, tfout = run_gtf(a.gtf, a.lib, script), run_tf(a.tf, a.lib, script)
+        if got != want:
+            bad += 1
+            print('DIFF', c, '(gtfparser output changed)')
+            import difflib
+            for l in difflib.unified_diff(want.splitlines(), got.splitlines(), 'documented', 'gtf', lineterm='', n=0): print('   ', l)
+        elif tfout == got:
+            bad += 1
+            print('STALE', c, '(tf now agrees; move it to testdata/cases)')
+        else:
+            print('dev ', c)
+        continue
     want, got = run_tf(a.tf, a.lib, script), run_gtf(a.gtf, a.lib, script)
     if a.show:
         t = re.sub(r'\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][A-Z0-9]|\r', '', b''.join(SCREEN).decode(errors='replace'))

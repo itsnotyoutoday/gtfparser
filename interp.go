@@ -1,6 +1,7 @@
 package gtfparser
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -68,6 +69,10 @@ type Interp struct {
 	interrupted atomic.Bool
 	instr       int64
 	nest        int
+	curCmd      string // name of the running macro, builtin command or function (diagnostics)
+	loadName    string // file being loaded, and the lines of the logical line being run
+	loadStart   int
+	loadLine    int
 	setLetLast  bool // the last command run was /set or /let (see callMacro)
 	readDepth   int
 	mail        map[string]*mailInfo
@@ -150,7 +155,46 @@ func (in *Interp) Var(name string) string {
 	return v.String()
 }
 
-func (in *Interp) warn(f string, a ...any) { in.Warn(fmt.Sprintf(f, a...)) }
+// cmdErr is an error that names the builtin function it came from, so the
+// diagnostic reads "% file, line N: mod: division by zero" as in tf.
+type cmdErr struct {
+	cmd string
+	err error
+}
+
+func (e *cmdErr) Error() string { return e.err.Error() }
+func (e *cmdErr) Unwrap() error { return e.err }
+
+// warn reports a diagnostic the way tf's eprintf does: "file, line N: "
+// while loading, then the name of the command, macro or function that is
+// running ("/cmd: " at the start of the message names a builtin command and
+// is shown as tf shows it, upper case), then the message.
+func (in *Interp) warn(f string, a ...any) {
+	cmd := in.curCmd
+	for _, x := range a {
+		if ce, ok := x.(*cmdErr); ok {
+			cmd = ce.cmd
+		}
+	}
+	msg := fmt.Sprintf(f, a...)
+	if len(msg) > 2 && msg[0] == '/' {
+		if i := strings.Index(msg, ": "); i > 1 && !strings.ContainsAny(msg[1:i], " /") && tfCmdSet[strings.ToLower(msg[1:i])] {
+			cmd, msg = strings.ToUpper(msg[1:i]), msg[i+2:]
+		}
+	}
+	var b strings.Builder
+	if in.loadName != "" {
+		if in.loadStart == in.loadLine {
+			fmt.Fprintf(&b, "%s, line %d: ", in.loadName, in.loadLine)
+		} else {
+			fmt.Fprintf(&b, "%s, lines %d-%d: ", in.loadName, in.loadStart, in.loadLine)
+		}
+	}
+	if cmd != "" {
+		b.WriteString(cmd + ": ")
+	}
+	in.Warn(b.String() + msg)
+}
 
 // ---------------------------------------------------------------- variables
 
@@ -1040,13 +1084,18 @@ func negate(v Value, neg bool) Value {
 
 func (in *Interp) runBuiltin(name, args string) Value {
 	if in.disabled["/"+name] {
-		in.warn("/%s: disabled", name)
+		in.Warn("/" + name + ": disabled")
 		return Int(0)
 	}
 	f, ok := in.cmds[name]
 	if !ok {
 		in.warn("/%s: no such command", name)
 		return Int(0)
+	}
+	if !quietCmds[name] && tfCmdSet[name] { // commands that only run an expression or a body show no name
+		old := in.curCmd
+		in.curCmd = strings.ToUpper(name)
+		defer func() { in.curCmd = old }()
 	}
 	return f(in, args)
 }
@@ -1067,6 +1116,9 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 	}
 	in.noteCall(m)
 	in.depth++
+	oldCmd := in.curCmd
+	in.curCmd = m.Name
+	defer func() { in.curCmd = oldCmd }()
 	f := in.pushFrame(m.Name, args)
 	f.asFunc = asFunc
 	if in.pendingArgs != nil {
@@ -1101,12 +1153,28 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 	return res
 }
 
+// quietCmds run user text or expressions: tf does not name them in diagnostics.
+var quietCmds = map[string]bool{"test": true, "eval": true, "return": true, "result": true}
+
 func (in *Interp) callFunc(name string, args []Value) (Value, error) {
 	if f, ok := in.funcs[name]; ok {
 		if in.disabled[name+"()"] {
-			return Int(0), fmt.Errorf("%s(): disabled", name)
+			return Int(0), &cmdErr{name, fmt.Errorf("disabled")}
 		}
-		return f(in, args)
+		_, isTf := funcArity[name]
+		old := in.curCmd
+		if isTf {
+			in.curCmd = name
+		}
+		v, err := f(in, args)
+		in.curCmd = old
+		if err != nil && isTf {
+			if _, ok := err.(*cmdErr); !ok {
+				msg := strings.TrimPrefix(err.Error(), name+"(): ")
+				err = &cmdErr{name, errors.New(msg)}
+			}
+		}
+		return v, err
 	}
 	if ln := strings.ToLower(name); in.isTfCommand(ln) && ln != "exit" {
 		// a builtin command called as a function takes 0 or 1 argument: its

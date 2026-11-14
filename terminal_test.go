@@ -887,7 +887,7 @@ func TestStatusRowsFormatVariables(t *testing.T) {
 	_, in := newKB(t)
 	in.ExecFull("/status_add -c @more:8 :1 insert:6 :1 @log:5")
 	in.setGlobal("status_int_more", Str(`moresize() == 0 ? "" : pad("More", 4, moresize(), 4)`))
-	in.setGlobal("status_int_log", Str(`strcat("L", nmail())`))
+	in.setGlobal("status_int_log", Str(`strcat("L", nosuchfn())`))
 	in.setGlobal("status_var_insert", Str(`insert ? "" : "(Over)"`))
 	var warns []string
 	in.Warn = func(s string) { warns = append(warns, s) }
@@ -896,14 +896,14 @@ func TestStatusRowsFormatVariables(t *testing.T) {
 	if !strings.HasPrefix(rows[0].Text, "More  12_") {
 		t.Fatalf("%q", rows[0].Text)
 	}
-	if len(warns) != 1 || !strings.Contains(warns[0], "nmail()") {
+	if len(warns) != 1 || !strings.Contains(warns[0], "nosuchfn") {
 		t.Fatalf("a problem is reported once: %v", warns)
 	}
 	in.StatusRows(40)
 	if len(warns) != 1 {
 		t.Fatalf("and not again on the next redraw: %v", warns)
 	}
-	in.setGlobal("status_int_log", Str(`strcat("M", nmail())`))
+	in.setGlobal("status_int_log", Str(`strcat("M", nosuchfn())`))
 	in.StatusRows(40)
 	if len(warns) != 2 {
 		t.Fatalf("but again after the format changes: %v", warns)

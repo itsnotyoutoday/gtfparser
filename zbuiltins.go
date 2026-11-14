@@ -132,7 +132,7 @@ func cmdLcd(in *Interp, args string) Value {
 		}
 	}
 	if err := os.Chdir(dir); err != nil {
-		in.warn("/lcd: %v", err)
+		in.warn("/lcd: %s: %s", dir, cErr(err))
 		return Int(0)
 	}
 	return Int(1)

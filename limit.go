@@ -129,7 +129,7 @@ func cmdLimit(in *Interp, args string) Value {
 	old := *f
 	*f = *nf
 	if !in.limitRedraw(key, f) {
-		in.warn("No lines matched criteria.")
+		in.Warn("No lines matched criteria.")
 		*f = old
 		f.enabled = false
 		in.limitRedraw(key, f)
@@ -147,7 +147,7 @@ func cmdRelimit(in *Interp, args string) Value {
 	}
 	f.enabled = true
 	if !in.limitRedraw(key, f) {
-		in.warn("No lines matched criteria.")
+		in.Warn("No lines matched criteria.")
 		f.enabled = false
 		in.limitRedraw(key, f)
 		return Int(0)

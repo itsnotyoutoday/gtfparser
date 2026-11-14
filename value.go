@@ -210,7 +210,16 @@ func (v Value) Int() int64 {
 	case kDec:
 		return new(big.Int).Quo(n.dec, million).Int64()
 	}
-	return int64(n.f)
+	switch f := n.f; {
+	case f != f:
+		return 0
+	case f >= 9.2233720368547758e18:
+		return math.MaxInt64 // out of range: tf's result is platform-dependent; gtfparser clamps
+	case f <= -9.2233720368547758e18:
+		return math.MinInt64
+	default:
+		return int64(f)
+	}
 }
 
 func (v Value) Truth() bool {

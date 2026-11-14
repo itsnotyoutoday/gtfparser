@@ -105,13 +105,17 @@ func (m *Macro) TriggerText() string {
 
 // cmdErr reports an error the way tf's eprintf does: "CMD -o: message".
 func (in *Interp) cmdErr(cmd string, opt byte, f string, a ...any) {
-	if cmd == "" {
-		in.warn("%s", fmt.Sprintf(f, a...))
-	} else if opt != 0 {
-		in.warn("%s -%c: %s", cmd, opt, fmt.Sprintf(f, a...))
-	} else {
-		in.warn("%s: %s", cmd, fmt.Sprintf(f, a...))
+	old := in.curCmd
+	defer func() { in.curCmd = old }()
+	switch {
+	case cmd == "":
+		in.curCmd = ""
+	case opt != 0:
+		in.curCmd = fmt.Sprintf("%s -%c", cmd, opt)
+	default:
+		in.curCmd = cmd
 	}
+	in.warn("%s", fmt.Sprintf(f, a...))
 }
 
 // ---------------------------------------------------------------- option parsing

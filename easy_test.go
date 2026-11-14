@@ -86,6 +86,6 @@ func ExampleWithPolicy() {
 	in.Run("/spin")                                   // stopped at the instruction limit
 
 	// Output:
-	// % /sh: restricted
-	// % max_instr (10000) exceeded; execution aborted
+	// % SH: restricted
+	// % spin: instruction count exceeded %max_instr (10000).
 }

@@ -23,7 +23,7 @@ func TestRestrictLevelsAndPolicy(t *testing.T) {
 	h.out = nil
 	in.ExecFull("/restrict shell")
 	in.ExecFull("/sh echo hi")
-	if !strings.Contains(strings.Join(h.out, "|"), "!/sh: restricted") {
+	if !strings.Contains(strings.Join(h.out, "|"), "!SH: restricted") {
 		t.Fatalf("restricted /sh must say so: %v", h.out)
 	}
 	h.out = nil

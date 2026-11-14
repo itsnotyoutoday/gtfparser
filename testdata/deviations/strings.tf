@@ -1,0 +1,8 @@
+/test E(strcat(strlen(tolower("ÀÉÎ")), "|", tolower("ÀÉÎ"), "|", toupper("àéî")))
+/test E(toupper("àéîõü", 2))
+/test E(strcat(char(8364), char(65)))
+/test E(strlen(strrep("ab", 3)))
+/test E(strrep("x", 99999999999999999999))
+/test E(strlen(pad("a", 99999999999)))
+/test E(trunc(1e30))
+/test E(trunc(-1e30))

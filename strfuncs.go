@@ -7,17 +7,16 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // String functions as tf's UTF-8 build implements them (expr.c): lengths and
 // offsets count characters; a stray byte that is not part of a valid
 // sequence counts as one character.
 
-// maxBuild bounds strings the functions build (tf hangs or crashes on absurd
-// sizes; the engine refuses instead).
-const maxBuild = 1 << 26
-
-var errTooBig = errors.New("result too large")
+func (in *Interp) tooBig(string) error {
+	return fmt.Errorf("result would exceed the string size limit (%d bytes)", in.maxString())
+}
 
 func u8clen(s string, i int) int {
 	n := 1
@@ -170,8 +169,8 @@ func fnStrrep(in *Interp, a []Value) (Value, error) {
 	if n <= 0 || s == "" {
 		return Str(""), nil
 	}
-	if n > maxBuild || int64(len(s))*n > maxBuild {
-		return Str(""), fmt.Errorf("strrep: %w", errTooBig)
+	if n > in.maxString() || int64(len(s))*n > in.maxString() {
+		return Str(""), in.tooBig("strrep")
 	}
 	return Str(strings.Repeat(s, int(n))), nil
 }
@@ -185,8 +184,8 @@ func fnPad(in *Interp, a []Value) (Value, error) {
 		if k+1 < len(a) {
 			w = a[k+1].Int()
 		}
-		if w > maxBuild || -w > maxBuild || int64(b.Len())+clen > maxBuild {
-			return Str(""), fmt.Errorf("pad: %w", errTooBig)
+		if w > in.maxString() || -w > in.maxString() || int64(b.Len())+clen+max(w, -w) > in.maxString() {
+			return Str(""), in.tooBig("pad")
 		}
 		if w > clen {
 			b.WriteString(strings.Repeat(" ", int(w-clen)))
@@ -199,34 +198,47 @@ func fnPad(in *Interp, a []Value) (Value, error) {
 	return Str(b.String()), nil
 }
 
-// cCase maps one byte the way the reference's C locale functions do: bytes
-// above 127 are treated as Latin-1 code points and the result is truncated
-// to a byte, so UTF-8 text can come out as invalid UTF-8.
-func cCase(c byte, upper bool) byte {
-	if c < 0x80 {
-		if upper && c >= 'a' && c <= 'z' {
-			return c - 32
-		}
-		if !upper && c >= 'A' && c <= 'Z' {
-			return c + 32
-		}
-		return c
-	}
-	if upper {
-		return byte(unicode.ToUpper(rune(c)))
-	}
-	return byte(unicode.ToLower(rune(c)))
-}
-
+// caseFunc is tolower()/toupper(): simple one-to-one Unicode case mapping
+// (tf maps single bytes through the C library, which corrupts multibyte
+// text); the optional count is in characters, a negative one counts from the
+// end like substr().
 func caseFunc(upper bool) fn {
 	return func(in *Interp, a []Value) (Value, error) {
-		b := []byte(str(a, 0))
-		j := optArg(a, 2, int64(len(b)), int64(len(b)))
-		for i := int64(0); i < j; i++ {
-			b[i] = cCase(b[i], upper)
+		s := str(a, 0)
+		n := int64(u8nchars(s))
+		j := optArg(a, 2, n, n)
+		var b strings.Builder
+		var i int64
+		for p := 0; p < len(s); i++ {
+			l := u8clen(s, p)
+			ch := s[p : p+l]
+			if i < j {
+				if r, size := utf8.DecodeRuneInString(ch); r != utf8.RuneError || size > 1 {
+					if upper {
+						r = unicode.ToUpper(r)
+					} else {
+						r = unicode.ToLower(r)
+					}
+					ch = string(r)
+				} else if l == 1 && s[p] < 0x80 {
+					ch = string(rune(cCaseASCII(s[p], upper)))
+				}
+			}
+			b.WriteString(ch)
+			p += l
 		}
-		return Str(string(b)), nil
+		return Str(b.String()), nil
 	}
+}
+
+func cCaseASCII(c byte, upper bool) byte {
+	if upper && c >= 'a' && c <= 'z' {
+		return c - 32
+	}
+	if !upper && c >= 'A' && c <= 'Z' {
+		return c + 32
+	}
+	return c
 }
 
 func fnReplace(in *Interp, a []Value) (Value, error) {
@@ -234,18 +246,25 @@ func fnReplace(in *Interp, a []Value) (Value, error) {
 	if old == "" {
 		return Str(s), nil
 	}
-	if len(nw) > len(old) && int64(len(s))/int64(len(old))*int64(len(nw)) > maxBuild {
-		return Str(""), fmt.Errorf("replace: %w", errTooBig)
+	if len(nw) > len(old) && int64(len(s))/int64(len(old))*int64(len(nw)) > in.maxString() {
+		return Str(""), in.tooBig("replace")
 	}
 	return Str(strings.ReplaceAll(s, old, nw)), nil
 }
 
+// char(n): below 256 the single byte n (what tf does; 128-255 is not valid
+// UTF-8 on its own), from 256 the Unicode character (tf wraps modulo 256).
 func fnChar(in *Interp, a []Value) (Value, error) {
-	b := byte(a[0].Int())
-	if b == 0 {
+	n := a[0].Int()
+	switch {
+	case n == 0:
+		return Str(""), nil
+	case n >= 256 && n <= unicode.MaxRune && !(n >= 0xD800 && n <= 0xDFFF):
+		return Str(string(rune(n))), nil
+	case n < 0 || n >= 256:
 		return Str(""), nil
 	}
-	return Str(string([]byte{b})), nil
+	return Str(string([]byte{byte(n)})), nil
 }
 
 func fnAscii(in *Interp, a []Value) (Value, error) {

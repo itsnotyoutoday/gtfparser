@@ -40,7 +40,7 @@ func (in *Interp) evalExpr(src string) (Value, error) {
 		if err == nil {
 			p.ws()
 			if p.pos < len(p.s) {
-				err = fmt.Errorf("expression: unexpected %q", p.s[p.pos:])
+				err = p.syntaxErr("end of expression")
 			}
 		}
 		e = &exprEntry{f: f, err: err}
@@ -148,7 +148,7 @@ func (p *exprParser) parseTernary() (eval, error) {
 		}
 	}
 	if !p.take(":") {
-		return nil, errors.New("expression: expected ':' in conditional")
+		return nil, p.syntaxErr("':' after '?...'")
 	}
 	b, err := p.parseTernary()
 	if err != nil {
@@ -312,12 +312,16 @@ func (p *exprParser) parseUnary() (eval, error) {
 		_ = x
 		return func() (Value, error) {
 			cur, _ := p.in.lookup(id)
-			// tf truncates the variable to an integer first (++f on 1.5 gives
-			// 2); gtfparser adds one to the real value
-			r, err := reduce(op[:1], cur, Int(1), true)
-			if err != nil {
-				return r, err
+			n := cur.Int() // a real is truncated to an integer first: ++f on 1.5 gives 2
+			if (op == "++" && n == math.MaxInt64) || (op == "--" && n == math.MinInt64) {
+				return Int(0), fmt.Errorf("integer overflow in %s%s", op, id)
 			}
+			if op == "++" {
+				n++
+			} else {
+				n--
+			}
+			r := Int(n)
 			p.in.assign(id, r)
 			return r, nil
 		}, nil
@@ -385,7 +389,7 @@ func (p *exprParser) ident() (string, bool) {
 func (p *exprParser) parsePrimary() (eval, error) {
 	p.ws()
 	if p.pos >= len(p.s) {
-		return nil, errors.New("expression: unexpected end")
+		return nil, p.syntaxErr("operand")
 	}
 	c := p.s[p.pos]
 	switch {
@@ -396,7 +400,7 @@ func (p *exprParser) parsePrimary() (eval, error) {
 			return nil, err
 		}
 		if !p.take(")") {
-			return nil, errors.New("expression: missing ')'")
+			return nil, p.syntaxErr("')' after '(...'")
 		}
 		return e, nil
 	case c >= '0' && c <= '9' || (c == '.' && p.pos+1 < len(p.s) && p.s[p.pos+1] >= '0' && p.s[p.pos+1] <= '9'):
@@ -433,7 +437,26 @@ func (p *exprParser) parsePrimary() (eval, error) {
 			return v, nil
 		}, nil
 	}
-	return nil, fmt.Errorf("expression: unexpected %q", string(c))
+	return nil, p.syntaxErr("operand")
+}
+
+func isAlnumByte(c byte) bool { return isIdentChar(c) && c != '_' }
+
+// syntaxErr is parse_error() in expand.c.
+func (p *exprParser) syntaxErr(expect string) error {
+	p.ws()
+	found := "end of body"
+	if p.pos < len(p.s) {
+		end := p.pos + 1
+		c := p.s[p.pos]
+		if isAlnumByte(c) || c == '"' || c == '\'' || c == '`' || c == '/' {
+			for end < len(p.s) && isAlnumByte(p.s[end]) {
+				end++
+			}
+		}
+		found = "'" + p.s[p.pos:end] + "'"
+	}
+	return fmt.Errorf("expression syntax error: expected %s, found %s.", expect, found)
 }
 
 func (p *exprParser) number() (eval, error) {
@@ -488,12 +511,13 @@ func (p *exprParser) quoted(q byte) (eval, error) {
 		b.WriteByte(c)
 		p.pos++
 	}
-	return nil, errors.New("expression: unterminated string")
+	return nil, fmt.Errorf("unmatched %c in string literal", q)
 }
 
 func (p *exprParser) call(name string) (eval, error) {
 	p.take("(")
 	var args []eval
+	var ids []string // arguments that are bare variables are read after the others are evaluated
 	p.ws()
 	if !p.take(")") {
 		for {
@@ -516,20 +540,24 @@ func (p *exprParser) call(name string) (eval, error) {
 					p.pos = save
 				}
 			}
+			id := ""
 			if a == nil {
+				st := p.pos
 				a, err = p.parseAssign()
 				if err != nil {
 					return nil, err
 				}
+				id = p.bareIdent(st, p.pos)
 			}
 			args = append(args, a)
+			ids = append(ids, id)
 			if p.take(",") {
 				continue
 			}
 			if p.take(")") {
 				break
 			}
-			return nil, fmt.Errorf("expression: bad arguments to %s()", name)
+			return nil, p.syntaxErr("',' or ')' after function argument")
 		}
 	}
 	if ar, ok := funcArity[name]; ok {
@@ -553,11 +581,19 @@ func (p *exprParser) call(name string) (eval, error) {
 	return func() (Value, error) {
 		vals := make([]Value, len(args))
 		for i, a := range args {
+			if ids[i] != "" {
+				continue
+			}
 			v, err := a()
 			if err != nil {
 				return v, err
 			}
 			vals[i] = v
+		}
+		for i, id := range ids {
+			if id != "" {
+				vals[i], _ = p.in.lookup(id)
+			}
 		}
 		return p.in.callFunc(name, vals)
 	}, nil
@@ -683,9 +719,9 @@ func reduce(op string, a, b Value, binary bool) (Value, error) {
 		pr = rank(y.k)
 	}
 	if pr < 2 && (op == "+" || op == "-") {
-		// tf computes this in 32-bit ints (so 1+4294967296 is 1); gtfparser
-		// uses the exact value and promotes to a float when it does not
-		// fit 32 bits (see docs/deliberate-differences.md)
+		// tf narrows to 32-bit int here (so 1+4294967296 is 1, a defect of
+		// its 64-bit port); gtfparser is 64-bit throughout and promotes to a
+		// real only when the exact result overflows (docs/deliberate-differences.md)
 		var a0 int64
 		if binary {
 			a0 = x.Int()
@@ -700,7 +736,7 @@ func reduce(op string, a, b Value, binary bool) (Value, error) {
 			sum = a0 + a1
 			ok = !(a1 > 0 && a0 > math.MaxInt64-a1) && !(a1 < 0 && a0 < math.MinInt64-a1)
 		}
-		if !ok || (pr == 0 && (sum > math.MaxInt32 || sum < math.MinInt32)) {
+		if !ok {
 			pr = 2
 		} else if pr == 0 {
 			return Int(sum), nil
@@ -711,7 +747,7 @@ func reduce(op string, a, b Value, binary bool) (Value, error) {
 		switch op {
 		case "*":
 			r := x.i * y.i
-			if x.i == 0 || y.i == 0 || (r/y.i == x.i && r >= math.MinInt32 && r <= math.MaxInt32) {
+			if x.i == 0 || y.i == 0 || (r/y.i == x.i && !(x.i == -1 && y.i == math.MinInt64) && !(y.i == -1 && x.i == math.MinInt64)) {
 				return Int(r), nil
 			}
 			return Real(float64(x.i) * float64(y.i)), nil
