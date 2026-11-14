@@ -35,7 +35,9 @@ Fixed (macro language)
 - A macro's arguments no longer end in blanks; a macro whose last command is `/set` or `/let`
   returns "" when called as a function; bare `/return` returns 0; `/quote` source lines run
   unsubstituted (`/qdef` keeps `%1`); a synchronous `/quote !cmd` (and so `/sys`) returns the exit
-  status; `/exit` in a loaded file ends that `/load`; a numeric `%?` etc. as before.
+  status; `/exit` in a loaded file ends that `/load`; `/load` treats `;` and `#` in the first column
+  as comments and a trailing backslash as a continuation unless a `%` precedes it; `%max_iter` is
+  ignored (as in tf: runaway loops end at `max_instr`).
 - `/load`, `/lcd`, `/version` (now also prints the Copyright line so `/ver` works) texts and option
   usage lines (`-lgi -w<string>`) match tf; `%isize`/`%tabsize` ... reject values below 1 (`pos`) and
   integer variables values below 0 with tf's message; time variables print `1.0`; visual mode is
