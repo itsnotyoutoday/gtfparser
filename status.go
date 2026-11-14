@@ -92,55 +92,6 @@ func (st *statusState) usesVar(name string) bool {
 
 // ---------------------------------------------------------------- display attributes
 
-// attrSet is a parsed attribute string (the part of tf's attr_t a status line
-// needs): flags plus optional foreground and background colors.
-type attrSet struct {
-	flags  uint16
-	fg, bg int // -1: none
-}
-
-const (
-	aN = 1 << iota
-	aX
-	aG // gag
-	aNoHist
-	aNoLog
-	aNoAct
-	aU
-	aR
-	aF
-	aD
-	aI
-	aB
-	aBell
-	aH
-)
-
-var attrOrder = []struct {
-	bit uint16
-	ch  byte
-}{{aN, 'n'}, {aX, 'x'}, {aG, 'g'}, {aNoHist, 'G'}, {aNoLog, 'L'}, {aNoAct, 'A'}, {aU, 'u'}, {aR, 'r'},
-	{aF, 'f'}, {aD, 'd'}, {aI, 'i'}, {aB, 'B'}, {aBell, 'b'}, {aH, 'h'}}
-
-func noAttr() attrSet { return attrSet{fg: -1, bg: -1} }
-
-// colorNames are tf's 256 color names in index order.
-var colorNames = func() []string {
-	n := []string{"black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
-		"gray", "brightred", "brightgreen", "brightyellow", "brightblue", "brightmagenta", "brightcyan", "brightwhite"}
-	for r := 0; r < 6; r++ {
-		for g := 0; g < 6; g++ {
-			for b := 0; b < 6; b++ {
-				n = append(n, fmt.Sprintf("rgb%d%d%d", r, g, b))
-			}
-		}
-	}
-	for i := 0; i < 24; i++ {
-		n = append(n, "gray"+strconv.Itoa(i))
-	}
-	return n
-}()
-
 // enumError is tf's enum2int complaint: the valid values, with the gagged
 // (intermediate) ones elided.
 func enumList(names []string, shown func(i int) bool) string {
@@ -157,140 +108,11 @@ func enumList(names []string, shown func(i int) bool) string {
 	return b.String()
 }
 
-func colorShown(i int) bool {
-	switch {
-	case i >= 10 && i <= 14:
-		return false
-	case i >= 17 && i <= 230:
-		return false
-	case i >= 233 && i <= 254:
-		return false
-	}
-	return true
-}
-
-func parseColor(name, what string) (int, error) {
-	for i, n := range colorNames {
-		if strings.EqualFold(n, name) {
-			return i, nil
-		}
-	}
-	if name != "" {
-		if v, err := strconv.Atoi(name); err == nil && v >= 0 && v < len(colorNames) {
-			return v, nil
-		}
-	}
-	return 0, fmt.Errorf("Invalid %s value \"%s\".  Valid values are: %s", what, name, enumList(colorNames, colorShown))
-}
-
 // parseAttrs parses an attribute string such as "Br" or "Cred,Cbgblue" up to
-// end or a space (delim), returning the unparsed rest.
-func (in *Interp) parseAttrs(s string) (attrSet, string, error) {
-	a := noAttr()
-	i := 0
-	for i < len(s) && s[i] != ' ' {
-		c := s[i]
-		i++
-		switch c {
-		case ',':
-		case 'n':
-			a.flags |= aN
-		case 'x':
-			a.flags |= aX
-		case 'G':
-			a.flags |= aNoHist
-		case 'L':
-			a.flags |= aNoLog
-		case 'A':
-			a.flags |= aNoAct
-		case 'g':
-			a.flags |= aG
-		case 'u':
-			a.flags |= aU
-		case 'r':
-			a.flags |= aR
-		case 'f':
-			a.flags |= aF
-		case 'i':
-			a.flags |= aI
-		case 'd':
-			a.flags |= aD
-		case 'B':
-			a.flags |= aB
-		case 'b':
-			a.flags |= aBell
-		case 'h':
-			a.flags |= aH
-		case 'E', 'W', 'I':
-			v := map[byte]string{'E': "error_attr", 'W': "warning_attr", 'I': "info_attr"}[c]
-			sub, _, err := in.parseAttrs(in.globalStr(v))
-			if err == nil {
-				a = a.adj(sub)
-			}
-		case 'C':
-			// the color name runs to the next ',' or space; with neither, to the end
-			j := strings.IndexAny(s[i:], ", ")
-			name := s[i:]
-			if j >= 0 && j < 16 {
-				name = s[i : i+j]
-				i += j
-			} else {
-				i = len(s)
-			}
-			if strings.HasPrefix(name, "bg") {
-				v, err := parseColor(name[2:], "bgcolor")
-				if err != nil {
-					return a, "", err
-				}
-				a.bg = v
-			} else {
-				v, err := parseColor(name, "color")
-				if err != nil {
-					return a, "", err
-				}
-				a.fg = v
-			}
-		default:
-			return a, "", fmt.Errorf("invalid display attribute '%c'", c)
-		}
-	}
-	return a, s[i:], nil
-}
-
-// adj combines two attribute sets as tf's adj_attr: x discards the base, colors
-// replace colors, everything else is OR'd.
-func (base attrSet) adj(add attrSet) attrSet {
-	if add.flags&aX != 0 {
-		return add
-	}
-	r := base
-	r.flags |= add.flags
-	if add.fg >= 0 {
-		r.fg = add.fg
-	}
-	if add.bg >= 0 {
-		r.bg = add.bg
-	}
-	return r
-}
-
-func (a attrSet) String() string {
-	var b strings.Builder
-	for _, o := range attrOrder {
-		if a.flags&o.bit != 0 {
-			b.WriteByte(o.ch)
-		}
-	}
-	if a.fg >= 0 {
-		b.WriteString("C" + colorNames[a.fg])
-	}
-	if a.bg >= 0 {
-		if a.fg >= 0 {
-			b.WriteByte(',')
-		}
-		b.WriteString("Cbg" + colorNames[a.bg])
-	}
-	return b.String()
+// the end or a space, returning the unparsed rest. It is the shared
+// implementation in attrs.go.
+func (in *Interp) parseAttrs(s string) (Attr, string, error) {
+	return in.attrCtx().Parse(s, ' ')
 }
 
 // ---------------------------------------------------------------- field syntax
@@ -1031,11 +853,11 @@ func (in *Interp) globalStr(name string) string {
 	return ""
 }
 
-func (in *Interp) varAttrs(name string) attrSet {
+func (in *Interp) varAttrs(name string) Attr {
 	a, _, err := in.parseAttrs(in.globalStr(name))
 	if err != nil {
 		in.statusWarn(name + ": " + err.Error())
-		return noAttr()
+		return 0
 	}
 	return a
 }
@@ -1062,6 +884,7 @@ func (in *Interp) StatusRows(width int) []StatusRow {
 		pad, _ = utf8.DecodeRuneInString(padStr)
 	}
 	lineAttr := in.varAttrs("status_attr")
+	ctx := in.attrCtx()
 	var rows []StatusRow
 	for r := 0; r < in.statusHeight(); r++ {
 		row := StatusRow{Row: r, Attrs: lineAttr.String()}
@@ -1090,10 +913,10 @@ func (in *Interp) StatusRows(width int) []StatusRow {
 			}
 			a := lineAttr
 			if fa, _, err := in.parseAttrs(lf.f.Attrs); err == nil {
-				a = a.adj(fa)
+				a = ctx.Adj(a, fa)
 			}
 			if av := lf.f.attrVar(); av != "" {
-				a = a.adj(in.varAttrs(av))
+				a = ctx.Adj(a, in.varAttrs(av))
 			}
 			row.Spans = append(row.Spans, StatusSpan{Col: lf.col, Width: lf.width, Text: string(cell),
 				ValueStart: vs, ValueLen: len(val), Attrs: a.String(), Field: lf.f})

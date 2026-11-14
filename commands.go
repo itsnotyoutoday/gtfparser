@@ -25,8 +25,6 @@ func init() {
 		"break":   cmdBreak,
 		"eval":    cmdEval,
 		"send":    cmdSend,
-		"def":     cmdDef,
-		"undef":   cmdUndef,
 		"load":    cmdLoad,
 		"require": cmdRequire,
 		"loaded":  cmdLoaded,
@@ -51,6 +49,9 @@ loop:
 		case w == "-p":
 			o.Markup = true
 			args = r
+		case w == "-": // ends the options
+			args = r
+			break loop
 		case w == "-w":
 			o.World, args = firstWord(r)
 		case strings.HasPrefix(w, "-a") && len(w) > 2:
@@ -63,8 +64,7 @@ loop:
 			break loop
 		}
 	}
-	in.echoOpts(o, args)
-	return Int(1)
+	return in.echoOpts(o, args)
 }
 
 func cmdSend(in *Interp, args string) Value {
@@ -227,26 +227,6 @@ func cmdFor(in *Interp, args string) Value {
 	return res
 }
 
-func cmdDef(in *Interp, args string) Value {
-	m, err := in.parseDef(args)
-	if err != nil {
-		in.warn("%v", err)
-		return Int(0)
-	}
-	in.Define(m)
-	return Int(1)
-}
-
-func cmdUndef(in *Interp, args string) Value {
-	ok := false
-	for _, n := range strings.Fields(args) {
-		if in.Undef(n) {
-			ok = true
-		}
-	}
-	return Bool(ok)
-}
-
 func cmdQuit(in *Interp, args string) Value { in.Quit = true; return Int(1) }
 func cmdExit(in *Interp, args string) Value { in.ctl = ctlExit; return Int(1) }
 
@@ -310,6 +290,16 @@ func cmdLoaded(in *Interp, args string) Value {
 	return Int(1)
 }
 
+// inLibDir reports whether path is inside one of the library directories.
+func (in *Interp) inLibDir(path string) bool {
+	for _, d := range in.LibDirs {
+		if rel, err := filepath.Rel(d, path); err == nil && !strings.HasPrefix(rel, "..") {
+			return true
+		}
+	}
+	return false
+}
+
 // LoadFile executes a TF script file. A trailing backslash joins a line
 // with the next (whose leading blanks are dropped); lines starting with ';'
 // are comments.
@@ -320,6 +310,10 @@ func (in *Interp) LoadFile(path string) error {
 	}
 	defer f.Close()
 	in.loaded[filepath.Base(path)] = true
+	if in.inLibDir(path) {
+		in.macs().libLoad++
+		defer func() { in.mac.libLoad-- }()
+	}
 	if len(in.LibDirs) > 0 {
 		in.globals["TFLIBDIR"] = Str(in.LibDirs[0])
 	}

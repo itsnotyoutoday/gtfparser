@@ -177,7 +177,7 @@ func (in *Interp) Bindings() []Binding {
 		seq := ""
 		if m.Bind != "" {
 			seq = PrintToAscii(m.Bind)
-		} else if name := m.set['B']; name != "" {
+		} else if name := m.Keyname; name != "" {
 			seq, _ = in.KeyCode(name)
 		}
 		if seq == "" {
@@ -415,7 +415,7 @@ func cmdDokey(in *Interp, args string) Value {
 		return Int(int64(in.dokeyRecall(up)))
 	}
 	// a user (or library) macro /dokey_name overrides the native editing ops
-	if m, ok := in.macros["dokey_"+strings.ToLower(name)]; ok && name != "" {
+	if m, ok := in.findMacro("dokey_" + strings.ToLower(name)); ok && name != "" {
 		return in.callMacro(m, "", false)
 	}
 	n := in.kbn()

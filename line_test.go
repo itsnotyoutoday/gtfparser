@@ -85,7 +85,7 @@ func TestUndefID(t *testing.T) {
 }
 
 func TestHookFromTypedLineExpandsItsBody(t *testing.T) {
-	h, in := run(t, "/def -hSEND sh = /echo hooked %*")
+	h, in := run(t, "/def -hSEND shk = /echo hooked %*")
 	in.noExp = true // as inside Exec of a typed line
 	in.Hook("SEND", "say hi")
 	in.noExp = false

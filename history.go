@@ -64,14 +64,24 @@ func (h *history) resize(max int) {
 
 func (h *history) start() int { return h.total - len(h.lines) } // absolute index of lines[0]
 
-func hasAttr(attrs string, c byte) bool { return strings.IndexByte(attrs, c) >= 0 }
+// hasAttr reports whether an attribute string (the form /list prints and
+// /recall -a takes) includes the attribute f. It uses the shared attribute
+// parser, so the letters inside a color name ("Cgreen") are not mistaken for
+// flags.
+func hasAttr(attrs string, f Attr) bool {
+	if attrs == "" {
+		return false
+	}
+	a, _, _ := AttrCtx{}.Parse(attrs, 0)
+	return a&f != 0
+}
 
 // record stores a line (honoring the G and L attributes) and logs it.
 func (in *Interp) record(h *history, l HistLine) {
 	if l.Time.IsZero() {
 		l.Time = in.now()
 	}
-	if !hasAttr(l.Attrs, 'G') {
+	if !hasAttr(l.Attrs, AttrNoHistory) {
 		if h.max == 0 {
 			h.max = int(in.globals["histsize"].Int())
 			if h.max <= 0 {
@@ -80,7 +90,7 @@ func (in *Interp) record(h *history, l HistLine) {
 		}
 		h.add(l)
 	}
-	if h.log != nil && !hasAttr(l.Attrs, 'L') {
+	if h.log != nil && !hasAttr(l.Attrs, AttrNoLog) {
 		in.writeLog(h.log, l)
 	}
 }
@@ -207,7 +217,7 @@ func (in *Interp) RecallInput(n, mode int, cur string) (line string, ok bool) {
 	}
 	for {
 		l := h.lines[i]
-		if !hasAttr(l.Attrs, 'g') && (pat == "" || (len(l.Text) > len(pat) && strings.HasPrefix(l.Text, pat))) {
+		if !hasAttr(l.Attrs, AttrGag) && (pat == "" || (len(l.Text) > len(pat) && strings.HasPrefix(l.Text, pat))) {
 			n--
 			if n == 0 {
 				break
@@ -308,7 +318,7 @@ func cmdRecordline(in *Interp, args string) Value {
 			if !ok {
 				return Int(0)
 			}
-			attrs = mergeAttrs(attrs, a)
+			attrs = joinAttrs(attrs, a)
 		}
 	}
 	d := in.ds()
@@ -329,7 +339,7 @@ func cmdRecordline(in *Interp, args string) Value {
 	if l.Time.IsZero() {
 		l.Time = in.now()
 	}
-	if !hasAttr(l.Attrs, 'G') {
+	if !hasAttr(l.Attrs, AttrNoHistory) {
 		if h.max == 0 {
 			h.max = int(in.globals["histsize"].Int())
 		}
@@ -452,64 +462,25 @@ func (n tfNumber) toTime(now time.Time, abs bool) time.Time {
 
 // ---------------------------------------------------------------- attributes
 
-var histColorNames = []string{"black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "gray", "brightred", "brightgreen", "brightyellow", "brightblue", "brightmagenta", "brightcyan", "brightwhite"}
-
-func validColor(name string) bool {
-	for _, c := range histColorNames {
-		if name == c {
-			return true
-		}
-	}
-	if len(name) == 6 && strings.HasPrefix(name, "rgb") {
-		for _, c := range name[3:] {
-			if c < '0' || c > '5' {
-				return false
-			}
-		}
-		return true
-	}
-	if n, err := strconv.Atoi(name); err == nil && n >= 0 && n < 256 {
-		return true
-	}
-	return false
-}
-
 // histParseAttrs validates TF's attribute letters ("n x G L A g u r f i d B b h E W I
-// Cname Cbgname", comma separated) and returns them normalized.
+// Cname Cbgname", comma separated) with the shared parser and returns them
+// normalized.
 func (in *Interp) histParseAttrs(cmd, s string) (string, bool) {
-	var b strings.Builder
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		switch c {
-		case ',':
-		case 'n', 'x', 'G', 'L', 'A', 'g', 'u', 'r', 'f', 'i', 'd', 'B', 'b', 'h', 'E', 'W', 'I':
-			b.WriteByte(c)
-		case 'C':
-			j := i + 1
-			for j < len(s) && s[j] != ',' {
-				j++
-			}
-			name := s[i+1 : j]
-			col := strings.TrimPrefix(name, "bg")
-			if !validColor(col) {
-				kind := "color"
-				if strings.HasPrefix(name, "bg") {
-					kind = "bgcolor"
-				}
-				in.warn("%s: Invalid %s value \"%s\".", cmd, kind, col)
-				return "", false
-			}
-			b.WriteString("C" + name + ",")
-			i = j
-		default:
-			in.warn("%s: invalid display attribute '%c'", cmd, c)
-			return "", false
-		}
+	a, _, err := in.attrCtx().Parse(s, 0)
+	if err != nil {
+		in.warn("%s: %v", cmd, err)
+		return "", false
 	}
-	return b.String(), true
+	return a.String(), true
 }
 
-func mergeAttrs(a, b string) string { return a + b }
+// joinAttrs concatenates two attribute strings.
+func joinAttrs(a, b string) string {
+	if a == "" || b == "" {
+		return a + b
+	}
+	return a + "," + b
+}
 
 // decodeInlineAttrs handles /recordline -p: "@{attr}" sets attributes, "@@" is "@".
 // Only whole-line attributes can be kept, so inline ones are folded into the line's set.
@@ -526,7 +497,7 @@ func decodeInlineAttrs(s, attrs string) (string, string) {
 				if e := strings.IndexByte(s[i:], '}'); e > 0 {
 					spec := s[i+2 : i+e]
 					if spec != "n" && spec != "x" {
-						attrs += spec
+						attrs = joinAttrs(attrs, spec)
 					}
 					i += e
 					continue
@@ -560,7 +531,7 @@ func cmdRecall(in *Interp, args string) Value {
 			if !ok {
 				return Int(0)
 			}
-			attrs += a
+			attrs = joinAttrs(attrs, a)
 		case 't':
 			timeFmt, haveTime = o.arg, true
 		case 'm':
@@ -699,7 +670,7 @@ func cmdRecall(in *Interp, args string) Value {
 	if n1 >= h.total {
 		n1 = h.total - 1
 	}
-	showGag := hasAttr(attrs, 'g')
+	showGag := hasAttr(attrs, AttrGag)
 	gagOn := in.globals["gag"].Truth()
 	at := func(i int) HistLine { return h.lines[i-start] }
 	var stack []string // earliest line last; we prepend as we walk back
@@ -743,7 +714,7 @@ func cmdRecall(in *Interp, args string) Value {
 					break
 				}
 			}
-			if gagOn && hasAttr(line.Attrs, 'g') && !showGag {
+			if gagOn && hasAttr(line.Attrs, AttrGag) && !showGag {
 				continue
 			}
 			var j int

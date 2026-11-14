@@ -140,7 +140,7 @@ func init() {
 		"asin":   func(in *Interp, a []Value) (Value, error) { return Real(math.Asin(fnum(a, 0))), nil },
 		"atan":   func(in *Interp, a []Value) (Value, error) { return Real(math.Atan(fnum(a, 0))), nil },
 		"getpid": func(in *Interp, a []Value) (Value, error) { return Int(int64(os.Getpid())), nil },
-		"echo":   func(in *Interp, a []Value) (Value, error) { in.echo(str(a, 0)); return Int(1), nil }, // echo(text [, attrs [, inline [, dest]]])
+		"echo":   fnEchoAttr, // echo(text [, attrs [, inline [, dest]]])
 		"send":   func(in *Interp, a []Value) (Value, error) { return Bool(in.Host.Send(str(a, 1), str(a, 0))), nil },
 	} {
 		builtinFuncs[k] = v

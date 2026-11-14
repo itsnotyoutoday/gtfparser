@@ -493,6 +493,7 @@ func TestKbnumPrefix(t *testing.T) {
 func TestKeyBindingByName(t *testing.T) {
 	h, in := newKB(t)
 	h.keys["up"] = "\x1b[A"
+	in.Exec("/set warn_def_B=off")
 	in.Exec("/def -Bup keyup = /echo got-up")
 	in.KeyPressed("\x1b[A")
 	if strings.Join(h.out, "|") != "got-up" {
@@ -737,8 +738,7 @@ func TestWinlines(t *testing.T) {
 
 func TestPromptAndFakeRecv(t *testing.T) {
 	h, in := newKB(t)
-	in.Exec("/def -t'hello *' gagger = /echo triggered %*")
-	in.macros["gagger"].Gag = true
+	in.Exec("/def -ag -t'hello *' gagger = /echo triggered %*")
 	in.Exec("/def -t'show *' shower = /echo trig-show")
 	// no world: fails loudly
 	if v := call(t, in, "fake_recv", Str("show x")); v.Truth() {

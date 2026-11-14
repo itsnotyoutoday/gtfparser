@@ -120,8 +120,17 @@ func splitUnescaped(s string, sep rune) []string {
 	return append(out, b.String())
 }
 
+// foldEq compares literal pattern characters: tf folds case with the C
+// library's tolower() on bytes, which leaves non-ASCII characters alone, so
+// only ASCII letters match case-insensitively here.
 func foldEq(a, b rune) bool {
-	return a == b || unicode.ToLower(a) == unicode.ToLower(b) || unicode.ToUpper(a) == unicode.ToUpper(b)
+	if a == b {
+		return true
+	}
+	if a >= 0x80 || b >= 0x80 {
+		return false
+	}
+	return unicode.ToLower(a) == unicode.ToLower(b)
 }
 
 func (t *gtok) inSet(r rune) bool {
