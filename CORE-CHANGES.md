@@ -11,6 +11,12 @@ Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 
 ## Unreleased
 
+### core: tflib
+Added package `tflib`: the real tf library (unmodified `lib/tf`, GPL, see `tflib/NOTICE.md`)
+embedded with go:embed so every client ships the same one. `tflib.FS`, `Extract(dir)`,
+`CacheDir()`, `Setup(in, dir)` (extracts and prepends to `LibDirs`), `Version()`. The engine
+loads library files from disk, so clients extract to a cache directory. No change to existing packages.
+
 ### core: LimitFilter
 Added `Interp.LimitFilter(world) func(line, attrs string) bool`: a goroutine-safe
 snapshot of a world's /limit filter (nil when none), so a client can filter its
