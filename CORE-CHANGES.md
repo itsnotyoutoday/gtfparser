@@ -101,6 +101,12 @@ Added `Interp.LimitFilter(world) func(line, attrs string) bool`: a goroutine-saf
 snapshot of a world's /limit filter (nil when none), so a client can filter its
 scrollback without calling into the interpreter from another goroutine.
 
+### core: Placeholders
+Added
+- `Interp.Placeholders()` lists the builtins real tf has that the engine only stubs
+  ("/name" / "name()"), so documentation and status tooling can be generated from the code;
+  `TFCommands()` / `TFFunctions()` list every builtin of real tf.
+
 ## v0.0.5 (2026-11-14) — faithful triggers, hooks, macros and attributes
 
 ### core: trigger, hook, macro and attribute machinery rewritten after tf's macro.c
@@ -233,9 +239,6 @@ reports optional features off unless the client calls `SetFeature`.
 ## v0.0.2 (2026-11-14) — extension tables, parsed handlers, terminal builtins
 
 Added
-- `Interp.Placeholders()` lists the builtins real tf has that the engine only stubs
-  ("/name" / "name()"), so documentation and status tooling can be generated from the code;
-  `TFCommands()` / `TFFunctions()` list every builtin of real tf.
 - `Extension`, `CommandSpec`, `FuncSpec` and `Interp.Load`: declare commands,
   functions, variables and disabled builtins as tables and load them in one
   validated call (argument-count checks, privilege checks via `Needs`, usage/help
