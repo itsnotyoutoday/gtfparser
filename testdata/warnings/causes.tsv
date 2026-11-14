@@ -1,24 +1,11 @@
 # key-regex	cause	priority (1 = most likely to be hit by a real script/user, 4 = rare)
 # first matching row wins; used by warncheck.py --update-known (reasons) and scripts/warn_baseline.py (BASELINE.md)
-^(expr\.(709|1841|1985|2007|2049|2066|2085|2090)|expand\.(393|1360|1597|1934))$	expression syntax errors: different wording	1
-^expr\.(2015|2015\.b|2022|1995)$	function call errors (arity / not a function): different wording	1
-^expand\.(1300|1303|1306|1390|1418|1469|1665|1566|1627|1638|1675|1366|1373|1506)$	macro body structure errors (/if /while /endif, %; and %|): different wording or missing	1
-^expand\.(317|1810)$	"not a builtin command" vs "no such command or macro"	2
-^expand\.(1932|1965|2015|2144|2204|2205|2213|754)$	substitution syntax errors ($[ $( ${ %{): missing	2
-^(expand\.(510|955)|macro\.1920)$	macro limits (instruction count, recursion, trigger/hook rate): different wording	2
-^(command\.(349|576|749)|history\.834|process\.585|macro\.1463|world\.(560|258)|ctx\.load-(error|implicit-dir)|expr\.1089)$	OS error text (strerror capitalisation, "No such file or directory") and missing-argument wording	1
-^(command\.(610|625|648|656|580)|ctx\.load-nested)$	file load diagnostics ("Loading commands from", trailing backslash, bad line): missing	1
-^socket\.(3052|4471|2866)$	"Not connected." / no such world / send() flags: missing	1
-^(variable\.|util\.(219|221|352|487|526|564|312))	variable and option diagnostics: missing or different wording	2
-^(expr\.|util\.(905|917|827)|tfio\.|history\.(373|395))	expression evaluation / file function diagnostics: missing	3
-^macro\.	/def option and macro-definition errors: missing or different wording	2
-^keyboard\.	key binding errors: missing	3
-^pattern\.	glob and regexp diagnostics: missing or different wording	2
-^(process|history)\.(338|557|580|648|657|661|665|670|349)$	/repeat /quote /kill /recall argument errors: different wording or missing	3
-^(command|history|world|macro|variable)\.(30[5-9]|828|790|792|795|567|572|583|673|874|563|1468|1758|1770|1819|665|669|354|424|852)$	informational output (oprintf / hook text, not errors): missing	4
-^output\.	status line diagnostics: missing or different wording	4
-^(help|squat|socket|lua)\.	feature not implemented by gtfparser ("not supported by this client"): different text	4
-^world\.	world definition diagnostics: missing	3
-^ctx\.	context prefix probes (see context prefix format)	1
-^(command|process|history)\.	command diagnostics: missing or different wording	3
-.*	other	3
+^command\.(305|306|307|308|309)$	/version text is the client's (a client registers its own /version; the engine has no version banner of tf's build)	4
+^socket\.1394$	/connect is a client feature: the engine answers "not supported by this client" (documented client-registered form)	4
+^(help\.102|squat\.(1706|1901|1918|1975|2013))$	/help and the squat bridge commands belong to the client; unregistered they answer "not supported by this client"	4
+^macro\.650$	/edit $<text> (select a macro by its trigger text) is not implemented: "not supported by this client"	3
+^macro\.1920$	the last line of the case is a rate-limit message from a hook tf fires at exit (/quit); gtfparser has no such hook there	4
+^output\.(1526|1717|2167|2178|3200)$	status and terminal variable checks run in the terminal layer, which a client drives with PollVars; the headless gtfrun has no terminal	3
+^output\.1613$	"wider than screen (N)": the screen width is the client's (gtfrun is 80 columns, the reference pty 4000)	4
+^util\.564$	LC_CTYPE/LC_TIME banner: tf reports the C library locale it adopted; gtfparser has none	4
+^world\.597$	%default_charset names are checked against tf's ICU converter list; gtfparser does not carry it	4

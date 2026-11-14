@@ -7,24 +7,6 @@ import json, os, re, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import warncheck as wc
 
-TOP15 = [
-    ('ctx.file-line', 'every diagnostic lacks the `<file>, line N: ` location and prints `/test:` where tf prints no command name at all'),
-    ('ctx.macro', 'inside a macro tf names the macro (`f: `); gtfparser prints the command (`/test: `)'),
-    ('ctx.macro-nested', 'tf names only the innermost macro (`inner: `), never a chain'),
-    ('command.576', '`/load` of a missing file: tf `LOAD: <path>: No such file or directory`, gtfparser `/load: <path>: no such file`'),
-    ('expr.2015', 'builtin function arity: `strlen: found 0 arguments, expected 1` vs `strlen(): too few arguments`'),
-    ('expr.2090', 'expression syntax errors: `expression syntax error: expected operand, found end of body.` vs `expression: unexpected end` (all expression parse errors differ)'),
-    ('expr.1757', 'unknown function: only the context differs, the body already matches'),
-    ('expand.1300', 'misplaced /done /endif etc. in a macro: `unexpected /DONE in IF body` vs `/done without matching /if or /while`'),
-    ('expand.1469', 'unterminated /if in a macro: tf `macro syntax error: expected /endif, found end of body.`, gtfparser silent'),
-    ('expand.1390', 'unterminated /while: tf reports a syntax error, gtfparser runs the loop until `max_instr`'),
-    ('expand.1303', '`/while (1) /endif` makes gtfparser print the same error on every iteration (1M lines in the harness)'),
-    ('socket.3052', 'text sent with no connection: tf prints `Not connected.`, gtfparser prints nothing'),
-    ('variable.609', '`/set foo =bar` warning `\'=\' following space is part of value.` missing (and variable.358/300/657/730/745 etc.)'),
-    ('command.648', 'file load diagnostics (`Invalid command. Aborting.`, trailing backslash, `Loading commands from`) missing'),
-    ('expr.1089', 'file functions fail silently or with `not supported by this client` (tfopen/tfread/tfwrite/fwrite errors)'),
-]
-
 def clip(s, n=170):
     s = s.replace('|', '\\|').replace('`', "'")
     return s if len(s) <= n else s[:n - 3] + '...'
@@ -67,7 +49,7 @@ def main(path):
     ctxn = [r for r in res if 'context' in r['classes']]
     w('| priority | root cause | cases |')
     w('|---|---|---|')
-    w('| 1 | context prefix format (every case; see below) | %d |' % len(ctxn))
+    if ctxn: w('| 1 | context prefix differs | %d |' % len(ctxn))
     for (prio, cause), rs in sorted(groups.items()):
         w('| %d | %s | %d |' % (prio, cause, len(rs)))
     w('\n(priority 1 = most likely hit by a real script or user.)\n')
@@ -76,15 +58,12 @@ def main(path):
     w('`<file>` is the file being `/load`ed, `lines N-M` for a backslash-continued command; `<command>` is the *innermost* ')
     w('running thing: the builtin\'s upper-case name (`DEF`, `EVAL`, `UNDEF`; `/test` and bare expressions show none), a macro\'s name, ')
     w('a function\'s name (`mod: `), or `#N` for an unnamed macro. Typed at the prompt there is no file part. Warnings add `Warning: ` after it. ')
-    w('gtfparser prints `/test: msg` / `/load: msg` (slash plus lower-case command name, never a location, never a macro name).\n')
+    w('gtfparser builds the same prefix (`Interp.warn`); the table shows the probe cases of the context rules.\n')
     w('| case | real tf | gtfparser |')
     w('|---|---|---|')
     for k in ['ctx.file-line', 'ctx.macro', 'ctx.macro-nested', 'ctx.multiline', 'ctx.eval', 'ctx.trigger', 'ctx.hook', 'ctx.load-nested', 'ctx.option-suffix', 'ctx.function-name', 'ctx.builtin-in-macro', 'ctx.nonexistent-command', 'ctx.nonexistent-in-macro', 'ctx.typed', 'ctx.typed-macro', 'ctx.typed-builtin', 'ctx.typed-option']:
         r = next((x for x in res if x['key'] == k), None)
         if r: w('| %s | `%s` | `%s` |' % (k, clip(' | '.join(r['tf']) or '-', 110), clip(' | '.join(r['gtf']) or '-', 110)))
-    w('\n## Top 15 mismatches\n')
-    for i, (k, why) in enumerate(TOP15, 1):
-        w('%d. `%s`: %s' % (i, k, why))
     w('')
     w('## Mismatch table by root cause\n')
     w('Text is the whole line after `% `; `<FILE>` stands for the script path and `<DIR>` for the scratch directory. A case with several lines is shown joined by ` // `.\n')

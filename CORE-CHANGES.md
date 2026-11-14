@@ -11,6 +11,64 @@ Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 
 ## Unreleased
 
+### core: diagnostics identical to real tf's
+Warning and error text, and the `<file>, line N: <command or macro>: ` prefix, now match real tf
+for 235 of the 257 script-triggerable diagnostics in `testdata/warnings` (it was 3 before the v0.0.6
+context work and 104 after it; the rest are client-owned features, see
+`testdata/warnings/known.tsv`). A client that parsed warning text must read this list.
+
+Changed (message text)
+- `LOAD: <path>: No such file or directory` (OS error text, upper-case first letter) for `/load`,
+  `/save`, `/saveworld`, `/log`, `/quote`, `fwrite()` and `tfopen()`; `/load -q` still reports a
+  missing file. `/load` of a directory: `Is a directory`. `/load` with no file: `missing filename`.
+- Function arity (`strlen: found 0 arguments, expected 1`), `<name>: no such function`,
+  `function name must be an identifier.`, `EXIT: not a function`, `VERSION: command called as
+  function must have 0 or 1 argument`, `condition syntax error: expected operator or ')', found
+  '2'.`, `expression syntax error: expected operator or ']', ...` inside `$[...]`, `* operator:
+  arithmetic overflow` / `MULA operator: ...`, `illegal object of assignment`, `numeric value too
+  large`, `expression stack overflow`, regexp errors as `regexp error: character N: message`.
+- Macro structure: `unexpected /DONE in IF body`, `unexpected /ENDIF in WHILE body`, `... in outer
+  block`, `macro syntax error: expected /endif|/done|/then|/do, found end of body.`, `/BREAK syntax
+  error ...`, `Piping input|output ... is not allowed.`, `'%|' must be followed by another command.`
+  and tf's two blank-line warnings. `recursion count exceeded %max_recur (N)` replaces `too many
+  nested calls`.
+- Substitution errors are named `EVAL: ` while `/eval` compiles its text (`EVAL: unmatched $[`).
+- Variables: `illegal variable name: a-b`, `'=' following space is part of value.`, `<name> not
+  set globally`, `<name> not defined.` (`/export`), `<name> must be a positive integer, so can not
+  be unset.`, the local-overshadows-global warning (through the `SHADOW` hook), warnings for names
+  like `L` or `PR` and for obsolete variables (`prompt_sec`).
+- Glob errors (`glob error: unmatched '['` ...) in `=/` and `!/`; the `{` warning in `regmatch()`.
+- `/repeat`, `/kill`, `/quote`, `/recall` argument errors with tf's wording (`REPEAT: invalid
+  repeat count (0)`, `KILL: no process 999999`, `integer value too large`); `/def -B` key checks,
+  `-P-1`, `-?` (only the option summary), `/undef #N`, `/unbind` of an unbound key, a key binding
+  that extends or is a prefix of another; `/listsockets -S` style option letters in the context.
+- File loading: tf's loader messages (`Invalid command. Aborting.`, `possibly missing trailing \`,
+  `whitespace following final '\'`, `last command is incomplete because of trailing \`).
+
+Changed (behavior)
+- A macro body, typed line or `/eval` whose `/if` `/while` structure is not well formed is not run
+  at all (tf compiles before running). `/while (1) /endif%; /done` no longer loops and repeats its
+  message a million times; an unterminated `/while` no longer runs until `%max_instr`.
+- A line of a loaded file that does not start with `/` (after the leading blanks) aborts the load
+  with `Invalid command. Aborting.`; before, it was sent as text. A file ending in a trailing
+  backslash no longer runs the incomplete command.
+- `/load` fires the `LOAD` and `LOADFAIL` hooks. The stdlib's `/def -hloadfail -ag` around the
+  optional `local.tf` now silences its absence, so a client no longer needs to create an empty
+  `local.tf`. `/load -q` (and `/require`) are quiet for nested loads too.
+- Text sent while `Host.Send` returns false prints `Not connected.` (context: the running macro);
+  `gtfrun`'s host now never connects. `send()` rejects unknown flags (`invalid flag Z`) and honours
+  `h`. `echo(..., "wNAME")` of an unknown world: `No world NAME`.
+- Processes (`/repeat`, `/quote`) run under no command name, like tf's main loop.
+- `read()` and `tfread("i", v)` report that the keyboard can only be read from a command line
+  command (the engine has no keyboard).
+- `/set x ` (blank after the name, no value) now sets x to the empty string (see
+  `docs/diagnostics.md`, Caveats).
+
+Added
+- `diag_test.go`: pins the most common messages without needing real tf.
+- `scripts/warncheck.py` reads gtfparser's stdout `% ` lines too; `warn_baseline.py` and
+  `BASELINE.md` regenerated; `known.tsv` lists only genuine remaining differences.
+
 ## v0.0.6 (2026-11-14) — tf compatibility pass, license, diagnostics
 
 ### core: tf compatibility pass (differential fuzzing findings)
