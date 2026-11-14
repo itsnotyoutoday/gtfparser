@@ -30,6 +30,21 @@ func TestLibraryMacroTable(t *testing.T) {
 	if err := in.LoadFile(filepath.Join(lib, "stdlib.tf")); err != nil {
 		t.Fatal(err)
 	}
+	// Library commands the engine implements itself keep their entry in the
+	// table (number, flags, printed body) but run Go code; the allowlist in
+	// nativelib_test.go names them, and nothing else may be native.
+	allowed := map[string]bool{}
+	for _, n := range nativeAllowlist {
+		allowed[n] = true
+	}
+	for _, m := range in.Macros() {
+		if m.IsNative() && !allowed[m.Name] {
+			t.Errorf("macro %s runs natively but is not in the allowlist", m.Name)
+		}
+		if !m.IsNative() && allowed[m.Name] {
+			t.Errorf("allowlisted macro %s is not native", m.Name)
+		}
+	}
 	ws := regexp.MustCompile(`\s+`)
 	var got []string
 	for _, m := range in.Macros() {

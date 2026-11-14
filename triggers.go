@@ -870,7 +870,11 @@ func (in *Interp) runBody(m *Macro, text string, caps []int, hook bool) {
 	}
 	oldExp := in.noExp
 	in.noExp = false
-	in.execText(m.Body)
+	if m.native != nil {
+		m.native(in, text)
+	} else {
+		in.execText(m.Body)
+	}
 	in.noExp = oldExp
 	in.ctl = ctlNone
 	in.popFrame()

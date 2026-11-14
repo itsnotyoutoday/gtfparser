@@ -36,6 +36,7 @@ func main() {
 	file := flag.String("f", "", "script file to load")
 	lib := flag.String("L", "", "library directory")
 	nolib := flag.Bool("n", false, "do not load stdlib.tf")
+	script := flag.Bool("script", false, "run stdlib.tf's library macros as script instead of their native implementations")
 	inter := flag.Bool("i", false, "run -f like typed input: each line is substituted and run (definitions load as from a file); used to check documentation examples")
 	prof := flag.String("cpuprofile", "", "write a CPU profile to this file")
 	flag.Parse()
@@ -46,10 +47,14 @@ func main() {
 	}
 	h := &stdHost{w: bufio.NewWriter(os.Stdout)}
 	defer h.w.Flush()
-	in := gtfparser.New(h)
+	var opts []gtfparser.Option
+	if *script {
+		opts = append(opts, gtfparser.WithoutNativeLibrary())
+	}
+	in := gtfparser.New(h, opts...)
 	h.in = in
 	in.SetFeature("256colors", true)
-	in.Warn = func(m string) { fmt.Fprintln(os.Stderr, "% "+m) }
+	in.Warn = func(m string) { h.w.Flush(); fmt.Fprintln(os.Stderr, "% "+m) }
 	if *lib != "" {
 		in.LibDirs = []string{*lib}
 	}
