@@ -443,6 +443,9 @@ func TestStateCanonical(t *testing.T) {
 	}
 	for _, s := range stateSections {
 		sec, ok := env.Sections[s.name]
+		if !ok && s.name == "origins" { // written only when origins are in use (origin_test.go)
+			continue
+		}
 		if !ok || sec.V != s.maxV || sec.Required != s.required {
 			t.Errorf("section %s: %+v", s.name, sec)
 		}

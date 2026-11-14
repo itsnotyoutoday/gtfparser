@@ -91,6 +91,7 @@ var stateSections = []struct {
 	{"limit", false, 1, secSaveLimit, secDecLimit, secApplyLimit},
 	{"watch", false, 1, secSaveWatch, secDecWatch, secApplyWatch},
 	{"mail", false, 1, secSaveMail, secDecMail, secApplyMail},
+	{"origins", true, 1, secSaveOrigins, secDecOrigins, secApplyOrigins}, // after macros, procs and streams; omitted when empty
 }
 
 // saveCtx is what the section writers share.
@@ -111,7 +112,11 @@ func (in *Interp) SaveState(w io.Writer) error {
 	c.noEcho = !in.LocalEcho("") || (cw != "" && !in.LocalEcho(cw))
 	env := stateEnvelope{Magic: stateMagic, Format: StateFormat, MinReader: 1, Sections: map[string]stateSection{}}
 	for _, s := range stateSections {
-		data, err := marshalNoEscape(s.save(in, c))
+		sv := s.save(in, c)
+		if sv == nil { // a section with nothing to carry is left out (origins)
+			continue
+		}
+		data, err := marshalNoEscape(sv)
 		if err != nil {
 			return fmt.Errorf("gtfparser: saving state section %s: %w", s.name, err)
 		}

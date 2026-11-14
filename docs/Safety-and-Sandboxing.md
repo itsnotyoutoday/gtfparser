@@ -2,11 +2,12 @@
 
 If you run scripts written by someone you do not fully trust (players, tenants,
 a network service's users), decide what they may touch. The engine gives you
-four dials; use as many as the situation needs.
+five dials; use as many as the situation needs.
 
 | Dial | Controls | Set by |
 |---|---|---|
 | `/restrict` levels | shell, file and world access, tf's own model | script (raise only) or `WithRestriction` |
+| Origins | a level per party (a peer's macros vs your own) | `SetOriginRestriction`, `ExecAs` (see [origins](engine/origins.md)) |
 | `Policy` | your own veto over any privileged operation | `WithPolicy` |
 | `Limits` and interrupts | how much CPU a script may use | `WithLimits`, `Interrupt()` |
 | Disabling and overriding | which commands and functions exist at all | `DisableCommand`, tables |

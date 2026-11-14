@@ -541,7 +541,7 @@ func (in *Interp) findAndRun1(rq *matchReq, ms *macState) (ran int) {
 				continue
 			}
 		}
-		if m.Cond != "" && !in.condEval(m.Cond) {
+		if m.Cond != "" && !in.condEvalFor(m) {
 			continue
 		}
 		var caps []int
@@ -679,6 +679,16 @@ func (in *Interp) condEval(expr string) bool {
 	ok := in.condition(expr)
 	in.popFrame()
 	return ok
+}
+
+// condEvalFor evaluates the -E condition of m under m's origin: it is code the
+// origin wrote and may call guarded functions.
+func (in *Interp) condEvalFor(m *Macro) bool {
+	if m.origin != "" {
+		in.pushOrigin(m.origin)
+		defer in.popOrigin()
+	}
+	return in.condEval(m.Cond)
 }
 
 // applyAttrs is apply_attrs_of_match.
@@ -864,6 +874,10 @@ func (in *Interp) runBody(m *Macro, text string, caps []int, hook bool) {
 	oldCmd := in.curCmd
 	in.curCmd = name
 	defer func() { in.curCmd = oldCmd }()
+	if m.origin != "" {
+		in.pushOrigin(m.origin)
+		defer in.popOrigin()
+	}
 	f := in.pushFrame(name, text)
 	if caps != nil {
 		f.regs, f.pl, f.pr = capStrings(text, caps)

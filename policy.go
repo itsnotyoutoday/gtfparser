@@ -62,7 +62,7 @@ func levelFor(op Op) int {
 // allow checks whether op is permitted for who (the command/function name,
 // for the message). It warns and returns false when it is not.
 func (in *Interp) allow(op Op, who, detail string) bool {
-	if in.restriction >= levelFor(op) {
+	if in.EffectiveRestriction() >= levelFor(op) {
 		in.warn("%s: restricted", who)
 		return false
 	}
@@ -78,11 +78,22 @@ func (in *Interp) allow(op Op, who, detail string) bool {
 func cmdRestrict(in *Interp, args string) Value {
 	w, _ := firstWord(args)
 	if w == "" {
-		in.echo("% restriction level: " + strings.ToLower(restrictNames[in.restriction]))
-		return Int(int64(in.restriction))
+		r := in.EffectiveRestriction()
+		in.echo("% restriction level: " + strings.ToLower(restrictNames[r]))
+		return Int(int64(r))
 	}
 	for i, n := range restrictNames {
 		if strings.EqualFold(w, n) {
+			if len(in.origStack) > 0 {
+				// code running under an origin raises its own origins' levels,
+				// never the global one (see origin.go)
+				if i < in.EffectiveRestriction() {
+					in.warn("/restrict: restriction level cannot be lowered")
+					return Int(0)
+				}
+				in.raiseOrigins(i)
+				return Int(int64(i))
+			}
 			if !in.SetRestriction(i) {
 				in.warn("/restrict: restriction level cannot be lowered")
 				return Int(0)

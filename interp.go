@@ -69,6 +69,9 @@ type Interp struct {
 	disabled                map[string]bool
 	placeholders            []string
 	restriction             int
+	origLevels              map[string]int // origin -> restriction level (origin.go)
+	origStack               []string       // origins whose code is running
+	origForce               int            // minimum level while the host evaluates stored expressions (status fields)
 	limits                  Limits
 	interrupted             atomic.Bool
 	instr                   int64
@@ -1275,6 +1278,9 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 	in.depth++
 	oldCmd := in.curCmd
 	in.curCmd = m.Name
+	if m.origin != "" {
+		in.pushOrigin(m.origin) // a tagged macro runs under its origin, whoever calls it
+	}
 	f := in.pushFrame(m.Name, args)
 	f.asFunc = asFunc
 	if in.pendingArgs != nil {
@@ -1317,6 +1323,9 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 		f.parent.regs, f.parent.pl, f.parent.pr = f.regs, f.pl, f.pr
 	}
 	in.popFrame()
+	if m.origin != "" {
+		in.popOrigin()
+	}
 	in.depth--
 	in.curCmd = oldCmd
 	return res
@@ -1374,6 +1383,9 @@ func (in *Interp) callFuncTf(name string, args []Value, isTf bool) (Value, error
 			strs[i] = a.String()
 		}
 		return in.callMacroArgs(m, strs), nil
+	}
+	if f := extFunc(name); f != nil {
+		return f(in, args)
 	}
 	if fn := nativeLib[name]; fn != nil && !in.nativeHidden(name) { // a library command: callable like its macro
 		strs := make([]string, len(args))
