@@ -11,6 +11,8 @@ Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 
 ## Unreleased
 
+## v0.0.6 (2026-11-14) — tf compatibility pass, license, diagnostics
+
 ### core: tf compatibility pass (differential fuzzing findings)
 The engine now matches real tf where it previously did not. Reference configuration: tf 5.0 beta 8,
 UTF-8 build, 64-bit macOS, `en_US.UTF-8`. Corpus: `testdata/cases/compat_*.tf`; the few intentional
