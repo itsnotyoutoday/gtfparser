@@ -9,7 +9,7 @@ mid-task.
 Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 `Breaking` (and what a client must do).
 
-## Unreleased — stdlib.tf's library commands move into the engine
+## v0.0.8 (2026-11-14) — stdlib.tf's library commands move into the engine
 
 ### core: 73 library commands are native
 tf defines these as invisible macros in `stdlib.tf`; the engine now implements them in Go, so a
