@@ -66,28 +66,35 @@ the host implements when it can: `WorldHost` (connections), `Notifier`
 
 Commands, functions, variables and disabled builtins are declared as **data**
 and loaded in one call. The whole table is validated first (nothing is
-installed if any entry is bad), argument counts and privileges are checked
-before your function runs, and usage/help text is kept so `/help` can be
-generated from it.
+installed if any entry is bad). Handlers receive their input already parsed,
+and any ordinary Go function becomes a script function.
 
 ```go
 var toolkit = gtfparser.Extension{
     Name: "toolkit",
     Commands: []gtfparser.CommandSpec{
-        {Name: "greet", Fn: cmdGreet, Usage: "<name>", Help: "say hello", MinArgs: 1},
-        {Name: "roll",  Fn: cmdRoll,  Usage: "[sides]", Help: "roll a die", MaxArgs: 1},
-        {Name: "pwd",   Fn: cmdPwd,   Help: "show the directory",
-            Needs: []gtfparser.Op{gtfparser.OpFileRead}},      // refused under /restrict file
+        {Name: "greet", Aliases: []string{"hi"}, Do: greet, Options: "s", Usage: "[-s] <name>",
+            Help: "say hello (-s: shout)", MinArgs: 1, Category: "social"},
+        {Name: "roll", Do: roll, Options: "n#", Usage: "[-n count] [sides]",
+            Help: "roll dice", MaxArgs: 1, Category: "games"},
+        {Name: "pwd", Do: pwd, Help: "show the directory",
+            Needs: []gtfparser.Op{gtfparser.OpFileRead}},       // refused under /restrict file
     },
     Functions: []gtfparser.FuncSpec{
-        {Name: "clamp", Fn: fnClamp, Usage: "value, low, high", MinArgs: 3, MaxArgs: 3},
+        gtfparser.Func("clamp", func(v, lo, hi int) int { return max(lo, min(v, hi)) }),
+        gtfparser.Func("shout", strings.ToUpper),               // any Go function will do
+        gtfparser.Func("hypot", math.Hypot),
     },
     Vars:            map[string]string{"greeting": "Hello"},
-    DisableCommands: []string{"sh"},                           // keep scripts off the shell
+    DisableCommands: []string{"sh"},                            // keep scripts off the shell
 }
 
-func cmdGreet(in *gtfparser.Interp, args string) gtfparser.Value {
-    in.Echo(in.Var("greeting") + ", " + strings.TrimSpace(args) + "!")
+func greet(c *gtfparser.Call) gtfparser.Value {
+    msg := c.Var("greeting") + ", " + c.Rest + "!"
+    if c.Has('s') {                                             // -s was given
+        msg = strings.ToUpper(msg)
+    }
+    c.Echo(msg)
     return gtfparser.Int(1)
 }
 
@@ -95,16 +102,25 @@ in.Load(toolkit)
 ```
 
 ```
-/greet world                      Hello, world!
-/echo $[clamp(15, 0, 10)]         10
-/greet                            % usage: /greet <name>
+/greet world                       Hello, world!
+/hi -s there                       HELLO, THERE!
+/roll -n3 20                       rolling 3d20
+/echo $[clamp(15, 0, 10)] $[shout('hey')] $[hypot(3, 4)]     10 HEY 5.
+/greet                             % usage: /greet [-s] <name>
+/greet -x bob                      % /greet: invalid option 'x'
 ```
+
+Options are declared in TinyFugue's own getopts syntax (`s` a flag, `n#` an
+integer, `b:` a string, `t@` a time), so your commands parse exactly like
+tf's. The engine checks option errors, argument counts and privileges before
+your handler runs, and keeps `Usage`, `Help` and `Category` so `/help` can be
+generated with `in.CommandSpecs()`.
 
 Tables layer: load several in order and a later entry overrides an earlier one,
 built-ins included (fetch the original first with `in.Command("echo")` to wrap
-it). `in.CommandSpecs()` returns what was declared, for building help. Handlers
-use `in.Echo`, `in.Warnf`, `in.Send` and `in.Allow`. A small one-off needs no
-table: `in.RegisterCommand("name", fn)`.
+it). One-offs need no table: `in.AddCommand(spec)`, `in.AddFunction(gtfparser.Func(...))`
+or `in.RegisterCommand("name", fn)`. Handlers get the interpreter embedded in
+`Call` (`c.Echo`, `c.Warnf`, `c.Send`, `c.Var`, `c.Run`, `c.Allow`).
 
 ## Use it from many goroutines
 

@@ -18,6 +18,11 @@ Added
   kept for generated help). `Interp.CommandSpecs` / `FuncSpecs` list them.
 - `Interp.Run` and `Interp.Eval` (clear names for running a script / evaluating an
   expression), `HostFuncs` and `Console` hosts for small programs and tests.
+- Command handlers as `Do func(*Call)`: options declared with `Options` (tf getopts
+  syntax) are parsed before the handler runs; `Call` exposes `Has/Opt/Int/Arg/Rest/Args/Fail`
+  and embeds the interpreter. `CommandSpec` also gains `Aliases` and `Category`.
+  `gtfparser.Func(name, goFunc)` exposes any Go function as a script function with
+  automatic argument conversion. `Interp.AddCommand` / `AddFunction` load one entry.
 - Exported `Interp.Echo`, `Warnf`, `Send`, `Allow`, so command and function
   implementations outside the package can print, warn, send and check
   privileges.
