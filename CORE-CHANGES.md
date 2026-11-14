@@ -29,6 +29,11 @@ hooks defined with `-w` fire only for it; "" = any). `ProcessLine` is now
 `Process(line, true).Gag`. The engine still does not interpret `-a`
 attributes: `Match.Macro.Attrs` is handed to the client.
 
+### core: /echo options reach the host
+Added optional `EchoHost` (`EchoTo(EchoOpts{World, Attrs, Markup}, text)`).
+`/echo -w<world> -a<attrs> -p` call it when the host implements it; every
+other host (and captured/piped output) just gets `Echo(text)` as before.
+
 ## v0.0.1 (2026-11-14) — first extraction
 
 The engine split out of the gtf client repo: interpreter, PCRE2-compatible

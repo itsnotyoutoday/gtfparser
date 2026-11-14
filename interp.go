@@ -1079,6 +1079,25 @@ func (in *Interp) echo(text string) {
 	in.Host.Echo(text)
 }
 
+// echoOpts is echo with /echo's options: a host that implements EchoHost
+// receives them; any other host just gets the text.
+func (in *Interp) echoOpts(o EchoOpts, text string) {
+	if o == (EchoOpts{}) {
+		in.echo(text)
+		return
+	}
+	for f := in.fr; f != nil; f = f.parent {
+		if f.noOut {
+			return
+		}
+	}
+	if h, ok := in.Host.(EchoHost); ok {
+		h.EchoTo(o, text)
+		return
+	}
+	in.Host.Echo(text)
+}
+
 func environ(skip bool) []string {
 	if skip {
 		return nil

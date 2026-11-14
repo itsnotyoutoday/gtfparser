@@ -12,6 +12,21 @@ type Host interface {
 	Send(world, text string) bool
 }
 
+// EchoOpts are /echo's options.
+type EchoOpts struct {
+	World  string // -w: show in this world's window ("" = the current one)
+	Attrs  string // -a: display attributes, e.g. "BCred"
+	Markup bool   // -p: the text contains @{attr} markup
+}
+
+// EchoHost is an optional extension of Host for clients that can show
+// attributed text or direct output at a world. /echo calls it instead of
+// Echo when it was given -w, -a or -p. (Text captured by a pipe or $(...)
+// loses the options: only the text is captured.)
+type EchoHost interface {
+	EchoTo(o EchoOpts, text string)
+}
+
 // WorldHost is implemented by clients that manage connections: it backs
 // /connect, /dc, /fg and the connection-state functions.
 type WorldHost interface {

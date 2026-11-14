@@ -43,3 +43,27 @@ func TestWorldScopedMacros(t *testing.T) {
 		t.Fatal("World()")
 	}
 }
+
+type echoH struct {
+	tHost
+	got []EchoOpts
+}
+
+func (h *echoH) EchoTo(o EchoOpts, s string) {
+	h.got = append(h.got, o)
+	h.out = append(h.out, "to:"+s)
+}
+
+func TestEchoOptionsReachEchoHost(t *testing.T) {
+	h := &echoH{}
+	in := New(h)
+	in.ExecFull("/echo -aBCred -wfoo hello")
+	in.ExecFull("/echo plain")
+	in.ExecFull("/echo -p @{Cgreen}x")
+	if len(h.got) != 2 || h.got[0] != (EchoOpts{World: "foo", Attrs: "BCred"}) || !h.got[1].Markup {
+		t.Fatalf("%+v out=%v", h.got, h.out)
+	}
+	if h.out[0] != "to:hello" || h.out[1] != "plain" {
+		t.Fatalf("%v", h.out)
+	}
+}
