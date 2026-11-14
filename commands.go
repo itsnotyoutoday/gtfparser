@@ -67,6 +67,13 @@ loop:
 			break loop
 		}
 	}
+	if o.World != "" && !in.worldKnown("ECHO", o.World) {
+		old := in.curCmd
+		in.curCmd = "echo" // tf runs /echo as a macro of that name
+		in.warn("No world %s", o.World)
+		in.curCmd = old
+		return Int(0)
+	}
 	return in.echoOpts(o, args)
 }
 

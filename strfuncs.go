@@ -276,6 +276,12 @@ func fnAscii(in *Interp, a []Value) (Value, error) {
 }
 
 func fnMod(in *Interp, a []Value) (Value, error) {
+	for _, v := range a {
+		if n := v.Num(); n.k == kReal && (math.IsNaN(n.f) || math.Abs(n.f) >= 1<<63) {
+			in.warn("real value too large to convert to integer")
+			break
+		}
+	}
 	d := a[1].Int()
 	if d == 0 {
 		return Int(0), errors.New("division by zero")

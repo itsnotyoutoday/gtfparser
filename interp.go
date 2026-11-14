@@ -36,56 +36,57 @@ type frame struct {
 
 // Interp is one TinyFugue scripting environment.
 type Interp struct {
-	Host        Host
-	globals     map[string]Value
-	macros      map[string]*Macro
-	mac         *macState // trigger, hook and match-style state (see triggers.go)
-	list        []*Macro
-	nextID      int
-	fr          *frame
-	lastRet     Value
-	retv        Value
-	ctl         ctl
-	brk         int
-	depth       int
-	loaded      map[string]bool
-	noExp       bool
-	noEnv       bool
-	Quit        bool
-	streams     map[string]*stream
-	nextFd      int
-	tfin        []string
-	pendingArgs []string
-	templates   map[string]*template
-	stmtCache   map[string]*compiled
-	exprCache   map[string]*exprEntry
-	procs       []*Proc
-	nextPID     int
-	cmds        map[string]cmdFunc // this interpreter's builtin commands (see registry.go)
-	funcs       map[string]fn      // ... and functions
-	disabled    map[string]bool
-	restriction int
-	limits      Limits
-	interrupted atomic.Bool
-	instr       int64
-	nest        int
-	asFuncCmd   int    // >0 while a builtin command runs as a function
-	exitReq     bool   // /exit ran: the enclosing /load stops (see LoadFile)
-	curCmd      string // name of the running macro, builtin command or function (diagnostics)
-	subWarned, dollarWarned bool // one-time expression warnings (tf's statics)
-	inEval      int    // depth of /eval (see warnEval)
-	quietLoad   int    // depth of /load -q (suppresses 'Loading commands from')
-	loadName    string // file being loaded, and the lines of the logical line being run
-	loadStart   int
-	loadLine    int
-	userRes     Value // tf's user_result: the value of the last command that sets one (not /set, /let); what a macro called as a function returns
-	readDepth   int
-	mail        map[string]*mailInfo
-	subFail     bool // a $[...] substitution failed: the statement and its macro are abandoned
-	exported    map[string]bool
-	cmdSpecs    map[string]CommandSpec
-	funcSpecs   map[string]FuncSpec
-	world       string // see SetWorld
+	Host                    Host
+	globals                 map[string]Value
+	macros                  map[string]*Macro
+	mac                     *macState // trigger, hook and match-style state (see triggers.go)
+	list                    []*Macro
+	nextID                  int
+	fr                      *frame
+	lastRet                 Value
+	retv                    Value
+	ctl                     ctl
+	brk                     int
+	depth                   int
+	loaded                  map[string]bool
+	noExp                   bool
+	noEnv                   bool
+	Quit                    bool
+	streams                 map[string]*stream
+	nextFd                  int
+	tfin                    []string
+	pendingArgs             []string
+	templates               map[string]*template
+	stmtCache               map[string]*compiled
+	exprCache               map[string]*exprEntry
+	procs                   []*Proc
+	nextPID                 int
+	cmds                    map[string]cmdFunc // this interpreter's builtin commands (see registry.go)
+	funcs                   map[string]fn      // ... and functions
+	disabled                map[string]bool
+	restriction             int
+	limits                  Limits
+	interrupted             atomic.Bool
+	instr                   int64
+	nest                    int
+	asFuncCmd               int    // >0 while a builtin command runs as a function
+	exitReq                 bool   // /exit ran: the enclosing /load stops (see LoadFile)
+	curCmd                  string // name of the running macro, builtin command or function (diagnostics)
+	subWarned, dollarWarned bool   // one-time expression warnings (tf's statics)
+	fnParent                string // the command that was running when the current builtin function was called
+	inEval                  int    // depth of /eval (see warnEval)
+	quietLoad               int    // depth of /load -q (suppresses 'Loading commands from')
+	loadName                string // file being loaded, and the lines of the logical line being run
+	loadStart               int
+	loadLine                int
+	userRes                 Value // tf's user_result: the value of the last command that sets one (not /set, /let); what a macro called as a function returns
+	readDepth               int
+	mail                    map[string]*mailInfo
+	subFail                 bool // a $[...] substitution failed: the statement and its macro are abandoned
+	exported                map[string]bool
+	cmdSpecs                map[string]CommandSpec
+	funcSpecs               map[string]FuncSpec
+	world                   string // see SetWorld
 	// Policy, if set, can veto privileged operations on top of /restrict.
 	Policy Policy
 	// Now replaces the clock (tests); nil means time.Now.
@@ -1292,6 +1293,7 @@ func (in *Interp) callFuncTf(name string, args []Value, isTf bool) (Value, error
 			return Int(0), &cmdErr{name, fmt.Errorf("disabled")}
 		}
 		old := in.curCmd
+		in.fnParent = old
 		if isTf {
 			in.curCmd = name
 		}

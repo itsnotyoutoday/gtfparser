@@ -316,6 +316,10 @@ func fnTfread(in *Interp, a []Value) (Value, error) {
 		if !found {
 			return Int(-1), nil
 		}
+		if std == 'i' {
+			in.warn("keyboard can only be read from a command line command.")
+			return Int(-1), nil
+		}
 		if std != 0 {
 			line, ok = in.readTfin()
 		} else {

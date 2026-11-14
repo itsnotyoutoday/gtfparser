@@ -27,9 +27,9 @@ func (in *Interp) SetReadDepth(n int) { in.readDepth = n }
 // read() is the deprecated way to read a line of input; it reads the input
 // stream like tfread() does and returns "" at end of input.
 func fnRead(in *Interp, a []Value) (Value, error) {
-	in.warn("read() is deprecated.  Use tfread() instead.")
-	l, _ := in.readTfin()
-	return Str(l), nil
+	in.warn("Warning: read() is deprecated.  Use tfread() instead.")
+	in.warn("keyboard can only be read from a command line command.")
+	return Str(""), nil
 }
 
 type mailInfo struct {

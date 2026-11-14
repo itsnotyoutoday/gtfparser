@@ -14,10 +14,10 @@ import (
 type eval func() (Value, error)
 
 type exprParser struct {
-	in   *Interp
-	s    string
-	pos  int
-	kind string // "expression" (default) or "condition": the noun in syntax errors
+	in    *Interp
+	s     string
+	pos   int
+	kind  string   // "expression" (default) or "condition": the noun in syntax errors
 	warns []string // compile-time warnings, shown each time the expression runs
 }
 
@@ -593,6 +593,7 @@ func (p *exprParser) call(name string) (eval, error) {
 	p.take("(")
 	var args []eval
 	var ids []string // arguments that are bare variables are read after the others are evaluated
+	tfreadVar := false
 	p.ws()
 	if !p.take(")") {
 		for {
@@ -611,6 +612,7 @@ func (p *exprParser) call(name string) (eval, error) {
 				save := p.pos
 				if id, ok := p.ident(); ok && p.peek(")") {
 					a = func() (Value, error) { return Str(id), nil }
+					tfreadVar = true
 				} else {
 					p.pos = save
 				}
@@ -673,6 +675,13 @@ func (p *exprParser) call(name string) (eval, error) {
 			if id != "" {
 				vals[i], _ = p.in.lookup(id)
 			}
+		}
+		if name == "tfread" && !tfreadVar {
+			old := p.in.curCmd
+			p.in.curCmd = name
+			p.in.warn("arg %d: illegal object of assignment", len(ids))
+			p.in.curCmd = old
+			return Int(-1), nil
 		}
 		return p.in.callFuncTf(name, vals, isTfFunc)
 	}, nil

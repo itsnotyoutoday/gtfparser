@@ -582,7 +582,7 @@ func cmdListworlds(in *Interp, args string) Value {
 			case pre("-"):
 				cmp = nil
 			default:
-				in.warn("/listworlds: invalid sort criterion")
+				in.cmdErr("LISTWORLDS", 'S', "invalid sort criterion")
 				return Int(0)
 			}
 		}
@@ -1049,7 +1049,7 @@ func cmdListsockets(in *Interp, args string) Value {
 			case pre("-"):
 				cmp = nil
 			default:
-				in.warn("/listsockets: invalid sort criterion")
+				in.cmdErr("LISTSOCKETS", 'S', "invalid sort criterion")
 				return Int(0)
 			}
 		}

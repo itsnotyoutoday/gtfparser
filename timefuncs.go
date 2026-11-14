@@ -235,6 +235,7 @@ func fnFtime(in *Interp, a []Value) (Value, error) {
 	} else {
 		var ok bool
 		if sec, usec, ok = valTime(a[1]); !ok {
+			in.warn("real value too large to convert to time")
 			return Str(""), nil
 		}
 	}

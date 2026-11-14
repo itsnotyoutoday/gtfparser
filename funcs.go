@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -57,7 +58,22 @@ func init() {
 		"atan":   func(in *Interp, a []Value) (Value, error) { return Real(math.Atan(fnum(a, 0))), nil },
 		"getpid": func(in *Interp, a []Value) (Value, error) { return Int(int64(os.Getpid())), nil },
 		"echo":   fnEchoAttr, // echo(text [, attrs [, inline [, dest]]])
-		"send":   func(in *Interp, a []Value) (Value, error) { return Bool(in.Host.Send(str(a, 1), str(a, 0))), nil },
+		"send": func(in *Interp, a []Value) (Value, error) {
+			for _, c := range str(a, 2) {
+				if !strings.ContainsRune("o1nu0fh", c) {
+					in.warn("invalid flag %c", c)
+					return Int(0), nil
+				}
+			}
+			if strings.Contains(str(a, 2), "h") && in.flag("hook") && in.FireHookArgs("SEND", str(a, 0)).Count > 0 {
+				return Int(1), nil
+			}
+			if !in.Host.Send(str(a, 1), str(a, 0)) {
+				in.warn("Not connected.")
+				return Int(0), nil
+			}
+			return Int(1), nil
+		},
 	} {
 		builtinFuncs[k] = v
 	}

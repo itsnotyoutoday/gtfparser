@@ -839,6 +839,10 @@ func fnEchoAttr(in *Interp, a []Value) (Value, error) {
 		in.warn("illegal destination '%c'", dest[0])
 		return Int(0), nil
 	}
+	if dest[0] == 'w' && len(dest) > 1 && !in.worldKnown("ECHO", dest[1:]) {
+		in.warn("No world %s", dest[1:])
+		return Int(0), nil
+	}
 	return in.echoText(str(a, 0), str(a, 1), inline, dest[:1]), nil
 }
 
