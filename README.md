@@ -1,13 +1,17 @@
 # gtfparser
 
-**A TinyFugue scripting engine for Go.** The language, its runtime, and a
-PCRE2-compatible regexp engine, as a library you can drop into any program:
-a terminal MU* client, a desktop app, a relay daemon, a test rig.
+**The GoTinyFugue scripting engine**: a Go library designed to be compatible with TinyFugue
+scripting (TinyFugue 5.0 beta 8). It implements the language, its runtime and a PCRE2-compatible
+regexp engine, as an embeddable library you can drop into any program: a terminal MU* client, a
+desktop app, a relay daemon, a test rig.
 
-It runs TinyFugue's own library (`stdlib.tf` and friends) unmodified, and is
-checked line by line against the real `tf` binary.
+It runs TinyFugue's own library (`stdlib.tf` and friends) unmodified, and is checked line by line
+against the real `tf` binary. It is the shared core of the
+[GoTinyFugue (gtf)](https://github.com/itsnotyoutoday/gtf) terminal client and of SquatClient.
 
     go get github.com/itsnotyoutoday/gtfparser
+
+Documentation lives in the [wiki](https://github.com/itsnotyoutoday/gtfparser/wiki).
 
 ## Thirty seconds
 
@@ -182,4 +186,12 @@ Every example above runs in the test suite (`easy_test.go`,
 [CORE-CHANGES.md](CORE-CHANGES.md); see [CONTRIBUTING.md](CONTRIBUTING.md) before
 changing the engine.
 
-GPL-3.0-or-later (TinyFugue is GPL-2.0-or-later).
+## License and credits
+
+Copyright (C) 2026 Rick Bird. Licensed under the **GNU General Public License, version 3 or later**
+(see [LICENSE](LICENSE)). SPDX: `GPL-3.0-or-later`.
+
+GoTinyFugue is inspired by, and designed to be compatible with, **TinyFugue** by Ken Keys
+(Copyright (C) 1993-2007 Ken Keys, GPL-2.0-or-later). The standard library embedded in `tflib/` is an
+unmodified copy of TinyFugue's, kept under its original notices (see `tflib/NOTICE.md`). The regexp
+engine in `pcre/` follows the semantics of PCRE2 (Philip Hazel and contributors, University of Cambridge).
