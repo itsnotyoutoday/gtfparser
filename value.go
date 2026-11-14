@@ -101,17 +101,35 @@ func leftPad(s string, n int) string {
 // TF appends when the result looks like an integer.
 func formatReal(f float64) string {
 	s := formatReal0(f)
-	if !strings.ContainsAny(s, ".eEn") {
-		s += "."
+	// tf appends '.' only when the whole text is digits, so negative
+	// numbers, nan and inf never get one
+	if s != "" && isDigit(s[0]) {
+		allDigits := true
+		for i := 0; i < len(s); i++ {
+			if !isDigit(s[i]) {
+				allDigits = false
+				break
+			}
+		}
+		if allDigits {
+			s += "."
+		}
 	}
 	return s
 }
 
 func formatReal0(f float64) string {
-	if math.IsInf(f, 0) || math.IsNaN(f) {
-		return strconv.FormatFloat(f, 'g', -1, 64)
-	}
-	if f == 0 {
+	switch {
+	case math.IsNaN(f):
+		return "nan"
+	case math.IsInf(f, 1):
+		return "inf"
+	case math.IsInf(f, -1):
+		return "-inf"
+	case f == 0:
+		if math.Signbit(f) {
+			return "-0"
+		}
 		return "0"
 	}
 	return strconv.FormatFloat(f, 'g', getSigFigs(), 64)

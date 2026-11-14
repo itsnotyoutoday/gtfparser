@@ -68,6 +68,7 @@ type Interp struct {
 	interrupted atomic.Bool
 	instr       int64
 	nest        int
+	subFail     bool // a $[...] substitution failed: the statement and its macro are abandoned
 	exported    map[string]bool
 	cmdSpecs    map[string]CommandSpec
 	funcSpecs   map[string]FuncSpec
@@ -508,6 +509,7 @@ func (in *Interp) runSub(kind byte, arg string) string {
 		v, err := in.evalExpr(arg)
 		if err != nil {
 			in.warn("%v", err)
+			in.subFail = true
 		}
 		return v.String()
 	case subCmd:
@@ -809,11 +811,19 @@ func (in *Interp) execIf(stmts []string, i int) (Value, int) {
 	cur := branch{hasCond: true}
 	rest := strings.TrimLeft(stmts[i], " \t")[len("/if"):]
 	depth := 0
+	// a body that begins on the same statement as its condition may itself
+	// open an /if whose /endif must not close this one
+	inline := func(r string) {
+		if stmtWord(r) == "/if" {
+			depth++
+		}
+		cur.body = append(cur.body, r)
+	}
 	start := func(rest string) {
 		if e, r, ok := parenExpr(rest); ok {
 			cur.cond, cur.isExpr = e, true
 			if r != "" {
-				cur.body = append(cur.body, r)
+				inline(r)
 			}
 		} else if strings.TrimSpace(rest) != "" {
 			cur.condList = append(cur.condList, rest)
@@ -840,14 +850,14 @@ func (in *Interp) execIf(stmts []string, i int) (Value, int) {
 			if w == "/elseif" {
 				start(r)
 			} else if r != "" {
-				cur.body = append(cur.body, r)
+				inline(r)
 			}
 			continue
 		case depth == 0 && w == "/then":
 			cur.inBody = true
 			_, r := firstWord(st)
 			if r != "" {
-				cur.body = append(cur.body, r)
+				inline(r)
 			}
 			continue
 		}
@@ -885,15 +895,19 @@ func (in *Interp) execWhile(stmts []string, i int) (Value, int) {
 	var cond string
 	var condList, body []string
 	isExpr := false
+	depth0 := 0
 	if e, r, ok := parenExpr(rest); ok {
 		cond, isExpr = e, true
 		if r != "" {
+			if stmtWord(r) == "/while" {
+				depth0++
+			}
 			body = append(body, r)
 		}
 	} else if strings.TrimSpace(rest) != "" {
 		condList = append(condList, rest)
 	}
-	depth, end := 0, len(stmts)-1
+	depth, end := depth0, len(stmts)-1
 	inBody := isExpr
 	for j := i + 1; j < len(stmts); j++ {
 		s2 := strings.TrimLeft(stmts[j], " \t")
@@ -955,6 +969,9 @@ run:
 func (in *Interp) execOne(st string) Value {
 	if st[0] != '/' {
 		line := in.expand(st)
+		if in.subFail {
+			return in.abortStmt()
+		}
 		return in.sendLine(line)
 	}
 	w, _ := firstWord(st)
@@ -966,6 +983,12 @@ func (in *Interp) execOne(st string) Value {
 		return negate(in.runBuiltin(name, args), neg)
 	}
 	line := in.expand(st)
+	if in.subFail {
+		return in.abortStmt()
+	}
+	if !in.noExp {
+		line = strings.TrimRight(line, " \t") // tf drops trailing blanks of an expanded line
+	}
 	if strings.HasPrefix(line, "//") { // "//" sends a line starting with "/"
 		return in.sendLine(line[1:])
 	}
@@ -992,6 +1015,14 @@ func (in *Interp) execOne(st string) Value {
 		res = Int(0)
 	}
 	return negate(res, neg)
+}
+
+// abortStmt ends the running macro after a failed substitution, as tf does.
+func (in *Interp) abortStmt() Value {
+	in.subFail = false
+	in.retv = Int(0)
+	in.ctl = ctlReturn
+	return Int(0)
 }
 
 func negate(v Value, neg bool) Value {
@@ -1064,6 +1095,17 @@ func (in *Interp) callFunc(name string, args []Value) (Value, error) {
 		}
 		return f(in, args)
 	}
+	if ln := strings.ToLower(name); in.isTfCommand(ln) && ln != "exit" {
+		// a builtin command called as a function takes 0 or 1 argument: its
+		// command line (a user macro of the same name is not consulted)
+		if _, ok := in.cmds[ln]; ok {
+			arg := ""
+			if len(args) > 0 {
+				arg = args[0].String()
+			}
+			return in.runBuiltin(ln, arg), nil
+		}
+	}
 	if m, ok := in.findMacro(name); ok {
 		strs := make([]string, len(args))
 		for i, a := range args {
@@ -1120,7 +1162,7 @@ func (in *Interp) enter() func() {
 	in.nest++
 	return func() {
 		in.nest--
-		if in.nest == 0 && in.ctl == ctlExit {
+		if in.nest == 0 && (in.ctl == ctlExit || in.ctl == ctlReturn) {
 			in.ctl = ctlNone
 		}
 	}

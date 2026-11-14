@@ -210,7 +210,6 @@ func init() {
 		}
 		return Str(p), nil
 	}
-	f["pad"] = fnPad
 	f["ftime"] = func(in *Interp, a []Value) (Value, error) {
 		t := time.Now()
 		if len(a) > 1 {
@@ -218,27 +217,6 @@ func init() {
 		}
 		return Str(strftime(str(a, 0), t)), nil
 	}
-}
-
-// pad(s, n, s, n, ...): each string padded to the width that follows it
-// (negative = left-justified).
-func fnPad(in *Interp, a []Value) (Value, error) {
-	var b strings.Builder
-	for i := 0; i+1 < len(a); i += 2 {
-		s, w := a[i].String(), int(a[i+1].Int())
-		switch {
-		case w < 0 && len(s) < -w:
-			b.WriteString(s + strings.Repeat(" ", -w-len(s)))
-		case w > 0 && len(s) < w:
-			b.WriteString(strings.Repeat(" ", w-len(s)) + s)
-		default:
-			b.WriteString(s)
-		}
-	}
-	if len(a)%2 == 1 {
-		b.WriteString(a[len(a)-1].String())
-	}
-	return Str(b.String()), nil
 }
 
 func strftime(f string, t time.Time) string {
