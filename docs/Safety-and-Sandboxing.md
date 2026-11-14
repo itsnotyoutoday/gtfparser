@@ -89,17 +89,18 @@ or call `c.Allow(op, "/name", detail)` yourself.
 in := gtfparser.New(host, gtfparser.WithLimits(gtfparser.Limits{
     MaxInstr: 100_000, // statements per top-level execution
     MaxRecur: 50,      // nested macro calls
+    MaxString: 1 << 20, // bytes strrep(), pad() or replace() may build (default 16 MiB)
 }))
 ```
 
 ```tf-noverify
 /set max_instr=1000
 /def spin = /while (1) /test 1%; /done
-/spin                    % max_instr (1000) exceeded; execution aborted
+/spin                    % spin: instruction count exceeded %max_instr (1000).
 ```
 
-A runaway loop is stopped and reported (`% max_instr (1000) exceeded;
-execution aborted`). tf's own variables `max_instr` and `max_recur` exist for
+A runaway loop is stopped and reported (`% spin: instruction count exceeded
+%max_instr (1000).`). tf's own variables `max_instr` and `max_recur` exist for
 scripts to tune; your `Limits` are **ceilings**: a script can lower them but
 never raise them above yours.
 

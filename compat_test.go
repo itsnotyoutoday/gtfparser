@@ -253,3 +253,15 @@ func TestLoadLineRules(t *testing.T) {
 		t.Fatalf("got %q", out)
 	}
 }
+
+func TestDiagnosticLineRanges(t *testing.T) {
+	_, w := compatRun(t, "/test 1/0\n/test \\\n  1/0\n/def g1 = /test 1.5/0\n/g1\n")
+	want := []string{
+		"CASE, line 1: division by zero",
+		"CASE, lines 2-3: division by zero",
+		"CASE, line 5: g1: / operator: arithmetic overflow",
+	}
+	if strings.Join(w, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("got %q", w)
+	}
+}

@@ -578,6 +578,7 @@ func (p *exprParser) call(name string) (eval, error) {
 			return nil, fmt.Errorf("%s: command called as function must have 0 or 1 argument", name)
 		}
 	}
+	_, isTfFunc := funcArity[name]
 	return func() (Value, error) {
 		vals := make([]Value, len(args))
 		for i, a := range args {
@@ -595,7 +596,7 @@ func (p *exprParser) call(name string) (eval, error) {
 				vals[i], _ = p.in.lookup(id)
 			}
 		}
-		return p.in.callFunc(name, vals)
+		return p.in.callFuncTf(name, vals, isTfFunc)
 	}, nil
 }
 
@@ -699,6 +700,19 @@ func arith(op string, a, b Value) (Value, error) { return reduce(op, a, b, true)
 // reduce is arith with an optional right operand: unary -/+ pass binary=false
 // and the single operand in a.
 func reduce(op string, a, b Value, binary bool) (Value, error) {
+	if binary && a.k == kInt && b.k == kInt && a.en == 0 && b.en == 0 {
+		// fast path: both operands are plain integers
+		switch op {
+		case "+":
+			if s := a.i + b.i; (s > a.i) == (b.i > 0) {
+				return Int(s), nil
+			}
+		case "-":
+			if s := a.i - b.i; (s < a.i) == (b.i > 0) {
+				return Int(s), nil
+			}
+		}
+	}
 	x, y := a.Num(), b.Num()
 	last := y
 	if !binary {

@@ -1221,11 +1221,17 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 var quietCmds = map[string]bool{"test": true, "eval": true, "return": true, "result": true, "set": true, "let": true, "setenv": true}
 
 func (in *Interp) callFunc(name string, args []Value) (Value, error) {
+	_, isTf := funcArity[name]
+	return in.callFuncTf(name, args, isTf)
+}
+
+// callFuncTf is callFunc when the caller already knows whether name is one of
+// tf's own builtin functions (whose diagnostics carry the function name).
+func (in *Interp) callFuncTf(name string, args []Value, isTf bool) (Value, error) {
 	if f, ok := in.funcs[name]; ok {
-		if in.disabled[name+"()"] {
+		if len(in.disabled) > 0 && in.disabled[name+"()"] {
 			return Int(0), &cmdErr{name, fmt.Errorf("disabled")}
 		}
-		_, isTf := funcArity[name]
 		old := in.curCmd
 		if isTf {
 			in.curCmd = name
