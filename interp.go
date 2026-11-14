@@ -355,6 +355,9 @@ func (in *Interp) selValue(name string) string {
 			return ""
 		}
 		end := len(f.words) - n
+		if f.asFunc { // function arguments may be empty: tf joins the remaining ones
+			return strings.Join(f.words[:end], " ")
+		}
 		return strings.TrimRight(f.text[:f.offs[end-1]+len(f.words[end-1])], " \t")
 	}
 	if m := reP.FindStringSubmatch(name); m != nil {
@@ -705,7 +708,7 @@ func (c *captureHost) Echo(t string) { c.lines = append(c.lines, t) }
 // into one line.
 func (in *Interp) captureCmd(cmd string) string {
 	// in tf the closing ')' follows the text, so a final lone '%' is an (empty) substitution
-	if strings.HasSuffix(cmd, "%") && !strings.HasSuffix(cmd, "%%") {
+	if strings.HasSuffix(cmd, "%") && !strings.HasSuffix(cmd, "%%") && !strings.HasSuffix(cmd, "\\%") {
 		cmd = cmd[:len(cmd)-1]
 	}
 	old := in.Host
@@ -742,6 +745,15 @@ func splitList(text string) []string {
 			}
 		case '%':
 			if i+1 < len(text) {
+				if text[i+1] == '%' {
+					// a run of n percent signs is one escaped (n-1)-sign text: none of them ends a statement
+					j := i
+					for j < len(text) && text[j] == '%' {
+						j++
+					}
+					i = j - 1
+					continue
+				}
 				switch text[i+1] {
 				case ';', '|':
 					out = append(out, strings.TrimRight(text[st:i], " \t"))
