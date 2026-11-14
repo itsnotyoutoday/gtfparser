@@ -73,7 +73,7 @@ HP changed by 25
 506
 ```
 
-**Gotchas:** the `**` operator does the same job and is often shorter. The result is a real, so large powers print in scientific notation. The engine prints a negative base with an odd integer exponent (e.g. `pow(-8, 3)`) as a real, where real tf prints `-512` without the dot (FINDINGS.md).
+**Gotchas:** the `**` operator does the same job and is often shorter. The result is a real, so large powers print in scientific notation. A negative base with an odd integer exponent (`pow(-8, 3)`) gives `-512`, as in tf. Integer arithmetic is 64-bit here, a [deliberate difference](../deliberate-differences.md) from tf's 32-bit narrowing.
 
 **Status:** see [Status](Status.md).
 
@@ -117,7 +117,7 @@ digits in 98765: 5
 log2 of 64 is 6
 ```
 
-**Gotchas:** any other base `B` is `ln(N) / ln(B)`. Zero gives `-inf` and a negative number gives `nan` (both printed in lower case by real tf; the engine prints `-Inf` and `NaN.`, see FINDINGS.md).
+**Gotchas:** any other base `B` is `ln(N) / ln(B)`. Zero gives `-inf` and a negative number gives `nan` (printed in lower case, as tf does).
 
 **Status:** see [Status](Status.md).
 
@@ -184,7 +184,7 @@ log2 of 64 is 6
 even
 ```
 
-**Gotchas:** the sign follows the first argument (C semantics). Real tf reports `mod: division by zero` and aborts the expression for a zero divisor; the engine silently returns 0 (FINDINGS.md). The `%` operator is the same operation.
+**Gotchas:** the sign follows the first argument (C semantics). A zero divisor reports `mod: division by zero` and aborts the expression, as in tf. The `%` operator is the same operation.
 
 **Status:** see [Status](Status.md).
 

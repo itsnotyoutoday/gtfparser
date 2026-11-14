@@ -25,7 +25,39 @@ handle ok: 1
 missing file: -1
 ```
 
-**Gotchas:** Handles count up from 1 and are never reused within a session. Opening for `"w"` truncates immediately. The argument order is name, then mode, in both real tf and this engine. Modes `"p"` and `"q"` work in real tf (the first call of `tfopen()` after a `/test h := tfopen("jobs", "q")` gives a queue you can `tfwrite()` to and `tfread()` back, FIFO); the engine's support for them is tracked in [FINDINGS](FINDINGS.md) and the examples for them are not verified here. `/restrict` at the file level or higher forbids `tfopen()` entirely (returns `-1`).
+**Gotchas:** Handles count up from 1 and are never reused within a session. Opening for `"w"` truncates immediately. The argument order is name, then mode, in both real tf and this engine. Mode `"q"` opens a queue: a FIFO of lines you `tfwrite()` and `tfread()` back (a bare `tfopen()` opens an unnamed queue), and `"p"` runs a shell command and reads its output as lines; both work as in real tf (see the example below). `/restrict` at the file level or higher forbids `tfopen()` entirely (returns `-1`).
+
+A queue and a pipe (the queue's lines come back in order, and a read past the end returns `-1`):
+
+```tf
+/test q := tfopen("jobs", "q")
+/echo wrote $[tfwrite(q, "kill orc")] then $[tfwrite(q, "loot orc")]
+/echo $[tfread(q, job)] [%{job}]
+/echo $[tfread(q, job)] [%{job}]
+/echo empty: $[tfread(q, job)]
+/test p := tfopen("echo hi; echo there", "p")
+/echo $[tfread(p, l)] [%l] $[tfread(p, l)] [%l] $[tfread(p, l)]
+/echo closed: $[tfclose(q)] $[tfclose(p)]
+```
+```output
+wrote 1 then 1
+8 [kill orc]
+8 [loot orc]
+empty: -1
+2 [hi] 5 [there] -1
+closed: 0 0
+```
+
+Bad handles warn and return `-1`; note that `/echo -1` is read as an option, so give the number a prefix:
+
+```tf
+/test h := tfopen("/tmp/gtfdoc-h.txt", "w")
+/echo r=$[tfclose(h)] r=$[tfclose(h)] r=$[tfflush(12345)] r=$[tfwrite(12345, "x")]
+/sh rm -f /tmp/gtfdoc-h.txt
+```
+```output
+r=0 r=-1 r=-1 r=-1
+```
 
 **Status:** see [Status](Status.md)
 
@@ -35,7 +67,7 @@ missing file: -1
 
 **Syntax:** `tfclose(handle)` returns an integer.
 
-**Arguments/Returns:** `handle` is a number from `tfopen()` or one of `"i"`, `"o"`. Real tf returns `0` on success and `-1` for a handle that is not open; it also lets a macro close `"o"` to silence the rest of that macro's output, closes `"i"` to stop keyboard reads, and refuses to close `"e"` (tferr cannot be closed; returns `-1`). Check the success value against FINDINGS: this engine currently returns `1`.
+**Arguments/Returns:** `handle` is a number from `tfopen()` or one of `"i"`, `"o"`. Real tf returns `0` on success and `-1` for a handle that is not open; it also lets a macro close `"o"` to silence the rest of that macro's output, closes `"i"` to stop keyboard reads, and refuses to close `"e"` (tferr cannot be closed; returns `-1`).
 
 ```tf
 /test h := tfopen("/tmp/gtf-ex-close.txt", "w")
@@ -61,7 +93,7 @@ read back: saved before closing
 
 **Syntax:** `tfwrite(handle, text)` or `tfwrite(text)`.
 
-**Arguments/Returns:** `text` is written followed by a newline. Display attributes in `text` are stripped when it goes to a file or pipe. Returns `1` on success. If the handle is unusable (closed, unknown, or opened read-only) real tf prints a message and returns `-1` and writes nothing; this engine returns `0` in that case (see FINDINGS), so test for success with `> 0`.
+**Arguments/Returns:** `text` is written followed by a newline. Display attributes in `text` are stripped when it goes to a file or pipe. Returns `1` on success. If the handle is unusable (closed, unknown, or opened read-only) it prints a warning, returns `-1` and writes nothing. Writing to `"e"` (tferr) shows the text as an error line and returns `1`.
 
 ```tf
 /test log := tfopen("/tmp/gtf-ex-log.txt", "a")
@@ -134,7 +166,7 @@ file readable? 1
 after reading: 1
 ```
 
-**Gotchas:** It does not mean "has unread lines": after the last line it still says `1` (the next `tfread()` returns `-1`). Loop on the return value of `tfread()`, and use `tfreadable()` only to avoid blocking on a pipe or the keyboard. Real tf says `0` for `"i"`; the engine matches for files, but reports `0` for write-only or closed handles where real tf says `1` (see FINDINGS).
+**Gotchas:** It does not mean "has unread lines": after the last line it still says `1` (the next `tfread()` returns `-1`). Loop on the return value of `tfread()`, and use `tfreadable()` only to avoid blocking on a pipe or the keyboard. It says `0` for `"i"` when no key is waiting; for write-only, closed or unknown handles it warns and returns `1`, exactly as real tf does.
 
 **Status:** see [Status](Status.md)
 
@@ -171,8 +203,16 @@ flush: 1
 
 **Arguments/Returns:** opens `filename` (with `~` expansion) for appending, writes `text` and a newline, and closes it. Display attributes are not written. Real tf returns nonzero on success and `0` if the file cannot be opened.
 
-```tf-noverify
-/test fwrite("~/mud/kills.txt", "orc, 12:03")
+```tf
+/echo $[fwrite("/tmp/gtfdoc-kills.txt", "orc, 12:03")] $[fwrite("/tmp/gtfdoc-kills.txt", "troll, 12:09")]
+/test h := tfopen("/tmp/gtfdoc-kills.txt", "r")
+/echo $[tfread(h, a)] [%a] $[tfread(h, b)] [%b] $[tfread(h, c)]
+/test tfclose(h)
+/sh rm -f /tmp/gtfdoc-kills.txt
+```
+```output
+1 1
+10 [orc, 12:03] 12 [troll, 12:09] -1
 ```
 
 **Gotchas:** One `fwrite()` per line costs an open and close each time; for many lines use `tfopen`/`tfwrite`/`tfclose`. Appends, never truncates.
@@ -216,8 +256,11 @@ untouched: /var/tmp/x
 
 **Syntax:** `nread()` returns a positive integer while a read is in progress, `0` otherwise. A status-line indicator `@read` is driven by this.
 
-```tf-noverify
+```tf
 /echo reading? $[nread()]
+```
+```output
+reading? 0
 ```
 
 **Status:** see [Status](Status.md) (host capability: WorldHost)

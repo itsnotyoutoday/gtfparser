@@ -52,7 +52,7 @@ day 075 of the year
 Fri Mar (100%)
 ```
 
-**Gotchas:** the date components shift with the time zone, so a log line made with `ftime("%H:%M")` shows the local time. A time too big to convert gives an error, not a wrong date. Real tf also supports `%s` (epoch seconds) and a `%n` microsecond extension; the engine does not yet (FINDINGS.md).
+**Gotchas:** the date components shift with the time zone, so a log line made with `ftime("%H:%M")` shows the local time. A time too big to convert gives an error, not a wrong date. `%s` gives epoch seconds and the `%n` microsecond extension is supported too; `TZ` set with `/setenv` is honoured.
 
 **Status:** see [Status](Status.md).
 
@@ -64,7 +64,7 @@ Fri Mar (100%)
 
 **Returns:** the time, or -1 if the date cannot be represented. Out-of-range fields roll over (`mktime(2024, 2, 30)` is March 1).
 
-```tf-noverify
+```tf
 /echo $[ftime("%Y-%m-%d %H:%M", mktime(2024, 3, 15, 12, 30))]
 /echo $[mktime(2024, 3, 15, 12, 30) - mktime(2024, 3, 15, 12, 0)]
 /echo $[ftime("%d/%m", mktime(2024, 2, 30))]
@@ -75,7 +75,7 @@ Fri Mar (100%)
 01/03
 ```
 
-**Gotchas:** the example is marked unverified because this function may be a stub in a given build (see Status); the output is from real tf (note that the difference of two absolute times is printed in tf's `h:mm` duration style, `0:30` for half an hour). Round-tripping through `ftime` is the safe way to test it since the absolute number depends on your time zone.
+**Gotchas:** note that the difference of two absolute times is printed in tf's `h:mm` duration style, `0:30` for half an hour). Round-tripping through `ftime` is the safe way to test it since the absolute number depends on your time zone.
 
 **Status:** see [Status](Status.md).
 

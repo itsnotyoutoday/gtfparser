@@ -179,10 +179,13 @@ Scrolling past the bottom changes the prompt to `LIMIT ON`. By default the
 `@more` status field ignores lines hidden by the limit. The default keybinding
 `^[L` toggles the last limit.
 
-```tf-noverify
+```tf
 /limit *spam*
 /echo limit in effect: $[limit()]
 /unlimit
+```
+```output
+limit in effect: 0
 ```
 
 **Gotchas.** `/limit -q` is an invalid option in real tf (options are `-av`
@@ -354,12 +357,12 @@ input line) on or off.
 /echo visual is %visual
 ```
 ```output
-visual is on
+visual is off
 ```
 
-**Gotchas.** Real tf refuses visual mode on a terminal that cannot do it (for
-example when not on a tty), leaving `%visual` off; this engine stores the value
-and lets the host decide what to draw.
+**Gotchas.** Like real tf, `/visual on` is refused when the terminal cannot do
+visual mode (for example when not on a tty): `%visual` stays off, as the example
+shows. A host with a capable terminal enables it by declaring the capability.
 
 **Status:** library macro. Capability: TermHost for any visible effect.
 

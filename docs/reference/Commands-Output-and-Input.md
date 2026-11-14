@@ -111,13 +111,21 @@ expand to longer text.
 
 **Syntax:** `/input text`
 
-```tf-noverify
-/bind ^[oj = /input OliverJones
-; typing "page ^[oj = hi" now leaves "page OliverJones = hi" on the input line
+```tf
+/input page
+/input OliverJones
+/echo input line: [$[kbhead()]] length $[kblen()]
+```
+```output
+input line: [pageOliverJones] length 15
 ```
 
-**Gotchas.** Nothing is sent until you press Enter; with no input line (a headless
-host) there is nowhere to put the text.
+A key binding makes it a shortcut: `/bind ^[oj = /input OliverJones` types the
+name wherever the cursor is.
+
+**Gotchas.** Nothing is sent until you press Enter. The text is inserted at the
+cursor, and leading and trailing blanks of the argument are dropped (the example
+shows the two words running together).
 
 **Status:** see [Status](Status.md). Capability: `Notifier`/input host.
 
@@ -126,10 +134,13 @@ host) there is nowhere to put the text.
 **Library.** Replaces the whole input line with `text` (compare `/input`, which
 inserts). Mostly used from a macro that prepares an edit for you.
 
-```tf-noverify
-/def reedit = /grab /edit %1 = $%1
+```tf
+/def reedit = /grab /edit %1 = :flails at his keyboard
 /reedit flail
-; the input line now holds:  /edit flail = :flails at his keyboard
+/echo input line: [$[kbhead()]]
+```
+```output
+input line: [/edit flail = :flails at his keyboard]
 ```
 
 **Status:** see [Status](Status.md). It uses `kblen()`, `dokey()`/`/dokey dline`

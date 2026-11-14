@@ -147,7 +147,7 @@ id:string string int decimal id:string
 int decimal string id:
 ```
 
-**Gotchas:** a value read from a variable is a string until used as a number. `whatis(time())` is `atime` in real tf; the engine reports `int` (FINDINGS.md).
+**Gotchas:** a value read from a variable is a string until used as a number. `whatis(time())` and `whatis(mktime(...))` are `atime`; `whatis(sidle())` and `idle()` are durations (see [Known differences](FINDINGS.md) for the type name the engine gives them).
 
 **Status:** see [Status](Status.md).
 
@@ -174,7 +174,7 @@ int decimal string id:
 
 **Syntax:** `nmail()` returns an integer; mail monitoring is controlled by the `MAIL` and `maildelay` variables.
 
-```tf-noverify
+```tf
 /echo $[nmail()]
 ```
 ```output
@@ -189,7 +189,7 @@ int decimal string id:
 
 **Syntax:** `nread()` returns a positive number during such a read, 0 otherwise.
 
-```tf-noverify
+```tf
 /echo $[nread()]
 ```
 ```output

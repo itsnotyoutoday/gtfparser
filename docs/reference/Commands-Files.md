@@ -28,7 +28,7 @@ Hello from the file, Bob!
 ```
 The example writes `%%1` because the typed line is substituted once before `tfwrite()` sees it; the file itself receives `%1`.
 
-**Gotchas:** Lines in a file are *not* substituted when read: `/echo $[1+1]` in a file is stored and executed as written, and only expands when the line is run (as part of a macro, or by `/eval`). A missing file prints `% /load: <name>: no such file` and returns 0 (real tf phrases it `LOAD: <name>: No such file or directory`). Real tf also lets a builtin command be called as a function (`$[load("file")]` gives 1 or 0), which this engine does not support yet; see FINDINGS. `/load` with the same file twice runs it twice; use `/require` for load-once files.
+**Gotchas:** Lines in a file are *not* substituted when read: `/echo $[1+1]` in a file is stored and executed as written, and only expands when the line is run (as part of a macro, or by `/eval`). A missing file prints `% <where>: LOAD: <name>: No such file or directory` (where is `file, line N` inside a script) and returns 0. Real tf also lets a builtin command be called as a function (`$[load("file")]` gives 1 or 0) and so does this engine. `/load` with the same file twice runs it twice; use `/require` for load-once files.
 
 **Status:** see [Status](Status.md)
 
@@ -175,7 +175,7 @@ at the root: 1
 
 **Syntax:** `/sh [-q] [command]`; Library `/sys command`.
 
-**Arguments/Returns:** `/sh command` runs the command in `/bin/sh` *interactively*: it may read the terminal and print anything; output goes straight to the screen, not through tf's display. `-q` suppresses the "Executing" notice and the `SHELL` hook (see FINDINGS: this engine's `/sh` does not yet strip `-q`). With no command it starts an interactive shell. Returns the shell's exit status, or -1 if it did not exit normally. `/sys command` is the library's "inline" variant: it runs the command and displays each line of its output through tf (so output can be captured with `%|`/`$()` and logged), but the command cannot ask for input.
+**Arguments/Returns:** `/sh command` runs the command in `/bin/sh` *interactively*: it may read the terminal and print anything; output goes straight to the screen, not through tf's display. `-q` suppresses the "Executing" notice and the `SHELL` hook (this build passes `-q` through to the shell instead of stripping it; see the known differences). With no command it starts an interactive shell. Returns the shell's exit status, or -1 if it did not exit normally. `/sys command` is the library's "inline" variant: it runs the command and displays each line of its output through tf (so output can be captured with `%|`/`$()` and logged), but the command cannot ask for input.
 
 ```tf
 /sh echo from the shell

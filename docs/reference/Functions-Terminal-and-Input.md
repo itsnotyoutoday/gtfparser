@@ -343,7 +343,7 @@ clock field is 5 columns wide
 
 **Syntax:** `nmail()` returns an integer. Which files are watched is set by `%MAIL` / `%MAILPATH`.
 
-```tf-noverify
+```tf
 /echo unread mailboxes: $[nmail()]
 ```
 ```output

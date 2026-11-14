@@ -53,7 +53,16 @@ for pattern matching see [Functions-Regex-and-Eval](Functions-Regex-and-Eval.md)
 []
 ```
 
-**Gotchas:** a start past the end gives the empty string, never an error. Capitalizing a word is `strcat(toupper(substr(s, 0, 1)), substr(s, 1))`. The engine currently clamps negative positions to 0 instead of counting from the end; see FINDINGS.md.
+**Gotchas:** a start past the end gives the empty string, never an error. Capitalizing a word is `strcat(toupper(substr(s, 0, 1)), substr(s, 1))`. Negative positions count from the end, and positions and lengths are in characters, not bytes.
+
+```tf
+/echo $[substr("hello", -2)] $[substr("hello", -3, 2)] $[strlen("héllo")] $[strcmp("B", "a")]
+/echo $[strstr("hello", "l", 3)] $[tolower("HeLLo", 2)] $[toupper("hello", 2)]
+```
+```output
+lo ll 5 -31
+3 heLLo HEllo
+```
 
 **Status:** see [Status](Status.md).
 
@@ -99,7 +108,7 @@ pi is about 3.14159
 1
 ```
 
-**Gotchas:** it matches the exact text, case included (use `regmatch` with `(?i)` for case-insensitive search). A `start` argument greater than 0 is part of real tf; see FINDINGS.md for how the engine treats it.
+**Gotchas:** it matches the exact text, case included (use `regmatch` with `(?i)` for case-insensitive search). The optional `start` argument begins the search at that position; a negative start counts from the end.
 
 **Status:** see [Status](Status.md).
 
@@ -147,7 +156,7 @@ pi is about 3.14159
 txt
 ```
 
-**Gotchas:** as with `strchr`, `s2` is a character set. Position arguments are described in FINDINGS.md.
+**Gotchas:** as with `strchr`, `s2` is a character set. The optional position argument works as in `strchr`.
 
 **Status:** see [Status](Status.md).
 
@@ -172,7 +181,7 @@ txt
 1
 ```
 
-**Gotchas:** only the sign is documented; real tf returns the character-code difference (`strcmp("B","a")` is -31), which the engine does not copy (FINDINGS.md). For plain equality the operators `=~` (exact) and `==` on strings are usually shorter, and `=/` does glob matching.
+**Gotchas:** only the sign is documented, but tf returns the difference of the first differing bytes (`strcmp("B","a")` is -31) and so does this engine. For plain equality the operators `=~` (exact) and `==` on strings are usually shorter, and `=/` does glob matching.
 
 **Status:** see [Status](Status.md).
 
@@ -288,7 +297,7 @@ the orc attacks
 Gandalf
 ```
 
-**Gotchas:** conversion follows the locale, so accented letters convert under a UTF-8 locale. The optional count is documented by tf but the engine ignores it (FINDINGS.md).
+**Gotchas:** conversion follows the locale, so accented letters convert under a UTF-8 locale. The optional count limits the conversion to the first characters: `tolower("HeLLo", 2)` is `heLLo`. Case mapping is by Unicode character, a [deliberate difference](../deliberate-differences.md) from tf's byte-wise mapping, which corrupts multibyte text.
 
 **Status:** see [Status](Status.md).
 
@@ -332,7 +341,7 @@ ABC
 1
 ```
 
-**Gotchas:** `char(0)` cannot be used to build strings; stick to 1 and up. Codes above 127 are locale-dependent; see FINDINGS.md for the engine's handling.
+**Gotchas:** `char(0)` cannot be used to build strings; stick to 1 and up. Below 256 it returns the single byte, as tf does; above that it returns the UTF-8 character, a [deliberate difference](../deliberate-differences.md) (tf returns one byte, the code modulo 256).
 
 **Status:** see [Status](Status.md).
 
@@ -363,7 +372,7 @@ Bilbo Frodo Sam
 Sam
 ```
 
-**Gotchas:** they return text as a macro `/result`, so you reach it with `$(...)`, not by printing it. `/nth` is implemented with `shift`, and the engine currently returns 0 instead of the word (FINDINGS.md).
+**Gotchas:** they return text as a macro `/result`, so you reach it with `$(...)`, not by printing it.
 
 **Status:** library macros from `stdlib.tf`; see [Status](Status.md) for the builtins they rest on.
 
@@ -373,7 +382,7 @@ Sam
 
 **Syntax:** `/split text`, which sets `%{P1}` to the part before the first `=` (trailing spaces trimmed) and `%{P2}` to the rest.
 
-```tf-noverify
+```tf
 /def setopt = /split %*%; /echo option [%{P1}] gets [%{P2}]
 /setopt wimpy  =  25 percent
 /setopt noshout
@@ -383,7 +392,7 @@ option [wimpy] gets [25 percent]
 option [noshout] gets []
 ```
 
-**Gotchas:** it is a thin wrapper over `regmatch`, so the `P` variables are *global* match results and the next `regmatch` overwrites them; read them straight away. The example is marked unverified because the engine does not yet pass the match results back to the calling macro the way real tf does (FINDINGS.md); the output shown is from real tf.
+**Gotchas:** it is a thin wrapper over `regmatch`, so the `P` variables are *global* match results and the next `regmatch` overwrites them; read them straight away.
 
 **Status:** library macro; see [Status](Status.md).
 
@@ -402,7 +411,7 @@ a\'b\'c
 2\*3
 ```
 
-**Gotchas:** the engine matches this for plain text but differs when the text contains `%`; see FINDINGS.md.
+**Gotchas:** inside a macro body a `%` in the text is substituted before `/escape` sees it, exactly as in tf, so protect it with `%%`.
 
 **Status:** library macro; see [Status](Status.md).
 

@@ -40,7 +40,7 @@ command does in tf and does not claim support either way.
 ## Other pages
 
 - [Status](Status.md): generated table of every builtin and what this build supports.
-- [FINDINGS](FINDINGS.md): places where the engine differs from real tf.
+- [FINDINGS](FINDINGS.md): known differences from real tf (open bugs and deliberate differences).
 
 ## Entry conventions
 

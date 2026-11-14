@@ -49,7 +49,7 @@ once more
 
 **Syntax:** `/ps [-srq] [-wworld] [pid]`
 
-**Arguments/Returns:** lists all `/repeat` and `/quote` processes, or just `pid`. `-s` prints bare pids, one per line, for use in macros (the engine matches real tf); `-r` only repeats, `-q` only quotes (the engine does not yet filter, still open at v0.0.5, see FINDINGS), `-w` only those for a world. The full table has the columns PID, NEXT (time to the next run, or `pending` when waiting for a shell command), T (`r` repeat, `q` quote), D (quote disposition `e`cho, `s`end, e`x`ec), WORLD, PTIME (the delay), COUNT (runs left) and COMMAND.
+**Arguments/Returns:** lists all `/repeat` and `/quote` processes, or just `pid`. `-s` prints bare pids, one per line, for use in macros (the engine matches real tf); `-r` only repeats, `-q` only quotes, `-w` only those for a world (this build does not yet apply the `-r`/`-q` filters). Called as a function, `ps("-s")` takes a command line like `/ps`; real tf returns 1 (see [Known differences](FINDINGS.md)). The full table has the columns PID, NEXT (time to the next run, or `pending` when waiting for a shell command), T (`r` repeat, `q` quote), D (quote disposition `e`cho, `s`end, e`x`ec), WORLD, PTIME (the delay), COUNT (runs left) and COMMAND.
 
 ```tf
 /repeat -3600 i /echo hourly report
@@ -114,7 +114,7 @@ C[]
 
 **Gotchas:** To repeat daily, a macro re-schedules itself (as above; note the doubled `%%` so the `%;` separator belongs to the at-command, not to `/def`).
 
-**Status:** see [Status](Status.md) (needs `mktime()`; check the status table)
+**Status:** see [Status](Status.md) (uses `mktime()`)
 
 ## /qdef, /qmac, /qworld, /qfile, /qtf, /qsh, /qmud  *(Library, quoter.tf)*
 

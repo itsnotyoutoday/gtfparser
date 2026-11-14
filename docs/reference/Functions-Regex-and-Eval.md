@@ -33,7 +33,7 @@ who=Bob what=meet me at the inn
 [1] [0]
 ```
 
-**Gotchas:** the `%{P1}` variables are filled in only when the function runs, so read them on a later line or later in the same macro, not in the same `/echo` argument that calls `regmatch`. Do not rely on the `P` variables after a match that returned 0. Patterns match anywhere in the string unless anchored with `^` and `$`; matching is case sensitive unless `(?i)` is used (the `-mregexp` of macros is separate and goes through the same engine). An invalid pattern is reported as an error and the call returns 0. Real tf counts only up to the last group that took part in the match; the engine currently counts all groups when an optional trailing group did not match (FINDINGS.md).
+**Gotchas:** the `%{P1}` variables are filled in only when the function runs, so read them on a later line or later in the same macro, not in the same `/echo` argument that calls `regmatch`. Do not rely on the `P` variables after a match that returned 0. Patterns match anywhere in the string unless anchored with `^` and `$`; matching is case sensitive unless `(?i)` is used (the `-mregexp` of macros is separate and goes through the same engine). An invalid pattern is reported as an error and the call returns 0. The count runs up to the last group that took part in the match: `regmatch("(a)(b)?", "a")` is 2, while `regmatch("(a)(b)?(c)", "ac")` is 4 because an unset group in the middle still counts.
 
 **Status:** see [Status](Status.md).
 
@@ -72,7 +72,7 @@ Bob was told: come here
 
 **Returns:** the value of the expression, of whatever type.
 
-```tf-noverify
+```tf
 /set x=3
 /echo $[test("x * 2")]
 /echo $[test("x > 1 & x < 9")]

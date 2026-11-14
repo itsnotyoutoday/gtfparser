@@ -167,7 +167,8 @@ shotty is gone: 1
 - A glob pattern with `{a|b}` alternation and `[a-c]` classes is available in `-t`.
 - `-1` is a one-shot (same as `-n1`).
 - With `-w world` the engine validates the world name only when the host reports
-  worlds (`WorldInfoHost`); without it an unknown world is accepted silently (FINDINGS C4).
+  worlds (`WorldInfoHost`); an unknown world is refused with `% DEF -w: No world NAME`
+  and no macro is defined, as in tf.
 - `%max_trig` limits how often triggers may run (a burst beyond it turns `%borg` off and
   warns); `%max_hook` does the same for hooks.
 
@@ -298,7 +299,9 @@ other options select macros: `-t`, `-b`, `-E`, `-T`, `-h`, `-a` (attributes), `-
 an argument matches any macro that has it; `{}` (or `-h0`) matches macros that
 do not.
 
-**Return value:** the number of the last macro listed, or 0.
+**Return value:** the number of the last macro listed, or 0. (The macro numbers in
+the examples below are those of a fresh interpreter with the library loaded; they
+shift if the library defines more macros.)
 
 ```tf
 /def -t'You hit *' hit = /echo Hit!
@@ -843,8 +846,8 @@ gamma
 a\*b\?c
 ```
 
-**Gotchas.** `/split` sets `%P1` and `%P2` through a regexp match inside the macro; in this build
-the caller does not see them (FINDINGS C10, still open at v0.0.5).
+**Gotchas.** `/split` sets `%P1` and `%P2` through a regexp match inside the macro; they are
+visible to the caller afterwards, as in tf.
 
 **Status:** see [Status](Status.md)
 

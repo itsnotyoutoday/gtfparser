@@ -205,15 +205,15 @@ Features: `256colors`, `core`, `float`, `ftime`, `history`, `IPv6`, `locale`,
 `MCCPv1`, `MCCPv2`, `process` (`/repeat` and `/quote`), `SOCKS`, `ssl`,
 `subsecond`, `TZ`.
 
-Real tf (one build) prints:
+The `gtfrun` runner (which declares 256-color support) prints:
 
 ```tf
 /features
 ```
 ```output
--256colors -core +float +ftime +history -IPv6 +locale -MCCPv1 -MCCPv2 +process -SOCKS -ssl +subsecond +TZ
++256colors -core +float +ftime +history -IPv6 +locale -MCCPv1 -MCCPv2 +process -SOCKS -ssl +subsecond +TZ
 ```
-(A stock tf prints `+MCCPv1 +MCCPv2` and so on; this engine provides
+(A bare `Interp` with no declarations prints `-256colors`; a stock tf prints `+MCCPv1 +MCCPv2` and so on; this engine provides
 float, ftime, history, locale, process, subsecond and TZ itself, and the
 embedding program declares 256colors, IPv6, MCCP, ssl, SOCKS and core with
 `SetFeature`.)
@@ -253,8 +253,12 @@ and the system it was built for. Return value 1.
 contributors/mods, "Built for ..."). The library macro `/ver` extracts just the
 version number from this output.
 
-```tf-noverify
+```tf
 /version
+```
+```output
+% TinyFugue (gtf) version 5.0 beta 8.
+% Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2002, 2003, 2004, 2005, 2006-2007 Ken Keys (kenkeys@users.sourceforge.net).
 ```
 
 **Gotchas.** The exact text is the host's identity (this engine reports its
@@ -478,11 +482,14 @@ on success, 1 on `No script loaded`, `No such function` or a Lua error.
 beta 8`). It parses the first line of `/version`, so it relies on that line's
 exact shape.
 
-```tf-noverify
+```tf
 /echo running tf $(/ver)
 ```
+```output
+running tf 5.0 beta 8
+```
 
-**Status:** library macro. See FINDINGS (this engine's `/version` text).
+**Status:** library macro. See [Known differences](FINDINGS.md) for the `/version` text.
 
 ---
 

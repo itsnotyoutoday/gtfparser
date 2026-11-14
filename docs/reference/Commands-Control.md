@@ -86,7 +86,8 @@ tests the return value of a command and uses `/do` to start the loop body.
 A runaway loop is cut off by the interpreter: real tf aborts a macro that runs
 more than `max_instr` instructions (default 1,000,000) with an
 "instruction count exceeded" error. The documented `max_iter` variable is not
-honoured by the reference build (this engine does honour it: FINDINGS C2, still open at v0.0.5).
+honoured by the reference build, and this engine matches: the loop above
+is cut off by `max_instr` whatever `max_iter` says.
 
 **Status:** see [Status](Status.md)
 
@@ -252,14 +253,22 @@ it twice.
 abandons `n` (default 1) enclosing loads. Outside a load it does nothing; it
 does **not** quit tf (that is `/quit`).
 
-```tf-noverify
-; top of a script file
-/if (loaded_mymud) /exit%; /endif
-/set loaded_mymud=1
+```tf
+/sh rm -f /tmp/gtfdoc_exit.tf
+/test fwrite("/tmp/gtfdoc_exit.tf", "/echo before the exit")
+/test fwrite("/tmp/gtfdoc_exit.tf", "/exit")
+/test fwrite("/tmp/gtfdoc_exit.tf", "/echo never shown")
+/load -q /tmp/gtfdoc_exit.tf
+/echo back at the prompt
+/sh rm -f /tmp/gtfdoc_exit.tf
+```
+```output
+before the exit
+back at the prompt
 ```
 
-**Gotchas.** Known difference: this engine keeps reading the file after an `/exit`
-inside a macro called from it (FINDINGS C1, still open at v0.0.5).
+The same works from inside a macro the file calls: the `/exit` ends the macro
+and the load.
 
 **Status:** see [Status](Status.md)
 

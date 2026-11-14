@@ -20,7 +20,7 @@ the host as styled text). So the *text* results of these functions are verified
 below, while examples that depend on attributes surviving a round trip
 (`encode_attr(decode_attr(...))`, `encode_ansi(decode_attr(...))`) are shown
 unverified (`tf-noverify`) with the output real tf prints; see
-[FINDINGS](FINDINGS.md). The attribute codes are shown with `encode_attr`,
+[Known differences](FINDINGS.md). The attribute codes are shown with `encode_attr`,
 since raw styled text is not printable.
 
 ## decode_attr(s [, attrs [, inline]])
