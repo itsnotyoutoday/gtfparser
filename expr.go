@@ -65,7 +65,7 @@ func (in *Interp) evalExpr(src string) (Value, error) {
 		in.exprCache[src] = e
 	}
 	for _, w := range e.warns {
-		in.warn("Warning: %s", w)
+		in.warn("%s", w)
 	}
 	if e.err != nil {
 		return Int(0), e.err
@@ -280,10 +280,15 @@ func (p *exprParser) binLevel(ops []string, next func() (eval, error)) (eval, er
 				}
 				nm := p.s[p.pos:st]
 				if ctlKeywords[strings.ToLower(nm)] || tfCmdSet[strings.ToLower(nm)] || p.in.macroNamed(nm) {
-					p.warns = append(p.warns, fmt.Sprintf("possibly missing '%%;' or ')' before /%s", nm))
+					p.warns = append(p.warns, fmt.Sprintf("Warning: possibly missing '%%;' or ')' before /%s", nm))
 				}
 			}
 		}
+		if op == "=" && p.in.flag("pedantic") {
+			p.warns = append(p.warns, "suggestion: use == instead of =")
+		}
+		lEnd, rStart := p.pos-len(op), p.pos
+		lreg := (op == "==" || op == "!=") && isRegmatchCall(p.s[start:lEnd])
 		p.pend++
 		if p.pend >= 512 { // tf's value stack holds 512 operands
 			p.pend--
@@ -294,6 +299,7 @@ func (p *exprParser) binLevel(ops []string, next func() (eval, error)) (eval, er
 		if err != nil {
 			return nil, err
 		}
+		rreg := (op == "==" || op == "!=") && isRegmatchCall(p.s[rStart:p.pos])
 		l0, op0, id := l, op, lazy
 		l = func() (Value, error) {
 			var a Value
@@ -316,6 +322,9 @@ func (p *exprParser) binLevel(ops []string, next func() (eval, error)) (eval, er
 					p.in.warn("%v", gerr) // tf: a bad pattern matches nothing, for =/ and !/ alike
 					return Int(0), nil
 				}
+			}
+			if (lreg && (rreg || b.Int() == 1)) || (rreg && a.Int() == 1) {
+				p.in.warn("Warning: regmatch() may return >= 1 for success.")
 			}
 			if (op0 == "+" || op0 == "*" || op0 == "/") && a.k == kDec && a.tt == ttAtime && b.k == kDec && b.tt == ttAtime {
 				p.in.warn("Warning: invalid operation %s on absolute time values.", op0)
@@ -494,14 +503,14 @@ func (p *exprParser) parsePrimary0() (eval, error) {
 		if n > 1 && !p.in.subWarned || n > 1 && p.in.flag("pedantic") {
 			p.in.subWarned = true
 			sub := p.s[p.pos : p.pos+n]
-			p.warns = append(p.warns, fmt.Sprintf("\"%s\" substitution in expression is legal, but can be confusing.  Try using \"{%s}\" instead.", sub, strings.TrimSuffix(strings.TrimPrefix(sub[1:], "{"), "}")))
+			p.warns = append(p.warns, fmt.Sprintf("Warning: \"%s\" substitution in expression is legal, but can be confusing.  Try using \"{%s}\" instead.", sub, strings.TrimSuffix(strings.TrimPrefix(sub[1:], "{"), "}")))
 		}
 		p.pos += n
 		return func() (Value, error) { return Str(text()), nil }, nil
 	case c == '$':
 		if p.pos+1 < len(p.s) && p.s[p.pos+1] == '[' && (!p.in.dollarWarned || p.in.flag("pedantic")) {
 			p.in.dollarWarned = true
-			p.warns = append(p.warns, "$[...] substitution in expression is legal, but redundant.  Try using (...) instead.")
+			p.warns = append(p.warns, "Warning: $[...] substitution in expression is legal, but redundant.  Try using (...) instead.")
 		}
 		n, text := p.in.expandOne(p.s[p.pos:])
 		if n == 0 {
@@ -937,4 +946,15 @@ func reduce(op string, a, b Value, binary bool) (Value, error) {
 func (in *Interp) macroNamed(name string) bool {
 	_, ok := in.macros[name]
 	return ok
+}
+
+// isRegmatchCall reports whether s is exactly one regmatch(...) call: tf marks
+// such a value so that comparing it with 1 can be flagged.
+func isRegmatchCall(s string) bool {
+	s = strings.TrimSpace(s)
+	if !strings.HasPrefix(s, "regmatch") {
+		return false
+	}
+	r := strings.TrimLeft(s[len("regmatch"):], " \t")
+	return strings.HasPrefix(r, "(") && matchClose(r, 0, '(', ')') == len(r)-1
 }

@@ -131,6 +131,7 @@ func (in *Interp) compileStmts(stmts []string, cmdsub bool) *compiled {
 					if r[0] == '(' {
 						p := &exprParser{in: in, s: r[1:], kind: "expression"}
 						_, err := p.parseComma()
+						c.diags = append(c.diags, p.warns...)
 						if err != nil {
 							fail("%v", err)
 							break
