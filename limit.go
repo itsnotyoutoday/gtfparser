@@ -10,6 +10,7 @@ type limitFilter struct {
 	enabled bool
 	hasPat  bool
 	pat     string
+	style   string // the match style of pat (what state export needs to rebuild match)
 	match   func(string) bool
 	attr    bool // -a: only lines that have attributes
 	sense   bool // false for -v
@@ -118,7 +119,10 @@ func cmdLimit(in *Interp, args string) Value {
 	if len(opts) == 0 && pat == "" {
 		return Bool(f.enabled)
 	}
-	nf := &limitFilter{enabled: true, attr: attr, sense: sense, hasPat: pat != "", pat: pat}
+	nf := &limitFilter{enabled: true, attr: attr, sense: sense, hasPat: pat != "", pat: pat, style: style}
+	if nf.style == "" {
+		nf.style = in.globals["matching"].String()
+	}
 	if pat != "" {
 		m, ok := in.matchStyle("/limit", style, pat)
 		if !ok {
