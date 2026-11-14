@@ -264,6 +264,11 @@ func (in *Interp) varChanged(name, old, new string) {
 	}
 }
 
+// VisualHost is implemented by hosts that know whether visual mode is
+// possible (tf refuses it, silently, on a terminal that cannot do cursor
+// addressing); without it visual mode is always accepted.
+type VisualHost interface{ CanVisual() bool }
+
 // FitScreen makes the display variables consistent with the screen size, as
 // tf's setup_screen does when visual mode starts or %isize / %status_height
 // change: visual mode is refused on a screen too small for it, and the input
@@ -271,6 +276,10 @@ func (in *Interp) varChanged(name, old, new string) {
 // A client calls it after a resize as well.
 func (in *Interp) FitScreen() {
 	if !in.varOn("visual") {
+		return
+	}
+	if vh, ok := in.Host.(VisualHost); ok && !vh.CanVisual() {
+		in.setGlobal("visual", Str("off")) // refused without a warning, as tf does on a terminal that cannot do it
 		return
 	}
 	_, lines := in.termSize()

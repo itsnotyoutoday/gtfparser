@@ -69,6 +69,7 @@ type Interp struct {
 	interrupted atomic.Bool
 	instr       int64
 	nest        int
+	exitReq     bool // /exit ran: the enclosing /load stops (see LoadFile)
 	curCmd      string // name of the running macro, builtin command or function (diagnostics)
 	loadName    string // file being loaded, and the lines of the logical line being run
 	loadStart   int
@@ -178,8 +179,15 @@ func (in *Interp) warn(f string, a ...any) {
 	}
 	msg := fmt.Sprintf(f, a...)
 	if len(msg) > 2 && msg[0] == '/' {
-		if i := strings.Index(msg, ": "); i > 1 && !strings.ContainsAny(msg[1:i], " /") && tfCmdSet[strings.ToLower(msg[1:i])] {
-			cmd, msg = strings.ToUpper(msg[1:i]), msg[i+2:]
+		if i := strings.Index(msg, ": "); i > 1 {
+			// "/cmd: msg" and "/cmd -x: msg" name a builtin command, shown as tf shows it
+			name, opt, _ := strings.Cut(msg[1:i], " ")
+			if !strings.ContainsAny(name, "/ ") && tfCmdSet[strings.ToLower(name)] && (opt == "" || (len(opt) == 2 && opt[0] == '-')) {
+				cmd, msg = strings.ToUpper(name), msg[i+2:]
+				if opt != "" {
+					cmd += " " + opt
+				}
+			}
 		}
 	}
 	var b strings.Builder
@@ -544,6 +552,7 @@ const (
 	subExpr              // $[expr]
 	subCmd               // $(cmd)
 	subMacro             // ${name}
+	subErr               // a malformed substitution: arg is tf's complaint
 )
 
 func (in *Interp) runSub(kind byte, arg string) string {
@@ -561,6 +570,10 @@ func (in *Interp) runSub(kind byte, arg string) string {
 		return v.String()
 	case subCmd:
 		return in.captureCmd(arg)
+	case subErr:
+		in.warn("%s", arg)
+		in.subFail = true
+		return ""
 	}
 	if b, ok := in.WorldMacroBody(arg); ok { // ${world_name} and friends read the current world
 		return b
@@ -583,7 +596,10 @@ func parseSub(s string) (int, byte, string) {
 		if c == '{' {
 			end := matchClose(s, 1, '{', '}')
 			if end < 0 {
-				return 0, 0, ""
+				return len(s), subErr, "unmatched { or bad substitution"
+			}
+			if !validBraceSel(s[2:end]) {
+				return end + 1, subErr, braceSelError(s[2:end])
 			}
 			return end + 1, subBrace, s[2:end]
 		}
@@ -591,13 +607,17 @@ func parseSub(s string) (int, byte, string) {
 		switch {
 		case c == '*' || c == '#' || c == '?':
 			j = 2
-		case c == '-' && len(s) > 2 && (s[2] >= '0' && s[2] <= '9' || s[2] == 'L'):
-			j = 2
-			if s[2] == 'L' {
-				j = 3
-			}
-			for j < len(s) && s[j] >= '0' && s[j] <= '9' {
-				j++
+		case c == '-':
+			if len(s) > 2 && (s[2] >= '0' && s[2] <= '9' && s[2] != '0' || s[2] == 'L') {
+				j = 2
+				if s[2] == 'L' {
+					j = 3
+				}
+				for j < len(s) && s[j] >= '0' && s[j] <= '9' {
+					j++
+				}
+			} else {
+				return 2, subErr, "illegal character '-' in substitution"
 			}
 		case c >= '0' && c <= '9':
 			for j < len(s) && s[j] >= '0' && s[j] <= '9' {
@@ -607,8 +627,28 @@ func parseSub(s string) (int, byte, string) {
 			for j < len(s) && isIdentChar(s[j]) {
 				j++
 			}
+		case c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == ';' || c == '|':
+			return 0, 0, "" // "% " is left alone
 		default:
-			return 0, 0, ""
+			return 1 + 0, subBare, "" // an empty variable name: the % vanishes, the character stays
+		}
+		if j < len(s) && s[j] == '-' && c != '#' && c != '?' {
+			// %name-default: the default runs to the next blank or %;
+			k := j + 1
+			for k < len(s) && s[k] != ' ' && s[k] != '\t' && !(s[k] == '%' && k+1 < len(s) && (s[k+1] == ';' || s[k+1] == '|')) {
+				if s[k] == '\\' && k+1 < len(s) {
+					k += 2
+					continue
+				}
+				if s[k] == '%' || s[k] == '$' {
+					if n, _, _ := parseSub(s[k:]); n > 0 {
+						k += n
+						continue
+					}
+				}
+				k++
+			}
+			return k, subBrace, s[1:k]
 		}
 		return j, subBare, s[1:j]
 	case '$':
@@ -617,14 +657,17 @@ func parseSub(s string) (int, byte, string) {
 			if end := matchClose(s, 1, '[', ']'); end >= 0 {
 				return end + 1, subExpr, s[2:end]
 			}
+			return len(s), subErr, "unmatched $["
 		case '(':
 			if end := matchCloseCmd(s, 1); end >= 0 {
 				return end + 1, subCmd, s[2:end]
 			}
+			return len(s), subErr, "unmatched ("
 		case '{':
 			if end := matchClose(s, 1, '{', '}'); end >= 0 {
 				return end + 1, subMacro, s[2:end]
 			}
+			return len(s), subErr, "unmatched ${"
 		}
 	}
 	return 0, 0, ""
@@ -684,6 +727,13 @@ func splitList(text string) []string {
 		switch text[i] {
 		case '\\':
 			i++
+		case '$':
+			// a $( ... ) command substitution is a list of its own: its %; does not end this statement
+			if i+1 < len(text) && text[i+1] == '(' {
+				if end := matchCloseCmd(text, i+1); end >= 0 {
+					i = end
+				}
+			}
 		case '%':
 			if i+1 < len(text) {
 				switch text[i+1] {
@@ -1034,9 +1084,6 @@ func (in *Interp) execOne(st string) Value {
 	if in.subFail {
 		return in.abortStmt()
 	}
-	if !in.noExp {
-		line = strings.TrimRight(line, " \t") // tf drops trailing blanks of an expanded line
-	}
 	if strings.HasPrefix(line, "//") { // "//" sends a line starting with "/"
 		return in.sendLine(line[1:])
 	}
@@ -1055,7 +1102,8 @@ func (in *Interp) execOne(st string) Value {
 	}
 	var res Value
 	if m, ok := in.findMacro(nm); ok && !forceBuiltin {
-		res = in.callMacro(m, args, false)
+		// a macro's arguments never end in blanks (tf's argument vector is cut at the last word)
+		res = in.callMacro(m, strings.TrimRight(args, " \t"), false)
 	} else if _, ok := in.cmds[strings.ToLower(nm)]; ok {
 		ln := strings.ToLower(nm)
 		in.setLetLast = ln == "set" || ln == "let"
@@ -1154,7 +1202,7 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 }
 
 // quietCmds run user text or expressions: tf does not name them in diagnostics.
-var quietCmds = map[string]bool{"test": true, "eval": true, "return": true, "result": true}
+var quietCmds = map[string]bool{"test": true, "eval": true, "return": true, "result": true, "set": true, "let": true, "setenv": true}
 
 func (in *Interp) callFunc(name string, args []Value) (Value, error) {
 	if f, ok := in.funcs[name]; ok {
@@ -1247,4 +1295,29 @@ func (in *Interp) enter() func() {
 			in.ctl = ctlNone
 		}
 	}
+}
+
+var braceSelRE = regexp.MustCompile(`(?s)^(?:#|\?|\*(?:-.*)?|-?[0-9]+(?:-.*)?|-?[LP][0-9]*(?:-.*)?|[A-Za-z_][A-Za-z0-9_]*(?:-.*)?)$`)
+
+// validBraceSel reports whether the inside of %{...} is something tf's
+// varsub() accepts; anything else is a "bad substitution" error.
+func validBraceSel(sel string) bool {
+	if !braceSelRE.MatchString(sel) {
+		return false
+	}
+	return !strings.HasPrefix(sel, "-0") || len(sel) > 2 && sel[2] >= '0' && sel[2] <= '9'
+}
+
+func braceSelError(sel string) string {
+	if strings.HasPrefix(sel, "-0") {
+		return "illegal character '-' in substitution"
+	}
+	i := 0
+	for i < len(sel) && (isIdentChar(sel[i]) || (i == 0 && (sel[i] == '-' || sel[i] == '*' || sel[i] == '#' || sel[i] == '?'))) {
+		i++
+	}
+	if i >= len(sel) {
+		return "unmatched { or bad substitution"
+	}
+	return fmt.Sprintf("unmatched { or illegal character '%c'", sel[i])
 }

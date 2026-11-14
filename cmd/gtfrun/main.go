@@ -21,6 +21,9 @@ func (h *stdHost) Send(w, s string) bool { fmt.Fprintln(h.w, "[send] "+s); retur
 // IsTTY: the reference tf the differential tests compare with runs on a terminal.
 func (h *stdHost) IsTTY() bool { return true }
 
+// CanVisual: the reference runs with TERM=dumb, where visual mode is refused.
+func (h *stdHost) CanVisual() bool { return false }
+
 func main() {
 	file := flag.String("f", "", "script file to load")
 	lib := flag.String("L", "", "library directory")

@@ -229,7 +229,11 @@ func cmdFor(in *Interp, args string) Value {
 }
 
 func cmdQuit(in *Interp, args string) Value { in.Quit = true; return Int(1) }
-func cmdExit(in *Interp, args string) Value { in.ctl = ctlExit; return Int(1) }
+func cmdExit(in *Interp, args string) Value {
+	in.ctl = ctlExit
+	in.exitReq = true // ends the /load that is running, if any
+	return Int(1)
+}
 
 func (in *Interp) findFile(name string) (string, bool) {
 	if filepath.IsAbs(name) || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "~") {
@@ -334,9 +338,11 @@ func (in *Interp) LoadFile(path string) error {
 		}
 		in.depth = 0
 		in.loadStart, in.loadLine = startNo, lineNo
+		in.exitReq = false
 		in.Exec(strings.TrimLeft(line, " \t"))
-		if in.ctl == ctlExit {
+		if in.exitReq {
 			exited = true
+			in.exitReq = false
 		}
 		in.ctl = ctlNone
 	}

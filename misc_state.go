@@ -159,7 +159,8 @@ func (in *Interp) scanOpts(cmd, spec, text string) (opts []tfOpt, rest string, o
 func optHelp(spec string) string {
 	var b strings.Builder
 	for i := 0; i < len(spec); i++ {
-		if i == 0 || spec[i-1] == ':' || spec[i-1] == '#' {
+		hasArg := i+1 < len(spec) && (spec[i+1] == ':' || spec[i+1] == '#' || spec[i+1] == '@')
+		if i == 0 || spec[i-1] == ':' || spec[i-1] == '#' || spec[i-1] == '@' || hasArg {
 			b.WriteString(" -")
 		}
 		b.WriteByte(spec[i])
@@ -168,6 +169,9 @@ func optHelp(spec string) string {
 			i++
 		} else if i+1 < len(spec) && spec[i+1] == '#' {
 			b.WriteString("<integer>")
+			i++
+		} else if i+1 < len(spec) && spec[i+1] == '@' {
+			b.WriteString("<time>")
 			i++
 		}
 	}

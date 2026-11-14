@@ -779,7 +779,7 @@ func TestPromptAndFakeRecv(t *testing.T) {
 	in.Exec("/def -hPROMPT hp = /echo prompt-hook %*")
 	h.out = nil
 	call(t, in, "fake_recv", Str("l1\r\nl2\nlogin: "), Str(""), Str("r"))
-	if fmt.Sprint(h.shown) != "[w:l1 w:l2]" || strings.Join(h.out, "|") != "prompt-hook login:" {
+	if fmt.Sprint(h.shown) != "[w:l1 w:l2]" || strings.Join(h.out, "|") != "prompt-hook login: " {
 		t.Fatalf("%v %v", h.shown, h.out)
 	}
 	if in.PromptText("") != "login: " || len(h.prompts) != 1 || h.prompts[0] != "w:login: " {
