@@ -2,6 +2,8 @@ package gtfparser
 
 import (
 	"bufio"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -292,7 +294,9 @@ func cmdLoad(in *Interp, args string) Value {
 	}
 	in.FireHookEvent(HookEvent{Name: "LOAD", Args: []string{p}, NoMessage: in.quietLoad > 0})
 	if err := in.LoadFile(p); err != nil {
-		in.loadFail(name, cErr(err))
+		if err != errLoadAborted {
+			in.loadFail(name, cErr(err))
+		}
 		return Int(0)
 	}
 	return Int(1)
@@ -352,55 +356,80 @@ func (in *Interp) LoadFile(path string) error {
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 1<<20), 16<<20)
 	var cur strings.Builder
-	exited := false
+	exited, failed := false, false
 	oldName, oldStart, oldLine, oldCmd := in.loadName, in.loadStart, in.loadLine, in.curCmd
 	in.loadName, in.curCmd = path, ""
 	defer func() { in.loadName, in.loadStart, in.loadLine, in.curCmd = oldName, oldStart, oldLine, oldCmd }()
-	lineNo, startNo := 0, 0
-	flush := func() {
-		line := cur.String()
-		cur.Reset()
-		if strings.TrimSpace(line) == "" {
-			return
+	lineNo, startNo, lastCmdLine := 0, 0, 0
+	newCmd := true
+	for sc.Scan() && !exited {
+		l := strings.TrimRight(sc.Text(), "\r")
+		lineNo++
+		if newCmd {
+			startNo = lineNo
 		}
+		if l != "" && (l[0] == ';' || l[0] == '#') {
+			continue // a comment: ';' or '#' in the first column (also inside a continued line)
+		}
+		t := strings.TrimLeft(l, " \t")
+		if t != "" {
+			if newCmd && (l[0] == ' ' || l[0] == '\t') && lastCmdLine > 0 {
+				in.Warn(fmt.Sprintf("%s: line %d: Warning: possibly missing trailing \\", path, lastCmdLine))
+			}
+			lastCmdLine = lineNo
+			cur.WriteString(t)
+			// a trailing backslash continues the line unless it follows a '%' (tf's do_file_load)
+			if strings.HasSuffix(t, "\\") {
+				if len(t) < 2 || t[len(t)-2] != '%' {
+					s := cur.String()
+					cur.Reset()
+					cur.WriteString(s[:len(s)-1])
+					newCmd = false
+					continue
+				}
+			} else if strings.HasSuffix(strings.TrimRight(t, " \t"), "\\") {
+				in.loadStart, in.loadLine = startNo, lineNo
+				in.curCmd = oldCmd // the loader's own diagnostics name the command that loads
+				in.warn("Warning: whitespace following final '\\'")
+				in.curCmd = ""
+			}
+		} else {
+			lastCmdLine = 0
+		}
+		newCmd = true
+		if cur.Len() == 0 {
+			continue
+		}
+		line := cur.String()
+		if line[0] != '/' {
+			in.loadStart, in.loadLine = startNo, lineNo
+			in.curCmd = oldCmd
+			in.warn("Invalid command. Aborting.")
+			in.curCmd = ""
+			failed = true
+			break
+		}
+		cur.Reset()
 		in.depth = 0
 		in.loadStart, in.loadLine = startNo, lineNo
 		in.exitReq = false
-		in.Exec(strings.TrimLeft(line, " \t"))
+		in.Exec(line)
 		if in.exitReq {
 			exited = true
 			in.exitReq = false
 		}
 		in.ctl = ctlNone
 	}
-	for sc.Scan() && !exited {
-		l := strings.TrimRight(sc.Text(), "\r")
-		lineNo++
-		if cur.Len() == 0 {
-			startNo = lineNo
-		}
-		if l != "" && (l[0] == ';' || l[0] == '#') {
-			continue // a comment: ';' or '#' in the first column (also inside a continued line)
-		}
-		// a trailing backslash continues the line unless it follows a '%' (tf's do_file_load)
-		if cont := strings.HasSuffix(l, "\\") && !strings.HasSuffix(l, "%\\"); cont {
-			if cur.Len() > 0 {
-				l = strings.TrimLeft(l, " \t")
-			}
-			cur.WriteString(l[:len(l)-1])
-			continue
-		}
-		if cur.Len() > 0 {
-			l = strings.TrimLeft(l, " \t")
-		}
-		cur.WriteString(l)
-		flush()
-	}
 	if cur.Len() > 0 {
-		flush()
+		in.Warn(fmt.Sprintf("%s: line %d: last command is incomplete because of trailing \\", path, lastCmdLine))
+	}
+	if failed {
+		return errLoadAborted
 	}
 	return sc.Err()
 }
+
+var errLoadAborted = errors.New("load aborted")
 
 // /export name... marks variables for export to child processes (/sh, /quote !).
 func cmdExport(in *Interp, args string) Value {

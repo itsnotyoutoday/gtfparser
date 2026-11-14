@@ -14,7 +14,7 @@ import (
 type eval func() (Value, error)
 
 type exprParser struct {
-	in  *Interp
+	in   *Interp
 	s    string
 	pos  int
 	kind string // "expression" (default) or "condition": the noun in syntax errors
