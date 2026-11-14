@@ -17,68 +17,24 @@ var builtinCmds = map[string]cmdFunc{}
 
 func init() {
 	for k, v := range map[string]cmdFunc{
-		"echo":    cmdEcho,
-		"_echo":   func(in *Interp, args string) Value { return in.echoOpts(EchoOpts{}, args) },
-		"true":    func(*Interp, string) Value { return Int(1) },
-		"false":   func(*Interp, string) Value { return Int(0) },
-		":":       func(*Interp, string) Value { return Int(1) },
-		"set":     cmdSet,
-		"setenv":  cmdSet,
-		"let":     cmdLet,
-		"unset":   cmdUnset,
-		"test":    cmdTest,
-		"return":  cmdReturn,
-		"result":  cmdResult,
-		"break":   cmdBreak,
-		"eval":    cmdEval,
-		"send":    cmdSend,
-		"load":    cmdLoad,
-		"require": cmdRequire,
-		"loaded":  cmdLoaded,
-		"quit":    cmdQuit,
-		"exit":    cmdExit,
-		"export":  cmdExport,
-		"for":     cmdFor,
-		"shift":   cmdShift,
+		"set":    cmdSet,
+		"setenv": cmdSet,
+		"let":    cmdLet,
+		"unset":  cmdUnset,
+		"test":   cmdTest,
+		"return": cmdReturn,
+		"result": cmdResult,
+		"break":  cmdBreak,
+		"eval":   cmdEval,
+		"send":   cmdSend,
+		"load":   cmdLoad,
+		"quit":   cmdQuit,
+		"exit":   cmdExit,
+		"export": cmdExport,
+		"shift":  cmdShift,
 	} {
 		builtinCmds[k] = v
 	}
-}
-
-func cmdEcho(in *Interp, args string) Value {
-	var o EchoOpts
-loop:
-	for {
-		w, r := firstWord(args)
-		switch {
-		case w == "-e" || w == "-r" || w == "-n":
-			args = r
-		case w == "-p":
-			o.Markup = true
-			args = r
-		case w == "-": // ends the options
-			args = r
-			break loop
-		case w == "-w":
-			o.World, args = firstWord(r)
-		case strings.HasPrefix(w, "-a") && len(w) > 2:
-			o.Attrs = w[2:]
-			args = r
-		case strings.HasPrefix(w, "-w") && len(w) > 2:
-			o.World = w[2:]
-			args = r
-		default:
-			break loop
-		}
-	}
-	if o.World != "" && !in.worldKnown("ECHO", o.World) {
-		old := in.curCmd
-		in.curCmd = "echo" // tf runs /echo as a macro of that name
-		in.warn("No world %s", o.World)
-		in.curCmd = old
-		return Int(0)
-	}
-	return in.echoOpts(o, args)
 }
 
 func cmdSend(in *Interp, args string) Value {
@@ -307,35 +263,14 @@ func cmdEval(in *Interp, args string) Value {
 	res := in.execText(args)
 	in.inEval--
 	in.popFrame()
-	return res
-}
-
-func cmdFor(in *Interp, args string) Value {
-	name, r := firstWord(args)
-	a, r := firstWord(r)
-	b, body := firstWord(r)
-	lo, hi := Value(Str(a)).Int(), Value(Str(b)).Int()
-	res := Int(1)
-	oldExp := in.noExp
-	in.noExp = false // the body is expanded afresh on every pass
-	defer func() { in.noExp = oldExp }()
-	in.pushFrame(in.fr.name, in.fr.text)
-	in.fr.words, in.fr.offs = in.fr.parent.words, in.fr.parent.offs
-	for i := lo; i <= hi; i++ {
-		in.fr.vars[name] = Int(i)
-		res = in.execText(body)
-		if in.ctl == ctlBreak {
-			in.brk--
-			if in.brk <= 0 {
-				in.ctl = ctlNone
-			}
-			break
-		}
-		if in.ctl != ctlNone {
-			break
-		}
+	// the eval is a scope of its own: /return ends it (not the macro around it) and a
+	// /break with no loop inside it does not reach a loop outside
+	switch in.ctl {
+	case ctlReturn:
+		in.ctl, res = ctlNone, in.retv
+	case ctlBreak:
+		in.ctl, in.brk = ctlNone, 0
 	}
-	in.popFrame()
 	return res
 }
 
@@ -416,20 +351,6 @@ func (in *Interp) loadFail(name, reason string) {
 	in.curCmd = "LOAD"
 	defer func() { in.curCmd = old }()
 	in.FireHookArgs("LOADFAIL", name, reason)
-}
-
-func cmdRequire(in *Interp, args string) Value {
-	name, _ := firstWord(args)
-	if in.loaded[name] {
-		return Int(1)
-	}
-	return cmdLoad(in, "-q "+name)
-}
-
-func cmdLoaded(in *Interp, args string) Value {
-	name, _ := firstWord(args)
-	in.loaded[name] = true
-	return Int(1)
 }
 
 // inLibDir reports whether path is inside one of the library directories.

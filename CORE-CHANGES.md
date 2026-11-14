@@ -9,6 +9,53 @@ mid-task.
 Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 `Breaking` (and what a client must do).
 
+## Unreleased — stdlib.tf's library commands move into the engine
+
+### core: 73 library commands are native
+tf defines these as invisible macros in `stdlib.tf`; the engine now implements them in Go, so a
+client has them with or without `stdlib.tf`. The full lists (native / client-owned / kept in
+stdlib.tf) are in `docs/stdlib-split.md`.
+
+Native: `/echo /_echo /true /false /: /prompt /substitute /require /loaded /not /expr /for /toggle
+/first /rest /last /nth /escape /replace /split /cat /paste /_paste /time /rand /ver /vercmp /runtime
+/ismacro /isvar /redef /more /wrap /isize /ptime /wrapspace /act /reply /background /bamf /borg
+/clearfull /cleardone /insert /login /lp /quiet /quitdone /sockmload /sub /nolog /nowrap /nologin
+/noquiet /listdef /listhook /listtrig /listgag /listhilite /listfullhilite /listpartial /listbind
+/purgedef /purgehilite /purgegag /purgetrig /purgedeft /purgebind /purgehook /untrig /unhook /undeft
+/savehilite`, and the variables `pi` and `e`.
+
+- Each is an ordinary command: a user's `/def` of the same name shadows it, as before for `/echo`.
+- When `stdlib.tf` defines a macro with exactly the body the engine ports (compared by fingerprint),
+  that macro keeps its number, flags and printed body (`/list -i`, `/ismacro`, `/edit`, `/undef` see
+  what real tf shows) but runs the Go code. `/undef lp` then really removes `/lp`, and `/@lp` is
+  "not a builtin command", as in tf. A different body with the same name stays script.
+- Without `stdlib.tf` the commands exist as builtins, and as functions (`first("a", "b")`).
+- `NativeLibraryCommands()`, `WithoutNativeLibrary()` (`gtfrun -script`) and `(*Macro).IsNative()` are new.
+- Exported helpers for the client-owned library commands: `SetCommand(name, variable)` (`/visual`,
+  `/gpri`, `/hpri`, `/lpquote`, `/shpause`), `EchoPrefixCommand(prefix)` (`/kecho`, `/mecho`,
+  `/qecho`), `AddWorldCommand(name, type)` (`/addworld`, `/addtiny` ...).
+- Differential cases `testdata/cases/native_lib_*.tf`; `TestLibraryMacroTable` accounts for native
+  macros by an explicit allowlist; `TestNativeMatchesScript` runs every native against its script body.
+
+Changed
+- `/echo` takes tf's options exactly (`-a<attr> -p -o -e -A -r -w<world>`; anything else is
+  `echo -x: invalid option`) and, as a macro in tf, never sees trailing blanks in its argument: a hook
+  that runs `/echo %*` with a prompt ending in a space prints it without the space. (Before, this
+  differed from tf only when `stdlib.tf` was not loaded.) A client implementing `EchoHost` still
+  receives `-a`, `-p` and `-w` as before.
+- `/for`, `/require` and `/loaded` are exact ports of the library macros (`/loaded` uses
+  `%_loaded_libs` as tf does; `/for` builds and evaluates tf's `/eval` text) instead of
+  approximations.
+- `echo()`-visible effects of the macros are unchanged when the library is loaded; the A/B test
+  (native vs script) pins that.
+
+Fixed (engine behaviour the natives rely on; see also the `/eval` entry below)
+- `/return` and `/break` inside `/eval` stay in the eval (`/def m = /eval /return 7%; /echo after`
+  prints `after`), as in tf. A pipe's input is dropped when its right side finishes.
+- `getopts()` failures read `echo -x: invalid option` and `echo: options: -a<string> -poerA
+  -w<string>` (the specifier's order, consecutive flags together) instead of `getopts: echo: invalid
+  option 'x'`. A client's `AddCommand` usage line follows the same grouping.
+
 ## v0.0.7 (2026-11-14) — diagnostics match tf
 
 ### core: diagnostics identical to real tf's

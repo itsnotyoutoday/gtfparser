@@ -167,3 +167,11 @@ func (h *myHost) Notify(e gtfparser.Event) {
 ```
 
 The engine owns the *state*; your program owns the *display*.
+
+## Library commands
+
+tf's `stdlib.tf` defines many small commands (`/first`, `/lp`, `/listgag`, `/paste` ...) as macros.
+The engine provides the language and state ones itself, with or without `stdlib.tf`; the ones that
+need a client are yours to register. [Stdlib split](stdlib-split.md) lists both, and the helpers
+(`SetCommand`, `EchoPrefixCommand`, `AddWorldCommand`) that carry the generic part of the client-owned
+ones. `gtfparser.WithoutNativeLibrary()` keeps every library macro as script.

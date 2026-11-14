@@ -36,6 +36,8 @@ type frame struct {
 
 // Interp is one TinyFugue scripting environment.
 type Interp struct {
+	noNative                bool // WithoutNativeLibrary
+	nativeSeen              map[string]bool
 	rawSetValue             bool // the running /set or /let line had a value part before expansion
 	Host                    Host
 	globals                 map[string]Value
@@ -153,6 +155,12 @@ func New(h Host, opts ...Option) *Interp {
 	setSigFigs(15)
 	in.globals["TFVERSION"] = Str("5.0 beta 8")
 	in.globals["version"] = Str("TinyFugue (gtf) version 5.0 beta 8")
+	// the constants stdlib.tf's "/test pi:=2 * acos(0)" and "/test e:=exp(1)" define
+	for name, src := range map[string]string{"pi": "2 * acos(0)", "e": "exp(1)"} {
+		if v, err := in.evalExpr(src); err == nil {
+			in.globals[name] = v
+		}
+	}
 	return in
 }
 
@@ -877,7 +885,7 @@ func firstWord(s string) (w, rest string) {
 
 func (in *Interp) execStmts(stmts []string) Value {
 	res := Int(1)
-	copied := false
+	copied, fed := false, false
 	for i := 0; i < len(stmts); i++ {
 		if in.ctl != ctlNone || !in.tick() {
 			break
@@ -921,9 +929,12 @@ func (in *Interp) execStmts(stmts []string) Value {
 			res = in.execOne(st)
 		}
 		in.lastRet = res
+		if fed {
+			in.tfin, fed = nil, false // what the left side of a pipe wrote lives only while its right side runs
+		}
 		if pipeHost != nil {
 			in.Host = pipeHost.Host
-			in.tfin = pipeHost.lines
+			in.tfin, fed = pipeHost.lines, true
 		}
 	}
 	return res
@@ -1152,6 +1163,21 @@ func (in *Interp) execOne(st string) Value {
 	if len(line) == 0 || line[0] != '/' {
 		return in.leaf(in.sendLine(line))
 	}
+	return in.dispatchLine(line, func() bool {
+		// tf decides "no value" from the unexpanded text: "/set x %*" has a value
+		// part even when it expands to nothing, but a typed "/set x " has none.
+		_, rawArgs := firstWord(st)
+		rawArgs = strings.TrimLeft(rawArgs, " \t")
+		rawArgs = rawArgs[varNameEnd(rawArgs):]
+		return strings.TrimLeft(rawArgs, " \t") != ""
+	})
+}
+
+// dispatchLine runs an already substituted command line ("/name args"):
+// the user's macro of that name, else the builtin command. rawSet is asked
+// (only for /set, /let and /setenv) whether the unexpanded line had a value
+// part.
+func (in *Interp) dispatchLine(line string, rawSet func() bool) Value {
 	nm, args := firstWord(line)
 	nm = nm[1:]
 	neg := false
@@ -1166,16 +1192,11 @@ func (in *Interp) execOne(st string) Value {
 	if m, ok := in.findMacro(nm); ok && !forceBuiltin {
 		// a macro's arguments never end in blanks (tf's argument vector is cut at the last word)
 		res = in.callMacro(m, strings.TrimRight(args, " \t"), false)
-	} else if _, ok := in.cmds[strings.ToLower(nm)]; ok {
+	} else if _, ok := in.cmds[strings.ToLower(nm)]; ok && !in.nativeHidden(strings.ToLower(nm)) {
 		ln := strings.ToLower(nm)
 		in.rawSetValue = false
 		if ln == "set" || ln == "let" || ln == "setenv" {
-			// tf decides "no value" from the unexpanded text: "/set x %*" has a value
-			// part even when it expands to nothing, but a typed "/set x " has none.
-			_, rawArgs := firstWord(st)
-			rawArgs = strings.TrimLeft(rawArgs, " \t")
-			rawArgs = rawArgs[varNameEnd(rawArgs):]
-			in.rawSetValue = strings.TrimLeft(rawArgs, " \t") != ""
+			in.rawSetValue = rawSet()
 		}
 		res = in.runBuiltin(ln, args)
 		in.rawSetValue = false
@@ -1247,7 +1268,9 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 		in.warn("recursion count exceeded %%max_recur (%d)", in.maxRecur())
 		return Int(0)
 	}
-	in.noteCall(m)
+	if m.ID != 0 || m.native == nil { // a native run as a bare command is no macro
+		in.noteCall(m)
+	}
 	in.depth++
 	oldCmd := in.curCmd
 	in.curCmd = m.Name
@@ -1270,7 +1293,12 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 		savedRes = in.userRes
 		in.userRes = Value{k: kStr}
 	}
-	res := in.execText(m.Body)
+	var res Value
+	if m.native != nil {
+		res = m.native(in, args)
+	} else {
+		res = in.execText(m.Body)
+	}
 	in.noExp = oldExp
 	if in.ctl == ctlReturn {
 		res = in.retv
@@ -1345,6 +1373,13 @@ func (in *Interp) callFuncTf(name string, args []Value, isTf bool) (Value, error
 			strs[i] = a.String()
 		}
 		return in.callMacroArgs(m, strs), nil
+	}
+	if fn := nativeLib[name]; fn != nil && !in.nativeHidden(name) { // a library command: callable like its macro
+		strs := make([]string, len(args))
+		for i, a := range args {
+			strs[i] = a.String()
+		}
+		return in.callMacroArgs(&Macro{Name: name, native: fn}, strs), nil
 	}
 	return Int(0), fmt.Errorf("%s: no such function", name)
 }

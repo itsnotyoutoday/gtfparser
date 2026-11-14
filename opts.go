@@ -80,17 +80,19 @@ func parseOptions(spec, text string) (opts map[byte]Value, rest string, errMsg, 
 	}
 	opts = map[byte]Value{}
 	usageLine := func() string {
-		var flags string
+		// the option summary follows the order of the specifier, with
+		// consecutive flags written together: "-FiI -n<integer> -m<string>"
 		var parts []string
+		flags := ""
 		for _, c := range order {
 			if kinds[c] == 0 {
 				flags += string(c)
+				continue
 			}
-		}
-		if flags != "" {
-			parts = append(parts, "-"+flags)
-		}
-		for _, c := range order {
+			if flags != "" {
+				parts = append(parts, "-"+flags)
+				flags = ""
+			}
 			switch kinds[c] {
 			case ':':
 				parts = append(parts, fmt.Sprintf("-%c<string>", c))
@@ -99,6 +101,9 @@ func parseOptions(spec, text string) (opts map[byte]Value, rest string, errMsg, 
 			case '@':
 				parts = append(parts, fmt.Sprintf("-%c<time>", c))
 			}
+		}
+		if flags != "" {
+			parts = append(parts, "-"+flags)
 		}
 		return strings.Join(parts, " ")
 	}
@@ -184,8 +189,18 @@ func fnGetopts(in *Interp, a []Value) (Value, error) {
 	}
 	opts, rest, errMsg, usage := parseOptions(spec, f.text)
 	if errMsg != "" {
-		in.warn("%s: %s", f.name, errMsg)
-		in.warn("%s: options: %s", f.name, usage)
+		// as util.c's nextopt reports it: "<cmd> -<letter>: invalid option", then the summary
+		old := in.curCmd
+		if strings.HasPrefix(errMsg, "invalid option '") && len(errMsg) == len("invalid option 'x'") {
+			in.curCmd = f.name + " -" + errMsg[len(errMsg)-2:len(errMsg)-1]
+			in.warn("invalid option")
+		} else {
+			in.curCmd = f.name
+			in.warn("%s", errMsg)
+		}
+		in.curCmd = f.name
+		in.warn("options: %s", usage)
+		in.curCmd = old
 		return Int(0), nil
 	}
 	for c, v := range opts {

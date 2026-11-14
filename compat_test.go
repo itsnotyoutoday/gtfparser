@@ -41,7 +41,7 @@ func TestDeliberateDeviations(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		out, _ := compatRun(t, "/def -i E = /echo %{1}\n"+string(src))
+		out, _ := compatRun(t, "/def -i E = /test echo({1})\n"+string(src))
 		if got := strings.Join(out, "\n") + "\n"; got != string(want) {
 			t.Errorf("%s:\n got %q\nwant %q", f, got, want)
 		}

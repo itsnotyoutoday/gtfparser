@@ -82,6 +82,7 @@ type Macro struct {
 	Gag       bool
 	WorldType string
 
+	native   cmdFunc // Go implementation of a library macro (see nativelib.go)
 	fromSpec bool
 	dead     bool
 	trigList *mlist
@@ -522,7 +523,7 @@ func (in *Interp) worldKnown(cmd, name string) bool {
 // definition without its place in the trigger and hook lists.
 func (m *Macro) editCopy() *Macro {
 	c := *m
-	c.trigList, c.trigNode, c.hookNode, c.dead, c.tnext = nil, nil, [64]*mnode{}, false, nil
+	c.trigList, c.trigNode, c.hookNode, c.dead, c.tnext, c.native = nil, nil, [64]*mnode{}, false, nil, nil
 	c.SubAttr = append([]SubAttr(nil), m.SubAttr...)
 	return &c
 }
@@ -890,6 +891,7 @@ func (in *Interp) addNumbered(m *Macro, num int) int {
 	if m.IsHook {
 		in.hookInsert(m)
 	}
+	in.bindNative(m)
 	if m.Name == "" && (m.Trig != nil || m.IsHook) && m.Shots == 0 && in.globals["pedantic"].String() == "on" {
 		in.warn("Warning: new macro (#%d) does not have a name.", m.ID)
 	}
