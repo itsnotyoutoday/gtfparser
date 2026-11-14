@@ -18,12 +18,13 @@ type stdHost struct {
 	in *gtfparser.Interp
 }
 
-func (h *stdHost) Echo(s string)         { fmt.Fprintln(h.w, s) }
+func (h *stdHost) Echo(s string) { fmt.Fprintln(h.w, s) }
+
 // WorldInfoHost: worlds are the ones the script defined (/addworld); none is current.
 func (h *stdHost) CurrentWorld() string      { return "" }
 func (h *stdHost) WorldType(w string) string { return "" }
 func (h *stdHost) WorldExists(w string) bool { _, ok := h.in.World(w); return ok }
-func (h *stdHost) Send(w, s string) bool { fmt.Fprintln(h.w, "[send] "+s); return false }
+func (h *stdHost) Send(w, s string) bool     { fmt.Fprintln(h.w, "[send] "+s); return false }
 
 // IsTTY: the reference tf the differential tests compare with runs on a terminal.
 func (h *stdHost) IsTTY() bool { return true }

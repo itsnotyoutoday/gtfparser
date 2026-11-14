@@ -235,3 +235,21 @@ func TestStreams(t *testing.T) {
 		t.Fatalf("file: %q", data)
 	}
 }
+
+func TestLoadLineRules(t *testing.T) {
+	// ';' and '#' in the first column are comments, also inside a continued line;
+	// a trailing backslash continues a line unless a '%' precedes it
+	script := "# a comment\n" +
+		"; another\n" +
+		"/echo one \\\n" +
+		"# comment in the middle\n" +
+		"   two\n" +
+		"/echo three %\\\n" +
+		"/echo four\\\\\n" +
+		"/echo five\n"
+	out, _ := compatRun(t, script)
+	want := []string{"one two", "three %\\", "four\\/echo five"}
+	if strings.Join(out, "|") != strings.Join(want, "|") {
+		t.Fatalf("got %q", out)
+	}
+}

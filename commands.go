@@ -334,7 +334,7 @@ func (in *Interp) LoadFile(path string) error {
 	flush := func() {
 		line := cur.String()
 		cur.Reset()
-		if t := strings.TrimSpace(line); t == "" || t[0] == ';' || t[0] == '#' && false {
+		if strings.TrimSpace(line) == "" {
 			return
 		}
 		in.depth = 0
@@ -353,10 +353,11 @@ func (in *Interp) LoadFile(path string) error {
 		if cur.Len() == 0 {
 			startNo = lineNo
 		}
-		if cur.Len() > 0 && strings.HasPrefix(strings.TrimLeft(l, " \t"), ";") {
-			continue // a comment line inside a continued line
+		if l != "" && (l[0] == ';' || l[0] == '#') {
+			continue // a comment: ';' or '#' in the first column (also inside a continued line)
 		}
-		if cont := strings.HasSuffix(l, "\\") && !strings.HasSuffix(l, "\\\\"); cont {
+		// a trailing backslash continues the line unless it follows a '%' (tf's do_file_load)
+		if cont := strings.HasSuffix(l, "\\") && !strings.HasSuffix(l, "%\\"); cont {
 			if cur.Len() > 0 {
 				l = strings.TrimLeft(l, " \t")
 			}
