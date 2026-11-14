@@ -286,6 +286,10 @@ func cmdLoad(in *Interp, args string) Value {
 		in.loadFail(name, cErr(syscall.ENOENT))
 		return Int(0)
 	}
+	if st, err := os.Stat(p); err == nil && st.IsDir() {
+		in.loadFail(name, cErr(syscall.EISDIR))
+		return Int(0)
+	}
 	in.FireHookEvent(HookEvent{Name: "LOAD", Args: []string{p}, NoMessage: in.quietLoad > 0})
 	if err := in.LoadFile(p); err != nil {
 		in.loadFail(name, cErr(err))
@@ -349,9 +353,9 @@ func (in *Interp) LoadFile(path string) error {
 	sc.Buffer(make([]byte, 1<<20), 16<<20)
 	var cur strings.Builder
 	exited := false
-	oldName, oldStart, oldLine := in.loadName, in.loadStart, in.loadLine
-	in.loadName = path
-	defer func() { in.loadName, in.loadStart, in.loadLine = oldName, oldStart, oldLine }()
+	oldName, oldStart, oldLine, oldCmd := in.loadName, in.loadStart, in.loadLine, in.curCmd
+	in.loadName, in.curCmd = path, ""
+	defer func() { in.loadName, in.loadStart, in.loadLine, in.curCmd = oldName, oldStart, oldLine, oldCmd }()
 	lineNo, startNo := 0, 0
 	flush := func() {
 		line := cur.String()

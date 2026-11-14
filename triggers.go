@@ -861,6 +861,9 @@ func (in *Interp) runBody(m *Macro, text string, caps []int, hook bool) {
 		name = "#" + strconv.Itoa(m.ID)
 	}
 	in.depth++
+	oldCmd := in.curCmd
+	in.curCmd = name
+	defer func() { in.curCmd = oldCmd }()
 	f := in.pushFrame(name, text)
 	if caps != nil {
 		f.regs, f.pl, f.pr = capStrings(text, caps)

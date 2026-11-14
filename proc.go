@@ -81,9 +81,12 @@ func cmdRepeat(in *Interp, args string) Value {
 	p.Cmd = cmd
 	if sync {
 		res := Int(1)
+		oldCmd := in.curCmd
+		in.curCmd = ""
 		for n := 0; p.Count < 0 || n < p.Count; n++ {
 			res = in.ExecFull(cmd)
 		}
+		in.curCmd = oldCmd
 		return res
 	}
 	p.Next = in.now().Add(p.Delay)
@@ -240,6 +243,9 @@ func (in *Interp) RunDue() {
 }
 
 func (in *Interp) stepProc(p *Proc) {
+	old := in.curCmd
+	in.curCmd = "" // processes run from the main loop, under no command
+	defer func() { in.curCmd = old }()
 	switch p.Kind {
 	case 'r':
 		in.ExecFull(p.Cmd)
