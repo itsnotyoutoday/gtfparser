@@ -312,13 +312,12 @@ func (p *exprParser) parseUnary() (eval, error) {
 		_ = x
 		return func() (Value, error) {
 			cur, _ := p.in.lookup(id)
-			n := cur.Int()
-			if op == "++" {
-				n++
-			} else {
-				n--
+			// tf truncates the variable to an integer first (++f on 1.5 gives
+			// 2); gtfparser adds one to the real value
+			r, err := reduce(op[:1], cur, Int(1), true)
+			if err != nil {
+				return r, err
 			}
-			r := Int(n)
 			p.in.assign(id, r)
 			return r, nil
 		}, nil
@@ -684,56 +683,66 @@ func reduce(op string, a, b Value, binary bool) (Value, error) {
 		pr = rank(y.k)
 	}
 	if pr < 2 && (op == "+" || op == "-") {
-		var int0 int32
+		// tf computes this in 32-bit ints (so 1+4294967296 is 1); gtfparser
+		// uses the exact value and promotes to a float when it does not
+		// fit 32 bits (see docs/deliberate-differences.md)
+		var a0 int64
 		if binary {
-			int0 = int32(x.Int())
+			a0 = x.Int()
 		}
-		int1 := int32(last.Int())
-		var neg1 bool
-		var sum int32
+		a1 := last.Int()
+		var sum int64
+		ok := true
 		if op == "-" {
-			neg1 = int1 >= 0
-			sum = int0 - int1
+			sum = a0 - a1
+			ok = !(a1 > 0 && a0 < math.MinInt64+a1) && !(a1 < 0 && a0 > math.MaxInt64+a1)
 		} else {
-			neg1 = int1 < 0
-			sum = int0 + int1
+			sum = a0 + a1
+			ok = !(a1 > 0 && a0 > math.MaxInt64-a1) && !(a1 < 0 && a0 < math.MinInt64-a1)
 		}
-		neg0 := int0 < 0
-		if neg0 == neg1 && (sum < 0) != neg0 {
+		if !ok || (pr == 0 && (sum > math.MaxInt32 || sum < math.MinInt32)) {
 			pr = 2
 		} else if pr == 0 {
-			return Int(int64(sum)), nil
+			return Int(sum), nil
 		}
 	}
 	switch pr {
 	case 0:
 		switch op {
 		case "*":
-			i := int32(x.i * y.i)
-			f := float64(x.i) * float64(y.i)
-			if float64(i) == f {
-				return Int(int64(i)), nil
+			r := x.i * y.i
+			if x.i == 0 || y.i == 0 || (r/y.i == x.i && r >= math.MinInt32 && r <= math.MaxInt32) {
+				return Int(r), nil
 			}
-			return Real(f), nil
+			return Real(float64(x.i) * float64(y.i)), nil
 		case "/":
-			d := int32(y.i)
-			if d == 0 {
+			if y.i == 0 {
 				return Int(0), errors.New("division by zero")
 			}
-			return Int(x.i / int64(d)), nil
+			if x.i == math.MinInt64 && y.i == -1 {
+				return Real(-float64(x.i)), nil
+			}
+			return Int(x.i / y.i), nil
 		}
 	case 1:
+		tt := x.tt
+		if binary && y.tt > tt {
+			tt = y.tt
+		}
 		switch op {
 		case "+":
 			if !binary {
-				return decMicro(x.microOf()), nil
+				return timeMicro(x.microOf(), tt), nil
 			}
-			return decMicro(new(big.Int).Add(x.microOf(), y.microOf())), nil
+			return timeMicro(new(big.Int).Add(x.microOf(), y.microOf()), tt), nil
 		case "-":
 			if !binary {
-				return decMicro(new(big.Int).Neg(x.microOf())), nil
+				return timeMicro(new(big.Int).Neg(x.microOf()), tt), nil
 			}
-			return decMicro(new(big.Int).Sub(x.microOf(), y.microOf())), nil
+			if x.tt == ttAtime && y.tt == ttAtime {
+				tt = ttDtime
+			}
+			return timeMicro(new(big.Int).Sub(x.microOf(), y.microOf()), tt), nil
 		}
 	}
 	xf := x.Float()

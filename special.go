@@ -85,6 +85,12 @@ func typeName(v Value) string {
 	case kInt:
 		return "int"
 	case kDec:
+		switch v.tt {
+		case ttDtime:
+			return "dtime"
+		case ttAtime:
+			return "atime"
+		}
 		return "decimal"
 	case kReal:
 		return "float"

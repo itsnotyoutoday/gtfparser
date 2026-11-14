@@ -68,6 +68,9 @@ type Interp struct {
 	interrupted atomic.Bool
 	instr       int64
 	nest        int
+	setLetLast  bool // the last command run was /set or /let (see callMacro)
+	readDepth   int
+	mail        map[string]*mailInfo
 	subFail     bool // a $[...] substitution failed: the statement and its macro are abandoned
 	exported    map[string]bool
 	cmdSpecs    map[string]CommandSpec
@@ -967,6 +970,7 @@ run:
 
 // execOne runs a single statement: a command or text for the current world.
 func (in *Interp) execOne(st string) Value {
+	in.setLetLast = false
 	if st[0] != '/' {
 		line := in.expand(st)
 		if in.subFail {
@@ -1009,7 +1013,9 @@ func (in *Interp) execOne(st string) Value {
 	if m, ok := in.findMacro(nm); ok && !forceBuiltin {
 		res = in.callMacro(m, args, false)
 	} else if _, ok := in.cmds[strings.ToLower(nm)]; ok {
-		res = in.runBuiltin(strings.ToLower(nm), args)
+		ln := strings.ToLower(nm)
+		in.setLetLast = ln == "set" || ln == "let"
+		res = in.runBuiltin(ln, args)
 	} else {
 		in.noMacro(nm)
 		res = Int(0)
@@ -1075,10 +1081,13 @@ func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 	}
 	oldExp := in.noExp
 	in.noExp = false
+	in.setLetLast = false
 	res := in.execText(m.Body)
 	in.noExp = oldExp
 	if in.ctl == ctlReturn {
 		res = in.retv
+	} else if asFunc && in.setLetLast {
+		res = Str("") // a macro ending in /set or /let has no value as a function
 	}
 	if in.ctl != ctlExit {
 		in.ctl = ctlNone

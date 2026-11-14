@@ -333,7 +333,7 @@ func strtod(s string) float64 {
 				k++
 			}
 			if k < len(rest) && isDigit(rest[k]) {
-				e, _ := strconv.Atoi(rest[j+1:scanDigits(rest, k)])
+				e, _ := strconv.Atoi(rest[j+1 : scanDigits(rest, k)])
 				m = math.Ldexp(m, e)
 			}
 		}

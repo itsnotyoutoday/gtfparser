@@ -18,6 +18,9 @@ type stdHost struct{ w *bufio.Writer }
 func (h *stdHost) Echo(s string)         { fmt.Fprintln(h.w, s) }
 func (h *stdHost) Send(w, s string) bool { fmt.Fprintln(h.w, "[send] "+s); return false }
 
+// IsTTY: the reference tf the differential tests compare with runs on a terminal.
+func (h *stdHost) IsTTY() bool { return true }
+
 func main() {
 	file := flag.String("f", "", "script file to load")
 	lib := flag.String("L", "", "library directory")
@@ -33,6 +36,7 @@ func main() {
 	h := &stdHost{bufio.NewWriter(os.Stdout)}
 	defer h.w.Flush()
 	in := gtfparser.New(h)
+	in.SetFeature("256colors", true)
 	in.Warn = func(m string) { fmt.Fprintln(os.Stderr, "% "+m) }
 	if *lib != "" {
 		in.LibDirs = []string{*lib}

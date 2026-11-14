@@ -120,8 +120,7 @@ func cmdSet(in *Interp, args string) Value {
 		}
 		return Bool(ok)
 	}
-	in.setGlobal(name, Str(val))
-	return Str("")
+	return Bool(in.setGlobal(name, Str(val)))
 }
 
 func cmdLet(in *Interp, args string) Value {
@@ -130,7 +129,7 @@ func cmdLet(in *Interp, args string) Value {
 		return Int(0)
 	}
 	in.fr.vars[name] = Str(val)
-	return Str("")
+	return Int(1)
 }
 
 func cmdUnset(in *Interp, args string) Value {

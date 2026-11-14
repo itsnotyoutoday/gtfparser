@@ -21,12 +21,12 @@ func argN(a []Value, n int, name string) error {
 
 func init() {
 	for k, v := range map[string]fn{
-		"sqrt":  func(in *Interp, a []Value) (Value, error) { return Real(math.Sqrt(fnum(a, 0))), nil },
-		"pow":   func(in *Interp, a []Value) (Value, error) { return Real(math.Pow(fnum(a, 0), fnum(a, 1))), nil },
-		"sin":   func(in *Interp, a []Value) (Value, error) { return Real(math.Sin(fnum(a, 0))), nil },
-		"cos":   func(in *Interp, a []Value) (Value, error) { return Real(math.Cos(fnum(a, 0))), nil },
-		"exp":   func(in *Interp, a []Value) (Value, error) { return Real(math.Exp(fnum(a, 0))), nil },
-		"log":   func(in *Interp, a []Value) (Value, error) { return Real(math.Log(fnum(a, 0))), nil },
+		"sqrt": func(in *Interp, a []Value) (Value, error) { return Real(math.Sqrt(fnum(a, 0))), nil },
+		"pow":  func(in *Interp, a []Value) (Value, error) { return Real(math.Pow(fnum(a, 0), fnum(a, 1))), nil },
+		"sin":  func(in *Interp, a []Value) (Value, error) { return Real(math.Sin(fnum(a, 0))), nil },
+		"cos":  func(in *Interp, a []Value) (Value, error) { return Real(math.Cos(fnum(a, 0))), nil },
+		"exp":  func(in *Interp, a []Value) (Value, error) { return Real(math.Exp(fnum(a, 0))), nil },
+		"log":  func(in *Interp, a []Value) (Value, error) { return Real(math.Log(fnum(a, 0))), nil },
 		"rand": func(in *Interp, a []Value) (Value, error) {
 			switch len(a) {
 			case 0:
@@ -43,7 +43,6 @@ func init() {
 			}
 			return Int(lo + rand.Int63n(hi-lo+1)), nil
 		},
-		"time": func(in *Interp, a []Value) (Value, error) { return Int(time.Now().Unix()), nil },
 		"eval": func(in *Interp, a []Value) (Value, error) {
 			return in.ExecFull(str(a, 0)), nil
 		},
