@@ -1,0 +1,1269 @@
+# literals / basics
+abc	xxabcxx
+abc	ABC
+ABC	abc
+ABC	ABC
+abc	ab
+a.c	a\nc
+a.c	abc
+a\.c	a.c
+a\.c	abc
+	abc
+a	
+^	
+$	
+^$	
+^$	\n
+x*	aaa
+x*	
+(?:)	abc
+hello world	say Hello World now
+Hello	say hello
+hELLo	say hello
+\Qa.b\E	a.b
+\Qa.b\E	axb
+\Qa+\E+	a+a+a+
+a\Q*\E	a*
+a\Eb	ab
+tab\there	tab\there
+a\x41b	aAb
+a\x{41}b	aab
+\x{263a}	smile ☺ yes
+\x{e9}	café
+\101	A
+\012	a\nb
+a\ec	a\x1bc
+\cA	\x01
+\cz	\x1a
+a\ab	a\x07b
+x\fy	x\fy
+\o{101}	A
+\x41+	AAAA
+# classes
+[abc]+	xxcabzz
+[^abc]+	abxyzc
+[a-c]+	zzabcabd
+[a-c-]+	a-b-c
+[-a]+	a-a-
+[]a]+	x]a]
+[^]a]+	]]xy]a
+[\]]	a]b
+[\\]	a\\b
+[a\-z]+	a-z-b
+[\d]+	ab123cd
+[\D]+	12ab34
+[\w-]+	--foo-bar--
+[\s]+	a  \tb
+[\S]+	  ab  
+[a-z]+	ABCdef
+[A-Z]+	abcDEF
+[A-Z]+	abcdef
+[^a-z]+	abcDEF
+[.]	a.b
+[*+?]+	a*+?b
+[[]	a[b
+[a[]+	xa[ab
+[\n]	a\nb
+[^\n]+	ab\ncd
+[\x41-\x43]+	xABCD
+[\t ]+	a \t b
+[é]+	caféé
+[à-ÿ]+	abcéàÿz
+[^é]+	éabcé
+[\x{4e00}-\x{9fff}]+	abc日本語def
+[α-ω]+	abc αβγ def
+[α-ω]+	ΑΒΓ
+\w+	héllo wörld
+\w+	日本語 text
+\W+	abc, def
+\d+	a١٢٣b
+\D+	١٢٣abc
+\s+	a b
+\s+	a\xc2\xa0b
+\h+	a \t b
+\H+	  ab  
+\v+	a\n\rb
+\V+	\nab\n
+\N+	ab\ncd
+\R	a\r\nb
+\R+	a\r\n\n\rb
+\R	ab
+# posix
+[[:alpha:]]+	123abc456
+[[:alpha:]]+	éàü123
+[[:digit:]]+	abc123
+[[:digit:]]+	abc١٢٣
+[[:alnum:]]+	--ab12--
+[[:upper:]]+	abcDEFghi
+[[:lower:]]+	ABCdefGHI
+[[:space:]]+	a \t\nb
+[[:punct:]]+	ab!?.,cd
+[[:punct:]]+	a$+<=>b
+[[:xdigit:]]+	xyz1aF9gg
+[[:word:]]+	--ab_12--
+[[:blank:]]+	a \t\nb
+[[:cntrl:]]+	a\x01\x02b
+[[:graph:]]+	  ab!  
+[[:print:]]+	\x01ab c\x02
+[[:ascii:]]+	éabcé
+[[:^alpha:]]+	abc123def
+[[:^digit:]]+	123abc456
+[^[:alpha:]]+	abc123def
+[[:alpha:][:digit:]]+	--a1b2--
+[[:alpha:]_]+	1_ab_2
+[[:foo:]]	a
+[[:upper:]]+	abcDEFghi
+(?i)[[:upper:]]+	abcDEFghi
+[[:alpha:]-]+	ab-cd
+# anchors
+^abc	abcdef
+^abc	xabc
+abc$	xxabc
+abc$	abcx
+abc$	abc\n
+abc\Z	abc\n
+abc\z	abc\n
+abc\z	abc
+\Aabc	abc
+\Aabc	\nabc
+(?m)^abc	x\nabc
+(?m)^abc	xabc
+(?m)abc$	abc\nx
+(?m)abc$	abx\nabc
+(?m)^	a\nb
+(?m)^$	a\n\nb
+(?m)$	a\nb
+(?m)^b	a\nb\n
+(?m)^\n	a\n\nb
+(?m)\n^	a\n
+a$\n	a\n
+a$	a\n\n
+(?m)a$	a\n\n
+\Aa\z	a
+^a	a
+\b	abc
+\bfoo\b	a foo b
+\bfoo\b	afoo b
+\Bfoo	afoo
+\Bfoo	a foo
+foo\B	foob
+\bé	a é
+\bé	aé
+é\b	café
+\b\w+\b	  héllo  
+\b	日本
+\B	ab
+\b	
+\B	
+(?-m)^a	a
+\Gab	abab
+# quantifiers
+a*	aaa
+a+	aaa
+a?	aaa
+a{2}	aaaa
+a{2,}	aaaa
+a{2,3}	aaaa
+a{0}b	aab
+a{,2}	aaaa
+a{,2}b	aaab
+a{2,}?	aaaa
+a{2,3}?	aaaa
+a{1,2}+a	aaa
+a{ 2 }	aa
+a{2 ,3}	aaa
+a{ 2,3 }	aaa
+a{	a{
+a{x}	a{x}
+a{1	a{1
+a{1,x}	a{1,x}
+a{,}	a{,}
+x{2}{3}	xxxxxxx
+a*?	aaa
+a+?	aaa
+a??	aaa
+a*+a	aaa
+a++a	aaa
+a?+a	a
+a?+b	ab
+a*+	aaab
+(a|ab)(c|bcd)(d*)	abcd
+(a*)*	aaa
+(a*)+	aaa
+(a*)*b	aaab
+(a+)+b	aaab
+(a*?)*b	aab
+(a|b)*	abab
+(a|b)*?c	abc
+(a|b)+?	abab
+(?:a|b)*	abab
+(a)*	aaa
+(a)*	b
+(a)+	b
+(a)?b	b
+(a)?b	ab
+(?:(a)|b)*	ab
+(?:(a)|(b))+	ab
+(?:(a)|(b))+	ba
+(a?)*	aaa
+(a?)+	b
+(a*)?	aaa
+(a*)+?	aaa
+(a|)+	aa
+(|a)+	aa
+(|a)+?	aa
+(?:|a)+	aaa
+(a{2})+	aaaaa
+(a{2}){2}	aaaaa
+(ab){2,3}	abababab
+(ab){2,3}?	abababab
+(ab)*+b	ababb
+(?:ab)++b	ababb
+(a+)(b+)	aabbb
+(a+?)(b+)	aabbb
+(a+)(b+?)	aabbb
+.*	abc
+.*?	abc
+.*c	abcabc
+.*?c	abcabc
+.+	
+.{2}	abc
+.{2,}	abc
+.{4}	abc
+a.*b	a1b2b3
+a.*?b	a1b2b3
+a.*+b	a1b2b3
+(.*)(\d+)	abc123
+(.*?)(\d+)	abc123
+(.*)(\d+)$	abc123
+(.*?)(\d+)$	abc123
+([a-z]+)@([a-z]+)\.com	mail bob@example.com now
+^(\w+)\s+(\w+)	hello world
+(\d+)-(\d+)-(\d+)	date 2024-01-15 end
+(?:(\d+)|(\w+))-	abc-
+(?:(\d+)|(\w+))-	123-
+x*y*z*	
+(a|b|c|d|e|f|g)+	abcdefgabc
+# alternation
+a|b|c|d	zzzd
+abc|abcd|abcde	abcdef
+abcdef|abcde|abcd|abc	abcd
+foo|foobar	foobar!
+foobar|foo	foobar!
+(foo|foobar)$	foobar
+(foo|foobar)	foobar
+(foo|foobar)\b	foobar
+a(b|c)d	acd
+a(b|c|)d	ad
+a(|b)c	ac
+(a|ab)(bc|c)?	abc
+(a|ab)(c|bcd)(d*)	abcd
+^(a|b)	c
+(?:a|b)(?:c|d)	bd
+x(?:a|b)+y	xabbay
+a||b	c
+|a	abc
+(|a)	abc
+cat|dog|bird	I have a Bird
+Cat|dog	my cat
+(?i)cat|dog	my CAT
+# groups, names
+(?<n>a+)	baac
+(?<n>a)(?<m>b)	ab
+(?P<n>a)(?P<m>b)	ab
+(?'n'a)(?'m'b)	ab
+(?<n>a)\k<n>	aa
+(?<n>a)\k'n'	aa
+(?<n>a)\k{n}	aa
+(?<n>a)(?P=n)	aa
+(?<n>a)\g{n}	aa
+(?<n>a)(?:b)(?<m>c)	abc
+(?<year>\d{4})-(?<mon>\d\d)	on 2024-05-17
+(?<a>x)|(?<b>y)	y
+(?:(?<a>x)|(?<b>y))+	xy
+((a)(b)(c)(d)(e)(f)(g)(h)(i))	abcdefghi
+((a)(b)(c)(d)(e)(f)(g)(h)(i)(j))	abcdefghij
+(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)\10	abcdefghijj
+(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)\1	abcdefghija
+((a)|(b))+	ab
+((a)|(b))+	ba
+(a)|(b)	b
+(a)|b	b
+(?|(a)|(b))	b
+(?|(a)(b)|(c)(d))(e)	cde
+(?|(a)|(b)(c))(d)	bcd
+(?n)(a)(b)	ab
+(?n)(?<x>a)(b)	ab
+(?:a)(?:b)	ab
+((a)b)	ab
+(()|a)+	aa
+((((((((((a))))))))))	a
+# backrefs
+(a)\1	aa
+(a)\1	ab
+(a+)\1	aaaa
+(a+)\1	aaa
+(a+)\1b	aaaab
+(.)\1	abccd
+(.)\1+	abbbcc
+(\w+) \1	hello hello world
+(\w+) \1	hello world
+(\w)(\w)\2\1	xabbay
+(?i)(a)\1	aA
+(?i)(a)\1	Aa
+(a)\1	aA
+(?i)(é)\1	éÉ
+(?i)(\w+) \1	Hello hello
+(a)(b)\2\1	abba
+(a)?\1	a
+(a)?b\1	b
+(a)?b\1	aba
+(a)|b\1	b
+(?:(a)|b)\1	b
+\1(a)	aa
+(a\1)	aa
+(a)(?:\1)+	aaaa
+(a|b)\1	abba
+(?<q>['"]).*?\k<q>	say "hi" 'yo'
+(?<q>['"]).*?\k<q>	say 'it"s' ok
+\g1(a)	aa
+(a)\g1	aa
+(a)\g{1}	aa
+(a)\g{-1}	aa
+(a)(b)\g{-2}	aba
+(a)(b)\g-1	abb
+(a)\g{+1}(b)	abb
+(a)\8	a8
+\8	8
+\18	\x018
+\0111	\x091
+(a)\11	a\x09
+# lookahead
+a(?=b)	ab
+a(?=b)	ac
+a(?!b)	ab
+a(?!b)	ac
+a(?!b)	a
+(?=a)	a
+(?!a)	a
+(?=a)a	a
+a(?=bc)b	abc
+a(?=(b))	ab
+(?=(a))\1	a
+(?=(a+))a	aaa
+(?=(a+))\1	aaa
+(?=(a+))a*b\1	baaabac
+(?!(a))b	b
+(?!(a))b\1	b
+(?!(a)b)	ab
+(?=.*\d)(?=.*[a-z]).{6,}	abc123
+(?=.*\d)(?=.*[a-z]).{6,}	abcdef
+^(?!.*bad).*$	this is good
+^(?!.*bad).*$	this is bad
+\w+(?=,)	abc,def
+\w+(?!,)	abc,def
+\d+(?=%)	50% of 20
+(?=\d{3}$)\d+	abc123
+foo(?=bar)	foobar foobaz
+foo(?!bar)	foobar foobaz
+(?=a|b)\w	cb
+(?:(?=a)a|b)+	aab
+^(?=a)	a
+(?=$)	abc
+(?=\n)	a\nb
+(?!^)	ab
+# lookbehind
+(?<=a)b	ab
+(?<=a)b	cb
+(?<!a)b	ab
+(?<!a)b	cb
+(?<!a)b	b
+(?<=a)	a
+(?<=ab)c	abc
+(?<=a|bc)d	bcd
+(?<=a|bc)d	ad
+(?<=a|bc)d	cd
+(?<!ab)c	abc
+(?<!ab)c	xbc
+(?<=\d)x	1x
+(?<=\d{2})x	12x
+(?<=\d{2})x	1x
+(?<=é)x	éx
+(?<=日)x	日x
+(?<=\bfoo)bar	foobar
+(?<=^)a	a
+(?<=^a)b	ab
+(?<=a$)	a
+(?<=(a))b	ab
+(?<=(?:a|b))c	bc
+(?<![a-z])\d+	ab12 34
+(?<=\$)\d+	cost $45
+(?<=\s)\w+	foo bar
+(?<=x)(?=y)	xy
+(?<=.)b	ab
+(?<=.)b	b
+(?<=a.)c	abc
+(?<=ab|a)c	abc
+(?<=(?i)a)b	Ab
+(?<=a+)b	aab
+(?<=a*)b	aab
+# atomic, possessive
+(?>a+)b	aaab
+(?>a+)a	aaa
+(?>a|ab)c	abc
+(?>ab|a)c	abc
+(?:a|ab)c	abc
+(?>a*)a	aaa
+(?>.*)x	abcx
+(?>(a+))b	aab
+(?>(a)|b)\1	aa
+(?>a+|b+)+c	aabbc
+(?>a?)ab	ab
+a++b	aaab
+a++a	aaa
+a*+a	aaa
+a?+a	a
+\d++\d	12345
+\d++$	12345
+[a-z]++\d	abc1
+[a-z]*+[a-z]	abc
+(?:ab)*+ab	ababab
+(a|b)*+c	abc
+(a|b)*+a	aba
+(?:a+)+b	aaab
+.++x	abcx
+.*+x	abcx
+x*+	xxx
+(?>x*)	xxx
+(?>)a	a
+# inline flags
+(?i)abc	ABC
+(?i)aBc	AbC
+a(?i)bc	aBC
+a(?i)bc	ABC
+a(?i:b)c	aBc
+a(?i:b)c	aBC
+(?i:a)b	AB
+(?i:a)b	Ab
+(?i)a(?-i)b	Ab
+(?i)a(?-i)b	AB
+(?i)a(?-i:b)c	ABC
+(?i)a(?-i:b)c	AbC
+(?s).	\n
+(?-s).	\n
+(?-s)a.b	a\nb
+(?s)a.b	a\nb
+(?m)^a	b\na
+(?x) a b c 	abc
+(?x) a b # comment\n c	abc
+(?x)a\ b	a b
+(?x)a[ ]b	a b
+(?x)a\#b	a#b
+(?x)a#b	a
+(?x-x) a	  a
+(?xx)a[ b]c	a c
+(?xx)a[ b]c	abc
+(?x: a b ) c	ab c
+(?x: a b )c	abc
+(?i)(?-i)a	A
+(?-i)a	A
+(?im)^a$	x\nA\ny
+(?i)(a)(?-i)(b)	AB
+(?i)(a)(?-i)(b)	Ab
+((?i)a)b	AB
+((?i)a)b	Ab
+(a(?i)b|c)d	aBD
+(a(?i)b|c)d	CD
+(?i)a|b(?-i)	B
+(?i:a|b)c	Bc
+(?^)a	A
+(?i)(?^)a	A
+(?U)a+	aaa
+(?U)a+?	aaa
+(?U:a+)a	aaa
+(?i)é	É
+(?i)ß	ẞ
+(?i)k	K
+(?i)k	K
+(?i)ǆ	ǅ
+(?i)σ	ς
+(?i)σ	Σ
+# smart case / tf options
+abc	ABC
+a.c	aXc
+é	É
+É	é
+É	É
+[a-z]+	ABC
+[A-Z]+	abc
+\Aabc	ABC
+\Uabc	abc
+(?i)A	a
+a\B	ab
+\bA\b	a
+é+	ÉÉ
+\x41	a
+\x41	A
+\x{c9}	é
+\d+A	12a
+\d+a	12A
+# dollar endonly / dotall
+a$	a\n
+a$	a
+a\Z	a\n
+a$	b\na
+(?m)a$	a\nb
+a.b	a\nb
+a.*b	a\nb\nb
+^.*$	a\nb
+^a.*$	a\nb
+.	\n
+\N	\n
+\N+	ab\n
+# unicode props
+\p{L}+	123abc456
+\p{L}+	日本語abc
+\p{Lu}+	abcDEFghi
+\p{Ll}+	ABCdefGHI
+(?i)\p{Lu}+	abcDEFghi
+(?i)\p{Ll}+	ABCdefGHI
+\p{Lu}+	ÀÉÎ
+\P{L}+	abc123def
+\p{^L}+	abc123def
+\p{N}+	abc١٢٣def
+\p{Nd}+	abc١٢٣def
+\p{P}+	ab!?cd
+\p{S}+	ab+=$cd
+\p{Z}+	a b c
+\p{Zs}+	a \xc2\xa0b
+\p{Han}+	abc日本語def
+\p{Hiragana}+	ひらがなカタカナ
+\p{Katakana}+	ひらがなカタカナ
+\p{Greek}+	abc αβγ def
+\p{Cyrillic}+	abc привет def
+\p{Latin}+	привет abc
+\p{Arabic}+	abc مرحبا
+\pL+	abc123
+\PL+	abc123
+\p{L&}+	abcDEF123
+\p{Any}+	abc
+\p{Lu}\p{Ll}+	hello World
+\p{M}	é
+e\p{M}	é
+\p{Mn}+	e\xcc\x81
+\p{Sc}+	cost $5 €6
+\p{Xan}+	--ab12--
+\p{Xwd}+	--ab_12--
+\p{Xsp}+	a \tb
+[\p{L}\d]+	--ab12--
+[^\p{L}]+	ab12cd
+\p{Foo}	a
+\p{Lu	a
+\p{Han}	、
+\p{Common}	、
+\p{Latin}	é
+\p{Thai}+	abc ไทย
+\p{Hangul}+	abc 한글
+\X	éx
+\X+	aéb
+\X	a
+\X	\r\n
+# unicode text
+é	café
+É	café
+(?i)É	café
+caf.	café
+caf.$	café
+^.{4}$	café
+^.{4}$	日本語x
+.	日
+..	日本語
+日本	こんにちは日本語
+[日本]+	こんにちは日本語
+日.語	日本語
+(日)(本)	日本語
+(?i)ÀÉ	àé
+(?i)straße	STRASSE
+(?i)straße	STRAßE
+(?i)ÿ	Ÿ
+(?i)µ	μ
+\w+	naïve café
+\w+	Ωmega
+\b\w+\b	über cool
+\bü	über
+ü\b	über
+(?i)ĄĘ	ąę
+(?i)Привет	ПРИВЕТ
+привет	ПРИВЕТ
+Привет	привет
+Привет	Привет
+[а-я]+	ПРИВЕТ
+[А-Я]+	привет
+(?i)[а-я]+	ПРИВЕТ
+😀	a😀b
+.	😀
+^.$	😀
+\x{1f600}	😀
+[😀]	a😀
+(?<=😀)b	😀b
+\S+	  日本語  
+\s+	日　本
+\s+	日\xe3\x80\x80本
+\d+	１２３
+\w+	ｆｕｌｌ
+[[:alpha:]]+	日本語
+[[:upper:]]+	ÀB
+[[:lower:]]+	àb
+[[:space:]]+	a\xe2\x80\x83b
+# empty matches / misc
+a*?	b
+(?:)*	abc
+(a*)*	b
+(a*)+	b
+(?:a*)*b	aab
+(a|)*b	aab
+^*	a
+$*	a
+\b*	a
+(?=a)*a	a
+(?=a)+a	a
+((?=a)|b)*	ab
+x?	
+x??	x
+(?:x?)*	xx
+(?:x*)+	xx
+(?:x*?)+y	xxy
+(a|b|)*c	abc
+(a*)b\1	aabaa
+(a*)b\1	aaba
+# \K
+foo\Kbar	foobar
+foo\Kbar	foobaz
+\Kfoo	foo
+foo\K	foo
+a\Kb\Kc	abc
+(foo)\Kbar	foobar
+(?:foo\K)+bar	foofoobar
+foo\Kbar	xfoobar foobar
+(?<=a)\Kb	ab
+a(?:b\Kc|d)	abc
+(a\K)b	ab
+\d+\K\w+	123abc
+\w+\K,	abc,def
+# conditionals
+(a)?(?(1)b|c)	ab
+(a)?(?(1)b|c)	c
+(a)?(?(1)b|c)	ac
+(a)?(?(1)b)	ab
+(a)?(?(1)b)	x
+^(a)?(?(1)b|c)$	ab
+^(a)?(?(1)b|c)$	c
+^(a)?(?(1)b|c)$	b
+(?<x>a)?(?(<x>)b|c)	ab
+(?<x>a)?(?('x')b|c)	c
+(?<x>a)?(?(x)b|c)	ab
+(?(?=a)ab|cd)	ab
+(?(?=a)ab|cd)	cd
+(?(?=a)ab|cd)	ad
+(?(?!a)cd|ab)	cd
+(?(?<=x)a|b)	xa
+(?(?<=x)a|b)	b
+^(\()?\w+(?(1)\))$	(abc)
+^(\()?\w+(?(1)\))$	abc
+^(\()?\w+(?(1)\))$	(abc
+^(\()?\w+(?(1)\))$	abc)
+(a)?(?(1)b|c|d)	x
+(?(DEFINE)(?<d>\d+))a	a
+(a)(?(-1)b|c)	ab
+(a)(?(-1)b|c)	ac
+# comments
+a(?#comment)b	ab
+a(?#com)*b	ab
+(?#x)	a
+# errors
+(	a
+a)	a
+[abc	a
+[b-a]	a
+a**	a
+*a	a
++a	a
+?a	a
+(?<=a+)b	ab
+(?<=a|bc*)d	bd
+\	a
+a\	a
+(?<n>a)(?<n>b)	ab
+\k<nope>	a
+\2(a)	a
+(a)\2	a
+(?z)a	a
+(?<1a>a)	a
+\p{	a
+\x{110000}	a
+\c	a
+(?'n	a
+(*FOO)a	a
+(?P<n>a	a
+\1	a
+(?<=\K)a	a
+(?<!a|b+)c	c
+a{2,1}	a
+a{99999}	a
+[[:alpha:]	a
+[a-\d]	a
+[\N]	a
+(?(1)a|b|c)	a
+(?(1)a)(b)	ab
+\Ea	a
+(?x)a(?#	a
+# trickier ordering / semantics
+(a|ab)(c|bcd)(d*)	abcd
+(a+|b+)*c	aabbc
+(?:(a)|b)*	ab
+(?:(a)|b)*?	ab
+^(?:(a)|b)*$	ab
+(a)|(b)|(c)	c
+(a)(?:(b)|(c))	ac
+(a+)(?:(b)|(c))+	aabcb
+(?:(a)|(b)|(c))+	abc
+(?:(a)|(b)|(c))+?$	abc
+(.)(?:(.)|(.))*	abcd
+((a)|(b))*	ab
+(?:a|(b))+	ba
+(?:(a)|b)+	ab
+(?:(a)|b)+	aab
+(a)?(b)?(c)?	c
+(a)?(b)?(c)?	b
+(a)?(b)?(c)?	
+(a)?(b)?(c)?(d)	d
+((((a))))	a
+(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)(l)	abcdefghijkl
+.*(a)	bab
+.*?(a)	bab
+(.*)(.*)	ab
+(.*?)(.*)	ab
+(.*?)(.*?)$	ab
+([ab]*)([bc]*)	abbc
+([ab]*?)([bc]*)	abbc
+(\w+)\s(\w+)\s(\w+)	one two three four
+(\w+)\s*=\s*"([^"]*)"	key = "some value" x
+^\s*(\S+)\s+(.*?)\s*$	  cmd   the rest of it   
+^(\w+) (\w+)$	a b c
+(\S+) tells you, "(.*)"	Bob tells you, "hi there"
+^(.*) pages (.*)$	Bob pages: hi
+^You paged (\S+) with '(.*)'	You paged Bob with 'hello'
+^\[(.*?)\] (.*)	[chan] hello [x]
+^<(\w+)> (.*)	<nick> msg
+([0-9]+)h ?([0-9]+)m	1h 30m
+(\d+)\.(\d+)\.(\d+)\.(\d+)	ip 10.0.0.1 ok
+\$(\d+)\.(\d\d)	cost $12.50
+\((.*?)\)	a (b) (c)
+\{(.*?)\}	a {b} {c}
+(?i)^(\w+) says, "(.*)"$	BOB SAYS, "HI"
+.*\b(\w+)$	the quick brown fox
+\b(\w)(\w*)\b	hello world
+(\w)\1	hello
+(.)(.)\2\1	xabbay
+(?:(?:a|b)(?:c|d))+	acbdad
+^(?:(\d+)\.)?(\d+)$	1.2
+^(?:(\d+)\.)?(\d+)$	2
+((a)|b)+	bab
+(?:a(?=b))+	ab
+(?:a|ab|abc)+d	abcd
+(?:a|ab|abc)+?d	abcd
+(?:x+x+)+y	xxxxxxxxxxxxxxxxxxxxxxxxy
+(?>x+x+)+y	xxxxxxxxxxxxy
+(?:x+)+y	xxxxxy
+# loops and captures
+(a|b\1)+	aba
+(a|b\1)+	abaa
+(?:(a)|b\1)+	aba
+(?:(a)|b\1)+	abba
+((a){2}b){2}	aabaab
+((a){2}b){2}	aabab
+(?:ab){2,3}?c	ababab c
+(?:ab){2,3}?	ababab
+(?:ab){2,3}	ababab
+(?:a|ab){2}	aab
+(?:a|ab){2}c	abac
+(a+?){2}	aaaa
+(a+?){2}$	aaaa
+(a*?){3}	aaa
+(a+){2,}	aaaa
+(a|aa){2,3}$	aaaa
+(a|aa)*?$	aaaa
+(?:(a)|(b)|(c))*	abcabc
+(?:(a)|(b)|(c))*?x	abcx
+(?:(a)(b)?)+	aba
+(?:(a)(b)?)+	abab
+(?:(?:(a)|b)c)+	acbc
+(\d+)(?:,(\d+))*	1,2,3
+(\d+)(?:,(\d+))*?;	1,2,3;
+(?:\s*(\w+)=(\w+))+	a=1 b=2 c=3
+(\w+)(?:\s+(\w+))*	a b c d
+([^,]*),([^,]*),([^,]*)	a,,c
+^(?:([^,]*),?)+$	a,b,c
+^(?:([^,]*),?)*$	a,b,
+(a)(?:(b)|c)*	abcb
+((a)|(b)|(c))*d	abcd
+((a)|(b)|(c))*?d	abcd
+(?:a(?=(b)))+	abab
+(?:(?=(a))a)+	aa
+(?:(?!(x))a)+	aa
+(?<=(a))b	ab
+(?<=(a)|(c))b	cb
+(?<!(a))b	cb
+(?<=(?:(a)))b	ab
+((?<=a)b)+	abb
+(?=(a)|(b))\w	b
+(?:(?=(a))|b)+	ab
+(?>(a)|b)*c	abac
+(?>(a)|b)*+c	abac
+(?>(a)|(b))\2	bb
+(?>a(b)?)+	aba
+(?:a(b)?)+	aba
+(?:a(b)?)+?c	abac
+x(?:(a)|(b))*y	xaby
+x(?:(a)|(b))*+y	xaby
+(?:(a)|b)*?c	abc
+# backreferences in more shapes
+(?i)(a)\1	aA
+(?i)(a)(?-i)\1	aA
+(?i)(a)(?-i)\1	aa
+(?i)(ǆ)\1	ǆǅ
+(\w+)\s\1	the the cat
+\b(\w+)\s+\1\b	this is is a test
+(['"]).*?\1	say 'hi' "yo"
+(\w)(\w)(\w)\3\2\1	abccba
+(?:(\w)\1)+	aabbcc
+^(\w+)(.)\1\2	abcabc
+^((.)\2)+$	aabbcc
+^((.)\2)+$	aabbc
+(a)?(?(1)\1|b)	aa
+(a)?(?(1)\1|b)	b
+(?<a>x)(?<b>y)\k<b>\k<a>	xyyx
+(?<n>\d)\k<n>	a11
+(?<n>a)|\k<n>b	b
+(?<first>\w+) (?<second>\w+)	john smith
+(a)(?<n>b)\2	abb
+(a)(?<n>b)\g{2}	abb
+(.)(?=\1)	abbc
+(.)(?!\1).	aabb
+(.)\1(?!\1)	aaab
+(a*)\1	aaaa
+(a*)\1b	aaab
+(a*?)\1b	aaaab
+(a*)*\1	aa
+(?:(a)|b)\1?	b
+# classes and escapes
+[\d-z]+	1-z2
+[\w.-]+@[\w.-]+	mail bob.x-y@ex-ample.org now
+[^\s\d]+	12 ab 34
+[\Q^]\E]+	^]^
+[\Qa-z\E]+	a-z-b
+[a\Q-\Ez]+	a-z-b
+[a-\Qz\E]+	abz
+[\x{100}-\x{200}]+	aāb
+[\p{Lu}\p{N}]+	abCD12ef
+[^\p{L}\s]+	ab 12 cd
+[[:alpha:]\d]+	--a1--
+[\W\d]+	abc123 def
+[\W_]+	ab_ c
+[\S\s]+	a b
+[\d\D]	x
+[\x00-\x7f]+	abcé
+[^\x00-\x7f]+	abcéfg
+[\101\102]+	xABy
+[\1]	\x01
+[\8]	8
+[\e]	\x1b
+[\cA]	\x01
+[\b]	a\x08b
+[a-z&&[^b]]+	abc&&[^b]
+[\--\/]+	a-./b
+[+--]+	a+,-b
+[a-]	-
+[-]	-
+[]]	]
+[^]]+	]ab]
+[]-a]+	^_]a
+[\]-a]+	^_]a
+[a-\x{ff}]+	abcé€
+[é-ü]+	abcéèüz
+(?i)[é-ü]+	ÉÈÜ
+(?i)[a-z]+	ABCdef
+(?i)[^a-z]+	ABC123
+(?i)[k]	K
+(?i)[K]	k
+(?i)[s]	ſ
+(?i)[ǆ]	ǅ
+[[:alpha:]]	ǅ
+[[:lower:]]	ǆ
+[[:upper:]]	Ǆ
+[[:upper:]]	ǅ
+[[:alnum:]]+	ab١٢c
+[[:punct:]]+	a¡¿b
+[[:punct:]]+	a€b
+[[:punct:]]+	a×b
+[[:graph:]]	 
+[[:print:]]	 
+[[:print:]]	 
+[[:space:]]	 
+[[:space:]]	\u0085
+\s	\u0085
+\h	᠎
+[[:blank:]]	 
+[[:cntrl:]]	\u0085
+[[:xdigit:]]	ａ
+\w	ª
+\w	⒜
+\d	٣
+\D	٣
+\W	é
+\S	　
+# escapes
+\x4a	J
+\x4	\x04
+\x{4a}	J
+\x{000041}	A
+\x{1F600}	😀
+\u	u
+a\tb	a\tb
+\a	\x07
+\e	\x1b
+\f	\f
+\cM	\r
+\c[	\x1b
+\1	\x01
+\12	\n
+\012	\n
+\0101	A1
+\101	A
+\400	Ā
+\777	ǿ
+\o{12}	\n
+\o{777}	ǿ
+\N{U+41}	A
+\N{U+1F600}	😀
+\Qa\E\Qb\E	ab
+\Qa\\E	a\\
+\Q\E	abc
+a\Q\Eb	ab
+\Q|\E|a	b
+\Qab\E*	abbb
+\Qab\E{2}	abb
+x\Q+\E+	x+++
+(?:\Qa\E)+	aaa
+# flags and extended
+(?x)a b	ab
+(?x) a  b 	a b
+(?x)a\ b	a b
+(?x)a[ ]b	a b
+(?x)[a b]+	a b
+(?x)a#c\nb	ab
+(?x)a # comment\nb	ab
+(?x)a#b\n	a
+(?x) \d + 	123
+(?x) (a) \1	aa
+(?x)a (?#c) b	ab
+(?x)a{2}	aa
+(?x)a {2}	aa
+(?x)a{ 2 }	aa
+(?x:a b)	ab
+(?x: a b ) 	ab 
+(?xx)[a b]+	a b
+(?xx)[a\ b]+	a b
+(?i)(?x)a b	AB
+(?is)a.b	A\nB
+(?im)^a$	b\nA
+(?-i)(?i)a	A
+(?s-m)a.b	a\nb
+(?m-s)a.b	a\nb
+(?i:a(?-i:b)c)	AbC
+(?i:a(?-i:b)c)	ABC
+(?i)a(?-i:b)(?i)c	AbC
+(?:(?i)a)b	Ab
+(?:(?i)a)b	AB
+(a)(?i)b	aB
+(?i)(a)|b	B
+(a(?i)b)|c	aB
+(?i)a|(?-i)b	B
+(?|(?i)a|b)c	AC
+(?i)a(?|b|(?-i)c)	aC
+(?i)a(?|b|(?-i)c)	AB
+(?^i)a	A
+(?i)(?^)a	A
+(?-i)A	a
+(?-i)a	A
+(?n)(a)\1	aa
+(?n)(?<x>a)\1	aa
+(?n)(?<x>a)\k<x>	aa
+(?n:(a))(b)	ab
+# anchors again
+(?m)^a	a\na
+(?m)a$	a\na
+(?m)^$	\n
+(?m)^$	a\n
+(?m)^$	a\n\n
+(?m)$	a\n
+(?m)\z	a\n
+(?m)\Z	a\n
+(?m)\Aa	a\na
+\Za	a
+\Z	a\n
+\Z	a\n\n
+\z	a\n
+$	a\n
+(?m)$\n	a\nb
+(?m)^\Gb	ab
+^	\n
+(?m)^	\n
+(?m)^	a\n
+(?m)^	a\nb
+^a	a\nb
+a$	b\na\n
+(?m)a$\n^b	a\nb
+a\b	a b
+a\b	ab
+\ba	a b
+\Ba	ba
+\bé\b	é
+\Bé	aé
+\b\p{L}	日本
+\b.	日
+\B.	日
+\b	é
+\w\b	é
+\w\B	éa
+.\b	éa
+# alternation edge
+(?:|a)+	aaa
+(?:a|)+	aaa
+(?:a|b|)+c	abc
+(?:ab|a)(?:bc|c)	abc
+(?:ab|a)(?:bc|c)$	abc
+(?:a|ab)(?:c|bc)$	abc
+(?:a|ab)(?:bc|c)	abc
+(?:x|xy)(?:z|yz)	xyz
+(xy|x)(yz|z)	xyz
+(x|xy)(?!z)	xyz
+a(?:b|c|d){6}	acdbcdbe
+a(?:b|c|d){5,6}?e	acdbcdbe
+a(?:b|c|d){5,7}e	acdbcdbe
+a(?:b|c|d){4,5}?e	acdbcdbe
+(?:a+|b+)*c	aabbaac
+(?:a+|b+)*?c	aabbaac
+(?:a+|b+)+	aabbaa
+(?:a|b)*+	abab
+(?:a*|b*)*	aabb
+(?:a*|b*)+c	aabbc
+(?:a?|b?)*c	abc
+# lookaround nested
+(?=(?=a)a)a	a
+(?=a(?=b))ab	ab
+(?!a(?!b))a	ac
+(?!a(?!b))a	ab
+(?<=(?<=a)b)c	abc
+(?<=(?=a)a)b	ab
+(?<=b(?<!x))c	bc
+(?=.*(?<=x))	abx
+(?=(\w+))\1:	abc:
+(?=(\w+))(?=\1)	ab
+(?<![^a])b	ab
+(?<![^a])b	b
+(?<=\b)a	a
+(?<=\ba)b	ab
+(?<=^)	a
+(?<=a)(?<=a)b	ab
+(?<=a)(?!b)	a
+(?<=\w{3})d	abcd
+(?<=\w{3})d	abd
+(?<=\w{1,3})d	abcd
+(?<=\w{2,3})d	ad
+(?<=a|bb)c	bbc
+(?<=a|bb)c	bc
+(?<=(?:a|bb)+)c	abbc
+(?<!a{2})b	aab
+(?<!a{2})b	ab
+(?<=日{2})本	日日本
+(?<=.{2})c	abc
+(?<=\R)a	\r\na
+(?<=\R)a	\na
+(?<=ab|a)b	ab
+(?<=a(?:b|bc))d	abcd
+# K and G
+a\Kb	ab
+a\K	a
+\Ka	a
+(?:a\K)*b	aab
+(a)\K(b)	ab
+a(?=b\K)	ab
+x\Ky	xyxy
+\w\K\d	a1b2
+(?:\w\K)+	abc
+(?:a\Kb|c)+	abcab
+a\Kb(?:c|d\Ke)	abde
+\Gab	ab
+\Gab	xab
+a\Gb	ab
+# properties
+\p{Lu}\p{Ll}+	Hello World
+\p{Ll}+\p{Lu}	helloWorld
+\p{L}\p{M}*	éa
+\p{Nd}+	abc123
+\p{Nl}	Ⅷ
+\p{No}	½
+\p{Pd}+	a-–—b
+\p{Ps}\p{Pe}	a()b
+\p{Pi}\p{Pf}	a«»b
+\p{Sm}+	a+<=>b
+\p{Sk}	a^b
+\p{So}	a©b
+\p{Zl}	a b
+\p{Zp}	a b
+\p{Cc}+	a\x01\x02b
+\p{Cf}	a​b
+\p{Co}	ab
+\p{Cn}	a͸b
+\p{Cs}	a
+\p{C}	a\x01
+\p{L}	\u00e9
+\p{Han}+	漢字かな
+\p{Script=Han}+	漢字かな
+\p{sc:Han}+	漢字、
+\p{scx:Han}+	漢字、
+\p{Common}+	a123!b
+\p{Inherited}	é
+\p{Latin}+	abcdéf
+\p{Latn}+	abc
+\p{Greek}	µ
+\p{Greek}	μ
+\p{Hebrew}+	abc אבג
+\p{Devanagari}+	abc नमस्ते
+\p{Hangul}+	abc 한국어
+\p{Thai}	ก
+\p{Lu}	ǅ
+\p{Lt}	ǅ
+(?i)\p{Lt}	a
+(?i)\p{Lu}	a
+\p{Lu}	a
+\P{Lu}	a
+\p{^Lu}	a
+\P{^Lu}	a
+[\p{Lu}]	a
+(?i)[\p{Lu}]	a
+(?i)[^\p{Lu}]	a
+(?i)[^\p{Lu}]	A
+[^\P{Lu}]	A
+\p{L&}	ǅ
+\p{Xan}	_
+\p{Xwd}	_
+\p{Xsp}	\x0b
+\p{Xuc}	$
+\p{Xuc}	a
+\p{ L }	a
+\p{greek}	α
+\p{GREEK}	α
+\p{lu}	A
+\p{LU}	A
+\p{Latin_Extended}	a
+# mixed realistic
+^(\S+)\s+(\S+)\s*(.*)$	cmd arg rest of line
+^(.*?):\s*(.*)$	key: value: more
+(?:^|\s)(\w+)(?=\s|$)	  one two
+(?<=\s|^)\w+(?=\s|$)	  one two
+(\w+)@(\w+)\.(\w+)	me@site.org
+https?://([^/\s]+)(/\S*)?	see http://example.com/path?q=1 ok
+\[(\d{1,2}):(\d{2})\]	[12:34] hi
+(?i)^\s*(?:/|\.)(\w+)	  /Say hello
+^(\w+)\s+(?:says|asks|exclaims),\s+"(.+)"$	Bob says, "hi there"
+^(?:\w+ ){1,3}(\w+)$	one two three four
+(\d+)\s*(?:gp|gold)	10 gold and 5gp
+\b(\d{1,3})(?:,(\d{3}))*\b	1,234,567
+^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$	-12.5e+3
+^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$	12.5e
+(?s)<b>(.*?)</b>	x <b>a\nb</b> y
+<(\w+)[^>]*>(.*?)</\1>	<b>bold</b><i>it</i>
+(?i)<(\w+)>.*?</\1>	<B>x</b>
+^(?=.*[A-Z])(?=.*\d).{8,}$	Passw0rdX
+^(?=.*[A-Z])(?=.*\d).{8,}$	password1
+(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.|$)){4}	192.168.1.255
+(\w+)\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+))	a = 'b c'
+(\w+)\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+))	a = zz
+^(?:(?:a|b)+c)+$	abcbac
+(\()|(\))	()
+^\s+|\s+$	  ab  
+\s+$	ab   
+^.{3}	日本語です
+.{3}$	日本語です
+^(.)(.*)(.)$	日本語です
+(?i)ÄÖÜ	äöü
+(?i)ä+	ÄäÄ
+ä+	ÄäÄ
+Ä+	äÄä
+\bÄ	Äb
+(?i)\bä	Ä
+(*FAIL)	a
+a(*F)	a
+a(*FAIL)	b
+(?:a(*F)|b)	ab
+a(?!)	a
+(?:)	
+# class edge cases
+[[:alpha:]-z]	a
+[[:alpha:]-]	a
+[\d-]	5
+[\p{L}-z]	a
+[a-\Q\E]	a
+[a-\Q\Ez]	b
+\x{}	a
+\xg	a
+\o{}	a
+\o{8}	a
+[\d-\w]	a
+[\w-a]	a
+[a-\w]	a
+[\Qab\E-z]	c
+[\Qab\E-z]	-
+[\Qa\E-z]	b
+[\E]	a
+[\Q]\E]	]
+[\Q]	]
+[a-a]	a
+[a-\x{100}-z]	b
+[--a]	b
+[!--]	+
+[a-b-c]	-
+\x	a
+\x41	A
+# more quirks found by differential fuzzing
+[[:ascii:]]+	abcéāx
+[[:ascii:]]+	日本abc
+[^[:ascii:]]+	abcā日x
+[[:ascii:]]	ā
+[:alpha:]+	abc
+[:alpha:]-]	a
+[a:]	:
+[:a]+	::aa
+a\C	ab
+\C+	abc
+\C\C(a)	éa
+(?:a(*F)?|b)	b
+(*F)+	a
+[\g]	g
+[\k]	k
+[\kz]+	kz
+[ab\E-z]+	c
+[\E-z]	-
+Q+\E+	QQQ
+x\AQ+\E+	xQ
+Q*\E?	QQ
+\P1	a
+\p9	a
+\pL	é
+(?:\z)*	a
+(?:\b)+a	a
+(?:^)*a	a
+(?:$)?	a
+(?i:\b)+a	a

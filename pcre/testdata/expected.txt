@@ -1,0 +1,1234 @@
+1	xx	xx	abc
+1			ABC
+0
+1			ABC
+0
+1			a c
+1			abc
+1			a.c
+0
+1		abc	
+0
+1			
+1			
+1			
+0
+1		aaa	
+1			
+1		abc	
+1	say 	 now	Hello World
+0
+0
+1			a.b
+0
+1		a+a+	a+
+1			a*
+1			ab
+1			tab\there
+1			aAb
+1			aab
+1	smile 	 yes	☺
+1	caf		é
+1			A
+1	a	b	 
+1			ac
+1			
+1			
+1			ab
+1			xy
+1			A
+1			AAAA
+1	xx	zz	cab
+1	ab	c	xyz
+1	zz	d	abcab
+1			a-b-c
+1			a-a-
+1	x		]a]
+1	]]	]a	xy
+1	a	b	]
+1	a	b	\\
+1		b	a-z-
+1	ab	cd	123
+1	12	34	ab
+1			--foo-bar--
+1	a	b	  \t
+1	  	  	ab
+1			ABCdef
+1	abc		DEF
+0
+0
+1	a	b	.
+1	a	b	*+?
+1	a	b	[
+1	x	b	a[a
+1	a	b	 
+1		 cd	ab
+1	x	D	ABC
+1	a	b	 \t 
+1	caf		éé
+1	abc	z	éàÿ
+1	é	é	abc
+1	abc	def	日本語
+1	abc 	 def	αβγ
+1			ΑΒΓ
+1		 wörld	héllo
+1		 text	日本語
+1	abc	def	, 
+1	a	b	١٢٣
+1	١٢٣		abc
+1	a	b	 
+1	a	b	 
+1	a	b	 \t 
+1	  	  	ab
+1	a	b	 \r
+1	 	 	ab
+1		 cd	ab
+1	a	b	\r 
+1	a	b	\r  \r
+0
+1	123	456	abc
+1		123	éàü
+1	abc		123
+1	abc		١٢٣
+1	--	--	ab12
+1	abc	ghi	DEF
+1	ABC	GHI	def
+1	a	b	 \t 
+1	ab	cd	!?.,
+1	a	b	$+<=>
+1	xyz	gg	1aF9
+1	--	--	ab_12
+1	a	 b	 \t
+1	a	b	
+1	  	  	ab!
+1			ab c
+1			éabcé
+1	abc	def	123
+1	123	456	abc
+1	abc	def	123
+1	--	--	a1b2
+1	1	2	_ab_
+ERR	8	unknown POSIX class name
+1	abc	ghi	DEF
+1	abc	ghi	DEF
+1			ab-cd
+1		def	abc
+0
+1	xx		abc
+0
+0
+1		 	abc
+0
+1			abc
+1			abc
+0
+1	x 		abc
+0
+1		 x	abc
+1	abx 		abc
+1		a b	
+1	a 	 b	
+1	a	 b	
+1	a 	 	b
+1	a 	b	 
+0
+0
+0
+1		  	a
+1			a
+1			a
+1		abc	
+1	a 	 b	foo
+0
+1	a		foo
+0
+1		b	foo
+1	a 		é
+0
+1	caf		é
+1	  	  	héllo
+1		日本	
+1	a	b	
+0
+1			
+1			a
+1		ab	ab
+1			aaa
+1			aaa
+1		aa	a
+1		aa	aa
+1			aaaa
+1		a	aaa
+1	aa		b
+1		aa	aa
+1	a		aab
+1		aa	aa
+1		aa	aa
+1			aaa
+1			aa
+1			aaa
+1			aaa
+1			a{
+1			a{x}
+1			a{1
+1			a{1,x}
+1			a{,}
+ERR	7	quantifier does not follow a repeatable item
+1		aaa	
+1		aa	a
+1		aaa	
+0
+0
+0
+1			ab
+1		b	aaa
+4			abcd	a	bcd	
+2			aaa	
+2			aaa	
+2			aaab	
+2			aaab	aaa
+2			aab	
+2			abab	b
+2			abc	b
+2		bab	a	a
+1			abab
+2			aaa	a
+1		b	
+0
+1			b
+2			ab	a
+2			ab	a
+3			ab	a	b
+3			ba	a	b
+2			aaa	
+2		b		
+2			aaa	aaa
+2			aaa	aaa
+2			aa	
+2		aa		
+2		aa		
+1		aaa	
+2		a	aaaa	aa
+2		a	aaaa	aa
+2		ab	ababab	ab
+2		abab	abab	ab
+2			ababb	ab
+1			ababb
+3			aabbb	aa	bbb
+3			aabbb	aa	bbb
+3		bb	aab	aa	b
+1			abc
+1		abc	
+1			abcabc
+1		abc	abc
+0
+1		c	ab
+1			abc
+0
+1		3	a1b2b
+1		2b3	a1b
+0
+3			abc123	abc12	3
+3			abc123	abc	123
+3			abc123	abc12	3
+3			abc123	abc	123
+3	mail 	 now	bob@example.com	bob	example
+3			hello world	hello	world
+4	date 	 end	2024-01-15	2024	01	15
+3			abc-		abc
+2			123-	123
+1			
+2			abcdefgabc	c
+1	zzz		d
+1		def	abc
+1			abcd
+1		bar!	foo
+1		!	foobar
+2			foobar	foobar
+2		bar	foo	foo
+2			foobar	foobar
+2			acd	c
+2			ad	
+2			ac	
+3			abc	a	bc
+4			abcd	a	bcd	
+0
+1			bd
+1			xabbay
+1		c	
+1		abc	
+2		abc		
+1	I have a 		Bird
+0
+1	my 		CAT
+2	b	c	aa	aa
+3			ab	a	b
+3			ab	a	b
+3			ab	a	b
+2			aa	a
+2			aa	a
+2			aa	a
+2			aa	a
+2			aa	a
+3			abc	a	c
+3	on 	-17	2024-05	2024	05
+3			y		y
+3			xy	x	y
+11			abcdefghi	abcdefghi	a	b	c	d	e	f	g	h
+12			abcdefghij	abcdefghij	a	b	c	d	e	f	g	h
+11			abcdefghijj	a	b	c	d	e	f	g	h	i
+11			abcdefghija	a	b	c	d	e	f	g	h	i
+4			ab	b	a	b
+4			ba	a	a	b
+3			b		b
+1			b
+2			b	b
+4			cde	c	d	e
+4			bcd	b	c	d
+1			ab
+2			ab	a
+1			ab
+3			ab	ab	a
+3		aa			
+11			a	a	a	a	a	a	a	a	a	a
+2			aa	a
+0
+2			aaaa	aa
+2		a	aa	a
+2			aaaab	aa
+2	ab	d	cc	c
+2	a	cc	bbb	b
+2		 world	hello hello	hello
+0
+3	x	y	abba	a	b
+2			aA	a
+2			Aa	A
+2			aA	a
+2			éÉ	é
+2			Hello hello	Hello
+3			abba	a	b
+0
+0
+2			aba	a
+0
+0
+0
+0
+2			aaaa	a
+2	a	a	bb	b
+2	say 	 'yo'	"hi"	"
+2	say 	 ok	'it"s'	'
+0
+2			aa	a
+2			aa	a
+2			aa	a
+3			aba	a	b
+3			abb	a	b
+0
+ERR	5	reference to non-existent subpattern
+ERR	2	reference to non-existent subpattern
+1			8
+1			\t1
+2			a\t	a
+1		b	a
+0
+0
+1		c	a
+1			a
+1		a	
+1	a		
+1			a
+1		c	ab
+2		b	a	b
+2			a	a
+2		aa	a	aaa
+2			aaa	aaa
+2	baa	c	aba	a
+1			b
+0
+1	a	b	
+1			abc123
+0
+1			this is good
+0
+1		,def	abc
+1		c,def	ab
+1		% of 20	50
+1	abc		123
+1		bar foobaz	foo
+1	foobar 	baz	foo
+1	c		b
+1			aab
+1		a	
+1	abc		
+1	a	 b	
+1	a	b	
+1	a		b
+0
+0
+1	c		b
+1			b
+1	a		
+1	ab		c
+1	bc		d
+1	a		d
+0
+0
+1	xb		c
+1	1		x
+1	12		x
+0
+1	é		x
+1	日		x
+1	foo		bar
+1			a
+1	a		b
+1	a		
+2	a		b	a
+1	b		c
+1	ab1	 34	2
+1	cost $		45
+1	foo 		bar
+1	x	y	
+1	a		b
+0
+1	ab		c
+1	ab		c
+1	A		b
+ERR	0	length of lookbehind assertion is not limited
+ERR	0	length of lookbehind assertion is not limited
+1			aaab
+0
+0
+1			abc
+1			abc
+0
+0
+2			aab	aa
+2			aa	a
+1			aabbc
+0
+1			aaab
+0
+0
+0
+0
+1			12345
+1			abc1
+0
+0
+2			abc	b
+0
+1			aaab
+0
+0
+1			xxx
+1			xxx
+1			a
+1			ABC
+1			AbC
+1			aBC
+1			ABC
+1			aBc
+1			aBC
+1			AB
+1			Ab
+1			Ab
+0
+0
+1			AbC
+1			 
+0
+0
+1			a b
+1	b 		a
+1			abc
+1		c	ab
+1			a b
+1			a b
+1			a#b
+1			a
+1	 		 a
+0
+1			abc
+1			ab c
+1			abc
+0
+0
+1	x 	 y	A
+0
+3			Ab	A	b
+2			AB	A
+2			Ab	A
+2			aBD	aB
+2			CD	C
+1			B
+1			Bc
+0
+0
+1		aa	a
+1			aaa
+1		a	aa
+1			É
+1			ẞ
+1			K
+1			K
+1			ǅ
+1			ς
+1			Σ
+1			ABC
+1			aXc
+1			É
+0
+1			É
+1			ABC
+0
+1			ABC
+ERR	2	PCRE2 does not support \F, \L, \l, \N{name}, \U, or \u
+1			a
+1		b	a
+0
+1			ÉÉ
+1			a
+1			A
+1			é
+0
+1			12A
+0
+1			a
+1		 	a
+1	b 		a
+1		 b	a
+1			a b
+1			a b b
+1			a b
+1			a b
+1			 
+0
+1		 	ab
+1	123	456	abc
+1			日本語abc
+1	abc	ghi	DEF
+1	ABC	GHI	def
+1			abcDEFghi
+1			ABCdefGHI
+1			ÀÉÎ
+1	abc	def	123
+1	abc	def	123
+1	abc	def	١٢٣
+1	abc	def	١٢٣
+1	ab	cd	!?
+1	ab	cd	+=$
+1	a	b c	 
+1	a	b	  
+1	abc	def	日本語
+1		カタカナ	ひらがな
+1	ひらがな		カタカナ
+1	abc 	 def	αβγ
+1	abc 	 def	привет
+1	привет 		abc
+1	abc 		مرحبا
+1		123	abc
+1	abc		123
+1		123	abcDEF
+1			abc
+1	hello 		World
+1	e		́
+1			é
+1	e		́
+1	cost 	5 €6	$
+1	--	--	ab12
+1	--	--	ab_12
+1	a	b	 \t
+1	--	--	ab12
+1	ab	cd	12
+ERR	7	unknown property after \P or \p
+ERR	5	malformed \P or \p sequence
+1			、
+1			、
+1			é
+1	abc 		ไทย
+1	abc 		한글
+1		x	é
+1			aéb
+1			a
+1			\r 
+1	caf		é
+0
+1	caf		é
+1			café
+1			café
+1			café
+1			日本語x
+1			日
+1		語	日本
+1	こんにちは	語	日本
+1	こんにちは	語	日本
+1			日本語
+3		語	日本	日	本
+1			àé
+0
+1			STRAßE
+1			Ÿ
+1			μ
+1		 café	naïve
+1			Ωmega
+1		 cool	über
+1		ber	ü
+0
+1			ąę
+1			ПРИВЕТ
+1			ПРИВЕТ
+0
+1			Привет
+1			ПРИВЕТ
+0
+1			ПРИВЕТ
+1	a	b	😀
+1			😀
+1			😀
+1			😀
+1	a		😀
+1	😀		b
+1	  	  	日本語
+1	日	本	　
+1	日	本	　
+1			１２３
+1			ｆｕｌｌ
+1			日本語
+1			ÀB
+1			àb
+1	a	b	 
+1		b	
+1		abc	
+2		b		
+2		b		
+1			aab
+2			aab	
+ERR	2	quantifier does not follow a repeatable item
+ERR	2	quantifier does not follow a repeatable item
+ERR	3	quantifier does not follow a repeatable item
+1			a
+1			a
+2		ab		
+1			
+1		x	
+1			xx
+1			xx
+1			xxy
+2			abc	
+2			aabaa	aa
+2	a		aba	a
+1	foo		bar
+0
+1			foo
+1	foo		
+1	ab		c
+2	foo		bar	foo
+1	foofoo		bar
+1	xfoo	 foobar	bar
+1	a		b
+1	ab		c
+2	a		b	a
+1	123		abc
+1	abc	def	,
+2			ab	a
+1			c
+1	a		c
+2			ab	a
+1		x	
+2			ab	a
+1			c
+0
+2			ab	a
+1			c
+2			ab	a
+1			ab
+1			cd
+0
+1			cd
+1	x		a
+1			b
+2			(abc)	(
+1			abc
+0
+0
+ERR	4	conditional subpattern contains more than two branches
+1			a
+2			ab	a
+0
+1			ab
+1			ab
+1		a	
+ERR	1	missing closing parenthesis
+ERR	2	unmatched closing parenthesis
+ERR	4	missing terminating ] for character class
+ERR	4	range out of order in character class
+ERR	3	quantifier does not follow a repeatable item
+ERR	1	quantifier does not follow a repeatable item
+ERR	1	quantifier does not follow a repeatable item
+ERR	1	quantifier does not follow a repeatable item
+ERR	0	length of lookbehind assertion is not limited
+ERR	0	length of lookbehind assertion is not limited
+ERR	1	\ at end of pattern
+ERR	2	\ at end of pattern
+ERR	12	two named subpatterns have the same name (PCRE2_DUPNAMES not set)
+ERR	3	reference to non-existent subpattern
+ERR	2	reference to non-existent subpattern
+ERR	5	reference to non-existent subpattern
+ERR	3	unrecognized character after (? or (?-
+ERR	4	subpattern name must start with a non-digit
+ERR	3	malformed \P or \p sequence
+ERR	9	character code point value in \x{} or \o{} is too large
+ERR	2	\c at end of pattern
+ERR	4	syntax error in subpattern name (missing terminator?)
+ERR	5	(*VERB) not recognized or malformed
+ERR	7	missing closing parenthesis
+ERR	2	reference to non-existent subpattern
+ERR	8	\K is not allowed in lookarounds (but see PCRE2_EXTRA_ALLOW_LOOKAROUND_BSK)
+ERR	0	length of lookbehind assertion is not limited
+ERR	5	numbers out of order in {} quantifier
+ERR	7	number too big in {} quantifier
+ERR	10	missing terminating ] for character class
+ERR	5	invalid range in character class
+ERR	3	\N is not supported in a class
+ERR	2	reference to non-existent subpattern
+2	a		b	b
+1			a
+ERR	8	missing ) after (?# comment
+4			abcd	a	bcd	
+2			aabbc	bb
+2			ab	a
+1		ab	
+2			ab	a
+4			c			c
+4			ac	a		c
+4			aabcb	aa	b	c
+4			abc	a	b	c
+4			abc	a	b	c
+3			abcd	a	d
+4			ab	b	a	b
+2			ba	b
+2			ab	a
+2			aab	a
+4			c			c
+3			b		b
+1			
+5			d				d
+5			a	a	a	a	a
+13			abcdefghijkl	a	b	c	d	e	f	g	h	i
+2		b	ba	a
+2		b	ba	a
+3			ab	ab	
+3			ab		ab
+3			ab		ab
+3			abbc	abb	c
+3		abbc			
+4		 four	one two three	one	two	three
+3		 x	key = "some value"	key	some value
+3			  cmd   the rest of it   	cmd	the rest of it
+0
+3			Bob tells you, "hi there"	Bob	hi there
+0
+3			You paged Bob with 'hello'	Bob	hello
+3			[chan] hello [x]	chan	hello [x]
+3			<nick> msg	nick	msg
+3			1h 30m	1	30
+5	ip 	 ok	10.0.0.1	10	0	0	1
+3	cost 		$12.50	12	50
+2	a 	 (c)	(b)	b
+2	a 	 {c}	{b}	b
+3			BOB SAYS, "HI"	BOB	HI
+2			the quick brown fox	fox
+3		 world	hello	h	ello
+2	he	o	ll	l
+3	x	y	abba	a	b
+1			acbdad
+3			1.2	1	2
+3			2		2
+3			bab	b	a
+1		b	a
+1			abcd
+1			abcd
+1			xxxxxxxxxxxxxxxxxxxxxxxxy
+1			xxxxxxxxxxxxy
+1			xxxxxy
+2			aba	ba
+2			abaa	a
+2			aba	a
+2		bba	a	a
+3			aabaab	aab	a
+0
+0
+1		ab	abab
+1			ababab
+1		b	aa
+1			abac
+2		aa	aa	a
+2			aaaa	aaa
+2		aaa		
+2			aaaa	a
+2			aaaa	aa
+2			aaaa	a
+4			abcabc	a	b	c
+4			abcx	a	b	c
+3			aba	a	b
+3			abab	a	b
+2			acbc	a
+3			1,2,3	1	3
+3			1,2,3;	1	3
+3			a=1 b=2 c=3	c	3
+3			a b c d	a	d
+4			a,,c	a		c
+2			a,b,c	
+2			a,b,	
+3			abcb	a	b
+5			abcd	c	a	b	c
+5			abcd	c	a	b	c
+2		bab	a	b
+2			aa	a
+1			aa
+2	a		b	a
+3	c		b		c
+1	c		b
+2	a		b	a
+2	a	b	b	b
+3			b		b
+2		ab		a
+2			abac	a
+2			abac	a
+3			bb		b
+2			aba	b
+2			aba	b
+2			abac	b
+3			xaby	a	b
+3			xaby	a	b
+2			abc	a
+2			aA	a
+0
+2			aa	a
+2			ǆǅ	ǆ
+2		 cat	the the	the
+2	this 	 a test	is is	is
+2	say 	 "yo"	'hi'	'
+4			abccba	a	b	c
+2			aabbcc	c
+3			abcabc	ab	c
+3			aabbcc	cc	c
+0
+2			aa	a
+1			b
+3			xyyx	x	y
+2	a		11	1
+0
+3			john smith	john	smith
+3			abb	a	b
+3			abb	a	b
+2	a	bc	b	b
+2	a	b	ab	a
+2	a	b	aa	a
+2			aaaa	aa
+2	a		aab	a
+2			aaaab	aa
+2			aa	
+1			b
+ERR	4	invalid range in character class
+1	mail 	 now	bob.x-y@ex-ample.org
+1	12 	 34	ab
+1			^]^
+1		b	a-z-
+1		b	a-z-
+1			abz
+1	a	b	ā
+1	ab	ef	CD12
+1	ab 	 cd	12
+1	--	--	a1
+1	abc	def	123 
+1	ab	c	_ 
+1			a b
+1			x
+1		é	abc
+1	abc	fg	é
+1	x	y	AB
+1			
+1			8
+1			
+1			
+1	a	b	
+1	abc&&[^		b]
+1	a	b	-./
+1	a	b	+,-
+1			-
+1			-
+1			]
+1	]	]	ab
+1			^_]a
+1			^_]a
+1		€	abcé
+1	abc	èüz	é
+1		ÈÜ	É
+1			ABCdef
+1	ABC		123
+1			K
+1			k
+1			ſ
+1			ǅ
+1			ǅ
+1			ǆ
+1			Ǆ
+0
+1			ab١٢c
+1	a	b	¡¿
+0
+0
+0
+1			 
+0
+1			 
+1			
+1			
+1			᠎
+1			 
+1			
+1			ａ
+1			ª
+0
+1			٣
+0
+0
+0
+1			J
+1			
+1			J
+1			A
+1			😀
+ERR	2	PCRE2 does not support \F, \L, \l, \N{name}, \U, or \u
+1			a\tb
+1			
+1			
+1			
+1			\r
+1			
+ERR	2	reference to non-existent subpattern
+1			 
+1			 
+0
+1			A
+1			Ā
+1			ǿ
+1			 
+1			ǿ
+1			A
+1			😀
+1			ab
+1			a\\
+1		abc	
+1			ab
+0
+1			abbb
+1			abb
+1			x+++
+1			aaa
+1			ab
+0
+1			a b
+1			a b
+1			a b
+1		b	a
+1		b	a
+1			a
+1			123
+2			aa	a
+1			ab
+1			aa
+1			aa
+1			aa
+1			ab
+1			ab 
+1		 b	a
+1			a b
+1			AB
+1			A B
+1	b 		A
+1			A
+1			a b
+0
+1			AbC
+0
+1			AbC
+1			Ab
+1			AB
+2			aB	a
+1			B
+2			aB	aB
+0
+1			AC
+0
+1			AB
+1			A
+0
+0
+0
+ERR	9	reference to non-existent subpattern
+2			aa	a
+2			aa	a
+2			ab	b
+1		 a	a
+1		 a	a
+1		 	
+0
+1	a 	 	
+1	a	 	
+1	a 		
+1	a	 	
+1		 a	a
+0
+1	a	 	
+1	a 	 	
+1	a 		
+1	a 		
+1	a	b	 
+0
+1		 	
+1		 	
+1		a 	
+1		a b	
+1		 b	a
+0
+1			a b
+1		 b	a
+0
+1		 b	a
+1	b		a
+1			é
+1	a		é
+1		本	日
+1			日
+0
+1		é	
+1			é
+1		a	é
+1	é		a
+1		aaa	
+1			aaa
+1			abc
+1			abc
+1			abc
+1			abc
+1			abc
+1			xyz
+3			xyz	xy	z
+2		yz	x	x
+1		e	acdbcdb
+1			acdbcdbe
+1			acdbcdbe
+0
+1			aabbaac
+1			aabbaac
+1			aabbaa
+1			abab
+1		bb	aa
+1			aabbc
+1			abc
+1			a
+1			ab
+0
+1		b	a
+1	ab		c
+1	a		b
+1	b		c
+1		abx	
+2			abc:	abc
+2		ab		ab
+1	a		b
+1			b
+1			a
+1	a		b
+1		a	
+1	a		b
+1	a		
+1	abc		d
+0
+1	abc		d
+0
+1	bb		c
+0
+ERR	0	length of lookbehind assertion is not limited
+0
+1	a		b
+1	日日		本
+1	ab		c
+1	\r 		a
+1	 		a
+1	a		b
+1	abc		d
+1	a		b
+1	a		
+1			a
+1	aa		b
+3	a		b	a	b
+ERR	8	\K is not allowed in lookarounds (but see PCRE2_EXTRA_ALLOW_LOOKAROUND_BSK)
+1	x	xy	y
+1	a	b2	1
+1	abc		
+1	abca		b
+1	abd		e
+1			ab
+0
+0
+1		 World	Hello
+1		orld	helloW
+1		a	é
+1	abc		123
+1			Ⅷ
+1			½
+1	a	b	-–—
+1	a	b	()
+1	a	b	«»
+1	a	b	+<=>
+1	a	b	^
+1	a	b	©
+1	a	b	 
+1	a	b	 
+1	a	b	
+1	a	b	​
+1	a	b	
+1	a	b	͸
+0
+1	a		
+1			é
+1		かな	漢字
+1		かな	漢字
+1		、	漢字
+1			漢字、
+1	a	b	123!
+1	e		́
+1			abcdéf
+1			abc
+0
+1			μ
+1	abc 		אבג
+1	abc 		नमस्ते
+1	abc 		한국어
+1			ก
+0
+1			ǅ
+1			a
+1			a
+0
+1			a
+1			a
+0
+0
+1			a
+0
+0
+1			A
+1			ǅ
+0
+1			_
+1			
+1			$
+0
+1			a
+1			α
+1			α
+1			A
+1			A
+ERR	18	unknown property after \P or \p
+4			cmd arg rest of line	cmd	arg	rest of line
+3			key: value: more	key	value: more
+2	 	 two	 one	one
+1	  	 two	one
+4			me@site.org	me	site	org
+3	see 	 ok	http://example.com/path?q=1	example.com	/path?q=1
+3		 hi	[12:34]	12	34
+2		 hello	  /Say	Say
+3			Bob says, "hi there"	Bob	hi there
+2			one two three four	four
+2		 and 5gp	10 gold	10
+3			1,234,567	1	567
+1			-12.5e+3
+0
+2	x 	 y	<b>a b</b>	a b
+3		<i>it</i>	<b>bold</b>	b	bold
+2			<B>x</b>	B
+1			Passw0rdX
+0
+1			192.168.1.255
+4			a = 'b c'	a		b c
+5			a = zz	a			zz
+1			abcbac
+2		)	(	(
+1		ab  	  
+1	ab		   
+1		です	日本語
+1	日本		語です
+4			日本語です	日	本語で	す
+1			äöü
+1			ÄäÄ
+1			ÄäÄ
+1	ä	ä	Ä
+1		b	Ä
+1			Ä
+0
+0
+0
+1	a		b
+0
+1			
+ERR	11	invalid range in character class
+1			a
+1			5
+ERR	7	invalid range in character class
+1			a
+1			b
+ERR	3	digits missing after \x or in \x{} or \o{} or \N{U+}
+ERR	2	digits missing after \x or in \x{} or \o{} or \N{U+}
+ERR	3	digits missing after \x or in \x{} or \o{} or \N{U+}
+ERR	4	non-octal character in \o{} (closing brace missing?)
+ERR	4	invalid range in character class
+ERR	4	invalid range in character class
+ERR	5	invalid range in character class
+1			c
+0
+1			b
+ERR	4	missing terminating ] for character class
+1			]
+ERR	4	missing terminating ] for character class
+1			a
+1			b
+1			b
+1			+
+1			-
+ERR	2	digits missing after \x or in \x{} or \o{} or \N{U+}
+1			A
+1		āx	abcé
+1	日本		abc
+1	abc	x	ā日
+0
+ERR	9	POSIX named classes are supported only within a class
+ERR	9	POSIX named classes are supported only within a class
+1			:
+1			::aa
+1			ab
+1			abc
+2			éa	a
+ERR	9	quantifier does not follow a repeatable item
+ERR	5	quantifier does not follow a repeatable item
+1			g
+1			k
+1			kz
+1			c
+1			-
+1			QQQ
+0
+1		QQ	
+ERR	3	malformed \P or \p sequence
+ERR	3	malformed \P or \p sequence
+1			é
+1		a	
+1			a
+1			a
+1		a	
+1			a

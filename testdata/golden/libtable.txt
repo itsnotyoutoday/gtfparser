@@ -1,0 +1,747 @@
+/def -i -b'^W' = /DOKEY BWORD
+/def -i -b'^R' = /DOKEY REFRESH
+/def -i -b'^V' = /DOKEY LNEXT
+/def -i loaded = /if /@test _loaded_libs !/ "*{%{1}}*"%; /then /set _loaded_libs=%{_loaded_libs} %{1}%;/let _required=0%; /elseif (_required) /exit%; /endif
+/def -i require = /let _required=1%; /load %{-L} %{L}
+/def -i status_int_more = /let new=$[moresize("ln")]%; /let old=$[moresize("l") - new]%; /if (limit() & !morepaused()) /result "LIMIT ON"%; /elseif (old) /if (old >= 1000) /let old=$[old/1000]k%; /endif%; /if (new >= 1000) /let new=$[new/1000]k%; /endif%; /result pad(limit() ? "L" : " ", 1, old, 3, "+", 1, new, 3)%; /else /if (new >= 10000) /let new=$[new/1000]k%; /endif%; /result pad(limit() ? "LIM " : "More", 4, new, 4)%; /endif
+/def -i status_defaults = /let _old_warn_status=%warn_status%; /set warn_status=0%; /set clock_format=%std_clock_format%; /set status_int_more=%status_std_int_more%; /set status_int_world=%status_std_int_world%; /set status_int_read=%status_std_int_read%; /set status_int_active=%status_std_int_active%; /set status_int_log=%status_std_int_log%; /set status_int_mail=%status_std_int_mail%; /set status_var_insert=%status_std_var_insert%; /set status_int_clock=%status_std_int_clock%; /status_add -c - %status_field_defaults%; /set warn_status=%_old_warn_status
+/def -i status_save = /set _status_save_%1=$[status_fields()]
+/def -i status_restore = /if /isvar _status_save_%1%; /then /eval /status_add -c %%_status_save_%1%; /else /echo -e %% No saved status "%1".%; /endif
+/def -i clock = /if ({*} =/ "{0|off|no}") /status_rm @clock%; /else /if ({*} !/ "{1|on|yes}") /set clock_format=%{*-%%H:%%M}%; /endif%; /let width=$[strlen(ftime(clock_format))]%; /if (regmatch("(^|\\s+)@clock(:[^: ]+(:[^ ]+)?)?\\b", status_fields)) /status_edit @clock:%width%P3%; /else /status_add -A -x @clock:%width%; /endif%; /endif
+/def -i COMPRESS_SUFFIX = .Z
+/def -i COMPRESS_READ = zcat
+/def -i _echo = /test echo({*})
+/def -i prompt = /let opt_a=%; /let opt_p=0%; /if (!getopts("a:p")) /return 0%; /endif%; /return prompt(decode_attr({*}, opt_a, !!opt_p))
+/def -i substitute = /if (!getopts("a:p", "")) /return 0%; /endif%; /return substitute({*}, opt_a, !!opt_p)
+/def -i sys = /quote -S -decho \\!!%{*-:}
+/def -i send = /if (!getopts("hnWT:w:", "")) /return 0%; /endif%; /let _text=%{*}%; /let _flags=$[opt_h ? "h" : ""]$[opt_n ? "u" : ""]%; /if (opt_W) /~send $(/@listsockets -s)%; /elseif (opt_T !~ "") /~send $(/@listsockets -s -T%{opt_T})%; /else /test send(_text, {opt_w}, _flags)%; /endif
+/def -i ~send = /while ({#}) /@test send(_text, {1}, _flags)%; /shift%; /done
+/def -i : = /@test 1
+/def -i true = /@test 1
+/def -i false = /@test 0
+/def -i bg = /fg -n
+/def -i addworld = /if (!getopts("pxeT:s:", "")) /return 0%; /endif%; /let flags=$[opt_p ?"p":""]$[opt_x?"x":""]$[opt_e?"e":""]%; /if ({1} =/ "default") /test addworld({1}, opt_T, "", "", {2}, {3}, {4}, flags, opt_s)%;/elseif ({#} <= 4) /test addworld({1}, opt_T, {2}, {3}, "", "", {4}, flags, opt_s)%;/else /test addworld({1}, opt_T, {4}, {5}, {2}, {3}, {6}, flags, opt_s)%;/endif
+/def -i world = /if (!getopts("nlqxfb", 0)) /return 0%; /endif%; /let _args=%*%; /if (_args =~ "") /let _args=$(/nth 1 $(/@listworlds -s))%; /if (_args =/ "default") /let _args=$(/nth 2 $(/@listworlds -s))%; /endif%; /endif%; /let _opts=%; /if (is_open(_args)) /if (opt_n) /let _opts=%_opts -n%; /endif%; /if (opt_q) /let _opts=%_opts -q%; /endif%; /@fg %_opts %_args%; /else /if (opt_l) /let _opts=%_opts -l%; /endif%; /if (opt_q) /let _opts=%_opts -q%; /endif%; /if (opt_x) /let _opts=%_opts -x%; /endif%; /if (opt_f) /let _opts=%_opts -f%; /endif%; /if (opt_b) /let _opts=%_opts -b%; /endif%; /@connect %_opts %_args%; /endif
+/def -i purgeworld = /unworld $(/@listworlds -s %*)
+/def -i for = /@eval /let %1=%2%%; /while ( %1 <= %3 ) %-3%%; /@test ++%1%%; /done
+/def -i toggle = /@test %1 := !%1
+/def -i not = /@eval %*%; /@test !%?
+/def -i expr = /result %*
+/def -i grab = /@test kblen() & dokey("dline")%; /@test input({*})
+/def -i partial = /def -F -p%{hpri-0} -Ph -t"$(/escape " %*)"
+/def -i trig = /trigpc 0 100 %*
+/def -i trigc = /trigpc 0 %{1-x} %-1
+/def -i trigp = /trigpc %{1-x} 100 %-1
+/def -i undeft = /untrig -anGgurfdhbBC0 - %*
+/def -i nogag = /if ({#}) /untrig -ag - %*%;/else /echo %% Gags disabled.%;/set gag=0%;/endif
+/def -i nohilite = /if ({#}) /untrig -aurfdhbBC0 - %*%;/else /echo %% Hilites disabled.%;/set hilite=0%;/endif
+/def -i ismacro = /test tfclose("o")%; /@list -s -i %{*-@}
+/def -i isvar = /test tfclose("o")%; /listvar -msimple -- %*
+/def -i paste = /if (!getopts("spnxtqhw:e:a:", "")) /return 0%; /endif%; /if (opt_p & opt_t) /echo -e %% %0: Options -p and -t are mutually exclusive.%; /return 0%; /endif%; /if (opt_x & opt_w !~ "") /echo -e %% %0: Options -x and -w are mutually exclusive.%; /return 0%; /endif%; /let _prefix=$[opt_n ? "" : {*-%{paste_prefix-:|}}]%; /if (!opt_n) /shift%; /endif%; /let _end=%{opt_e-/endpaste}%; /let _abort=%{opt_a-/abort}%; /let _line=%; /let _text=%; /let _world=%{opt_w-${world_name}}%; /let _oldlen=0%; /let _lead=0%; /let _read=0%; /if (!opt_q) /echo -ep %% Entering paste mode. Type "@{B}%{_end}@{n}" or "@{B}.@{n}" to end, or "@{B}%{_abort}@{n}" to abort.%; /endif%; /while (1) /if ((_read := tfread(_line)) < 0 | _line =/ _abort) /return 0%; /endif%; /if (_line =/ _end | _line =/ ".") /break%; /endif%; /if (_line =/ "/quit" | _line =/ "/help*") /echo -ep %% Type "@{B}%{_end}@{n}" or "@{B}.@{n}" to end /paste, or @{B}%{_abort}@{n} to abort.%; /endif%; /if (opt_t) /test regmatch("^ +", _line), _lead := strlen({P0})%; /if (!_oldlen) /test _text := _line%; /elseif (_oldlen <= _lead) /test _text := strcat(_text, substr(_line, _oldlen))%; /else /_paste %{_prefix} %{_text}%; /test _text := _line%; /endif%; /test _oldlen := strlen(_text)%; /elseif (!opt_p) /if (!opt_s) /test regmatch(" *$$", _line)%; /let _line=%PL%; /endif%; /test _paste(_prefix=~"" ? _line : strcat(_prefix, " ", _line))%; /elseif (regmatch("^ *$", _line)) /if (_text !~ "") /_paste %{_prefix}%{_text}%; /_paste %{_prefix}%; /let _text=%; /endif%; /else /let _text=%{_text} $(/echo - %{_line})%; /endif%; /done%; /if ((opt_p | opt_t) & _text !~ "") /_paste %{_prefix}%{_text}%; /endif%; /return 1
+/def -i _paste = /if (opt_x) /test eval({*}, 0)%; /else /test send({*}, _world, opt_h ? "h" : "")%; /endif
+/def -i first = /result {1}
+/def -i rest = /result {-1}
+/def -i last = /result {L}
+/def -i nth = /result {1} > 0 ? shift({1}), {1} : ""
+/def -i cd = /lcd %{*-%HOME}
+/def -i pwd = /last $(/@lcd)
+/def -i man = /help %*
+/def -i signal = /quote -S -decho !kill -%{1-l} $[{1}!~"" ? getpid() : ""]
+/def -i split = /@test regmatch("^([^=]*[^ =])? *=? *(.*)", {*})
+/def -i ver = /result regmatch('version (.*). %% Copyright', $$(/version)), {P1}
+/def -i vercmp = /let pat=^([0-9]+)\\.([0-9]+) (alpha|beta|gamma|stable) ([0-9]*)$$%; /if (!regmatch(pat, {1})) /echo -e %% %0: Bad version format "%1"%; /return -2%; /endif%; /let maj1=%P1%; /let min1=%P2%; /let lev1=%P3%; /let rev1=%P4%; /if (!regmatch(pat, {2})) /echo -e %% %0: Bad version format "%2"%; /return -2%; /endif%; /let maj2=%P1%; /let min2=%P2%; /let lev2=%P3%; /let rev2=%P4%; /return (maj1-maj2 ?: min1-min2 ?: strcmp(lev1,lev2) ?: rev1-rev2)
+/def -i runtime = /let real=%; /let cpu=%; /test real:=time(), cpu:=cputime()%; /eval -s0 %{*}%; /let result=%?%; /_echo real=$[time() - real] cpu=$[cputime() - cpu]%; /return result
+/def -i addtiny = /addworld -T"tiny" %*
+/def -i addlp = /addworld -T"lp" %*
+/def -i addlpp = /addworld -T"lpp" %*
+/def -i adddiku = /addworld -T"diku" %*
+/def -i addtelnet = /addworld -T"telnet" %*
+/def -i -Fp2147483647 -agG -hPROXY proxy_hook = /proxy_command
+/def -i proxy_command = /proxy_connect%; /localecho on%; /trigger -hCONNECT ${world_name}%; /if (login & ${world_character} !~ "" & ${world_login}) /trigger -hLOGIN ${world_name}%; /endif
+/def -i proxy_connect = telnet ${world_host} ${world_port}
+/def -i -Fp1 -mglob -T'{}' -hCONNECT ~detect_worldtype_hook = /def -ip1 -n1 -w -mregexp -h'PROMPT login: *$$' ~detect_worldtype_telnet_${world_name} = /echo -e %%% This looks like a telnet world, so I'm redefining it as one. You should explicitly set the type with the -T"telnet" option of /addworld.%%;/addworld -Ttelnet ${world_name}%%;/set lp=1%%;/localecho on%%; /@test prompt(strcat({PL}, {P0}))%%;/purge -i ~detect_worldtype_*_${world_name}%; /let cleanup=/purge -i #%?%; /def -ip0 -n1 -w -mregexp -h'PROMPT ...[?:] *$$' ~detect_worldtype_prompt_${world_name} = /echo -e %%% This looks like an unterminated-prompt world, so I'm redefining it as one. You should explicitly set the type with the -T"prompt" option of /addworld.%%;/addworld -Tprompt ${world_name}%%; /set lp=1%%; /@test prompt(strcat({PL}, {P0}))%%; /purge -i ~detect_worldtype_*_${world_name}%; /let cleanup=%cleanup%%; /purge -i #%?%; /def -iFp'maxpri' -n1 -w -hDISCONNECT = %cleanup%; /let cleanup=%cleanup%%; /purge -i #%?%; /repeat -5 1 %cleanup
+/def -i -Fp2147483647 -mglob -T'{}' -hLOGIN ~default_login_hook = /~login_hook_tiny
+/def -i -Fp2147483647 -mglob -T'{tiny|tiny.*}' -hWORLD ~world_hook_tiny = /set lp=0
+/def -i -Fp2147483647 -mglob -T'{tiny|tiny.*}' -hLOGIN ~login_hook_tiny = /let _char=${world_character}%;/if (strchr(_char, ' ') >= 0) /let _char="%_char"%; /endif%; /let _pass=${world_password}%;/if (strchr(_pass, ' ') >= 0) /let _pass="%_pass"%; /endif%; /send connect %_char %_pass
+/def -i -Fp2147483647 -mglob -T'prompt' -hWORLD ~world_hook_prompt = /set lp=1
+/def -i -Fp2147483647 -mglob -T'{lp|lp.*|diku|diku.*|aber|aber.*}' -hWORLD ~world_hook_lp = /set lp=1
+/def -i -Fp2147483647 -mglob -T'{lp|lp.*|diku|diku.*|aber|aber.*}' -hLOGIN ~login_hook_lp = /send -- ${world_character}%; /send -- ${world_password}
+/def -i -Fp2147483647 -mglob -T'{lpp|lpp.*}' -hWORLD ~world_hook_lpp = /set lp=0
+/def -i -Fp2147483647 -mglob -T'{lpp|lpp.*}' -hLOGIN ~login_hook_lpp = /send -- ${world_character}%; /send -- ${world_password}
+/def -i -Fp2147483647 -mglob -T'{telnet|telnet.*}' -hCONNECT ~con_hook_telnet = /def -w -qhPROMPT -n1 -iFp'maxpri-1' = /localecho on
+/def -i -Fp2147483647 -mglob -T'{telnet|telnet.*}' -hWORLD ~world_hook_telnet = /set lp=1
+/def -i -Fp2147483647 -mglob -T'{telnet|telnet.*}' -hLOGIN ~login_hook_telnet = /def -n1 -ip'maxpri' -mregexp -w -h'PROMPT login: *$$' ~telnet_login_${world_name} = /send -- $${world_character}%; /def -n1 -ip'maxpri' -mregexp -w -h'PROMPT password: *$$' ~telnet_pass_${world_name} = /send -- $${world_password}
+/def -i -Fp2147483646 -mregexp -T'^telnet(\\..*)?$' -h'PROMPT password: *$' ~telnet_passwd = /@test prompt(strcat({PL}, {P0}))%;/def -w -q -hSEND -i -n1 -Fp'maxpri' ~echo_${world_name} =/localecho on%;/localecho off
+/def -i telnet = /addtelnet %{1},%{2-23} %1 %{2-23}%; /connect %{1},%{2-23}
+/def -i MACROFILE = ~/tiny.macros
+/def -i HILITEFILE = ~/tiny.hilite
+/def -i GAGFILE = ~/tiny.gag
+/def -i TRIGFILE = ~/tiny.trig
+/def -i BINDFILE = ~/tiny.bind
+/def -i HOOKFILE = ~/tiny.hook
+/def -i WORLDFILE = ~/tiny.world
+/def -i LOGFILE = tiny.log
+/def -i ~def_file_command = /def -i %1%2 = /%1 %%{1-$${%{3}FILE}} %{-3}
+/def -i loaddef = /load %{1-${MACROFILE}}
+/def -i loadhilite = /load %{1-${HILITEFILE}}
+/def -i loadgag = /load %{1-${GAGFILE}}
+/def -i loadtrig = /load %{1-${TRIGFILE}}
+/def -i loadbind = /load %{1-${BINDFILE}}
+/def -i loadhook = /load %{1-${HOOKFILE}}
+/def -i loadworld = /load %{1-${WORLDFILE}}
+/def -i savedef = /save %{1-${MACROFILE}} -mglob -h0 -b{} -t{} ?*
+/def -i savegag = /save %{1-${GAGFILE}} -mglob -h0 -b{} -t -ag
+/def -i savetrig = /save %{1-${TRIGFILE}} -mglob -h0 -b{} -t -an
+/def -i savebind = /save %{1-${BINDFILE}} -mglob -h0 -b
+/def -i savehook = /save %{1-${HOOKFILE}} -mglob -h
+/def -i savehilite = /save %{1-${HILITEFILE}} -mglob -h0 -b{} -t -aurfdhbBC0%;/save -a %{1-${HILITEFILE}} -mglob -h0 -t -P
+/def -i listdef = /list %*
+/def -i listfullhilite = /list -mglob -h0 -b{} -t'$(/escape ' %*)' -aurfdhbBC0
+/def -i listpartial = /list -mglob -h0 -t'$(/escape ' %*)' -P
+/def -i listhilite = /listfullhilite%; /listpartial
+/def -i listgag = /list -mglob -h0 -b{} -t'$(/escape ' %*)' -ag
+/def -i listtrig = /list -mglob -h0 -b{} -t'$(/escape ' %*)' -an
+/def -i listbind = /list -mglob -h0 -b'$(/escape ' %*)'
+/def -i listhook = /list -mglob -h'$(/escape ' %*)'
+/def -i purgedef = /purge -mglob -h0 -b{} - %{1-?*}
+/def -i purgehilite = /purge -mglob -h0 -b{} -t'$(/escape ' %*)' -aurfdhbBC0
+/def -i purgegag = /purge -mglob -h0 -b{} -t'$(/escape ' %*)' -ag
+/def -i purgetrig = /purge -mglob -h0 -b{} -t'$(/escape ' %*)' -an
+/def -i purgedeft = /purge -mglob -h0 -b{} -t'$(/escape ' %*)' ?*
+/def -i purgebind = /purge -mglob -h0 -b'$(/escape ' %*)'
+/def -i purgehook = /purge -mglob -h'$(/escape ' %*)'
+/def -i untrig = /if (!getopts("a:", "")) /return 0%; /endif%; /if /!purge -i -msimple -a%opt_a -t"$(/escape " %*)"%; /then /echo -e %% No trigger on %*.%; /return 0%; /endif
+/def -i unhook = /if /!purge -i -msimple -h"$(/escape " %*)"%; /then /echo -e %% No hook on %*.%; /return 0%; /endif
+/def -i escape = /let _meta=%; /let _dest=%; /let _tail=%; /let _i=%;/test _meta:=strcat({1}, "\\\\")%;/test _tail:={-1}%;/while ((_i := strchr(_tail, _meta)) >= 0) /test _dest:=strcat(_dest, substr(_tail,0,_i), "\\\\", substr(_tail,_i,1)), _tail:=substr(_tail, _i+1)%;/done%;/result strcat(_dest, _tail)
+/def -i replace = /result replace({1}, {2}, {-2})
+/def -i loadhist = /let _file=%L%; /quote -S /recordline %-L '%%{_file-${LOGFILE}}
+/def -i retry = /def -mglob -p'maxpri' -F -h'CONFAIL $(/escape ' %1) *' ~retry_fail_%1 =/repeat -w -%{2-60} 1 /connect %1%;/def -mglob -n1 -p'maxpri' -F -h'CONNECT $(/escape ' %1)' ~retry_succ_%1=/undef ~retry_fail_%1%;/connect %1
+/def -i retry_off = /purge -mglob {~retry_fail_%{1-*}|~retry_succ_%{1-*}}
+/def -i hilite_whisper = /def -ip2 -ah -mregexp -t'^[^ ]* whispers,? ".*" (to [^ ]*)?$$' ~hilite_whisper1
+/def -i hilite_page = /def -ip2 -ah -mglob -t'{*} pages from *[,:] *' ~hilite_page1%;/def -ip2 -ah -mglob -t'You sense that {*} is looking for you in *' ~hilite_page2%;/def -ip2 -ah -mglob -t'The message was: *' ~hilite_page3%;/def -ip2 -ah -mglob -t'{*} pages[,:] *' ~hilite_page4%;/def -ip2 -ah -mglob -t'In a page-pose*' ~hilite_page5
+/def -i nohilite_whisper = /purge -mglob -I ~hilite_whisper[1-9]
+/def -i nohilite_page = /purge -mglob -I ~hilite_page[1-9]
+/def -i cat = /echo -e %% Entering cat mode. Type "." to end.%; /let _line=%; /let _all=%; /while ((tfread(_line) >= 0) & (_line !~ ".")) /if (_line =/ "/quit") /echo -e %% Type "." to end /cat.%; /endif%; /@test _all := strcat(_all, (({1} =~ "%%" & _all !~ "") ? "%%;" : ""), _line)%; /done%; /recordline -i %_all%; /@test eval(_all)
+/def -i time = /@test echo(ftime({*-%%{time_format}})), time()
+/def -i rand = /if ( {#} == 0 ) /echo $[rand()]%;/elseif ( {#} == 1 ) /echo $[rand({1})]%;/elseif ( {#} == 2 ) /echo $[rand({1}, {2})]%;/else /echo -e %% %0: too many arguments%;/endif
+/def -i more = /if ( {*} =/ "{on|1}" & ismacro("-ib'^I' = /key_tab") & ismacro("-i key_tab = /dokey page") ) /echo -e %% "More" paging enabled. Use TAB to scroll.%;/endif%; /set more %*
+/def -i nolog = /log off
+/def -i nowrap = /set wrap off
+/def -i nologin = /set login off
+/def -i noquiet = /set quiet off
+/def -i act = /trig %*
+/def -i reply = /set borg %*
+/def -i background = /set background %*
+/def -i bamf = /set bamf %*
+/def -i borg = /set borg %*
+/def -i clearfull = /set clearfull %*
+/def -i cleardone = /set cleardone %*
+/def -i insert = /set insert %*
+/def -i login = /set login %*
+/def -i lp = /set lp %*
+/def -i lpquote = /set lpquote %*
+/def -i quiet = /set quiet %*
+/def -i quitdone = /set quitdone %*
+/def -i redef = /set redef %*
+/def -i shpause = /set shpause %*
+/def -i sockmload = /set sockmload %*
+/def -i sub = /set sub %*
+/def -i visual = /set visual %*
+/def -i gpri = /set gpri %*
+/def -i hpri = /set hpri %*
+/def -i isize = /set isize %*
+/def -i ptime = /set ptime %*
+/def -i wrapspace = /set wrapspace %*
+/def -i wrap = /if ({*} =/ '[0-9]*') /set wrapsize=%*%; /set wrap=1%; /else /set wrap %*%;/endif
+/def -i ~do_prefix = /if ( {-1} =/ "{|off|0|on|1}" ) /set %{1}echo %{-1}%; /elseif ( {-1} =/ "{all|2}" & {1} =~ "m" ) /set %{1}echo %{-1}%; /else /set %{1}prefix=%{-1}%; /set %{1}prefix%; /set %{1}echo=1%; /endif
+/def -i kecho = /~do_prefix k %*
+/def -i mecho = /~do_prefix m %*
+/def -i qecho = /~do_prefix q %*
+/def -i ~bind_if_not_bound = /if /!ismacro -msimple -ib'%1'%; /then /def -ib'%1' = %-1%;/endif
+/def -i ~keyseq = /let name=%1%; /while /shift%; /test {#} & {1} !/ "#*"%; /do /def -ib'%1' = /key_%name%; /def -ib'^[%1' = /key_esc_%name%; /done
+/def -i -b'^[[A' = /key_up
+/def -i -b'^[^[[A' = /key_esc_up
+/def -i -b'^[OA' = /key_up
+/def -i -b'^[^[OA' = /key_esc_up
+/def -i -b'^[[B' = /key_down
+/def -i -b'^[^[[B' = /key_esc_down
+/def -i -b'^[OB' = /key_down
+/def -i -b'^[^[OB' = /key_esc_down
+/def -i -b'^[[C' = /key_right
+/def -i -b'^[^[[C' = /key_esc_right
+/def -i -b'^[OC' = /key_right
+/def -i -b'^[^[OC' = /key_esc_right
+/def -i -b'^[[D' = /key_left
+/def -i -b'^[^[[D' = /key_esc_left
+/def -i -b'^[OD' = /key_left
+/def -i -b'^[^[OD' = /key_esc_left
+/def -i -b'^[[E' = /key_center
+/def -i -b'^[^[[E' = /key_esc_center
+/def -i -b'^[OE' = /key_center
+/def -i -b'^[^[OE' = /key_esc_center
+/def -i -b'^[[1;5A' = /key_ctrl_up
+/def -i -b'^[^[[1;5A' = /key_esc_ctrl_up
+/def -i -b'^[[1;5B' = /key_ctrl_down
+/def -i -b'^[^[[1;5B' = /key_esc_ctrl_down
+/def -i -b'^[[1;5C' = /key_ctrl_right
+/def -i -b'^[^[[1;5C' = /key_esc_ctrl_right
+/def -i -b'^[[1;5D' = /key_ctrl_left
+/def -i -b'^[^[[1;5D' = /key_esc_ctrl_left
+/def -i -b'^[[1;3A' = /key_meta_up
+/def -i -b'^[^[[1;3A' = /key_esc_meta_up
+/def -i -b'^[[1;3B' = /key_meta_down
+/def -i -b'^[^[[1;3B' = /key_esc_meta_down
+/def -i -b'^[[1;3C' = /key_meta_right
+/def -i -b'^[^[[1;3C' = /key_esc_meta_right
+/def -i -b'^[[1;3D' = /key_meta_left
+/def -i -b'^[^[[1;3D' = /key_esc_meta_left
+/def -i -b'^[[1;2A' = /key_shift_up
+/def -i -b'^[^[[1;2A' = /key_esc_shift_up
+/def -i -b'^[[1;2B' = /key_shift_down
+/def -i -b'^[^[[1;2B' = /key_esc_shift_down
+/def -i -b'^[[1;2C' = /key_shift_right
+/def -i -b'^[^[[1;2C' = /key_esc_shift_right
+/def -i -b'^[[1;2D' = /key_shift_left
+/def -i -b'^[^[[1;2D' = /key_esc_shift_left
+/def -i -b'^[[2~' = /key_insert
+/def -i -b'^[^[[2~' = /key_esc_insert
+/def -i -b'^[[L' = /key_insert
+/def -i -b'^[^[[L' = /key_esc_insert
+/def -i -b'^[[3~' = /key_delete
+/def -i -b'^[^[[3~' = /key_esc_delete
+/def -i -b'^[[1~' = /key_home
+/def -i -b'^[^[[1~' = /key_esc_home
+/def -i -b'^[OH' = /key_home
+/def -i -b'^[^[OH' = /key_esc_home
+/def -i -b'^[[H' = /key_home
+/def -i -b'^[^[[H' = /key_esc_home
+/def -i -b'^[[4~' = /key_end
+/def -i -b'^[^[[4~' = /key_esc_end
+/def -i -b'^[OF' = /key_end
+/def -i -b'^[^[OF' = /key_esc_end
+/def -i -b'^[[F' = /key_end
+/def -i -b'^[^[[F' = /key_esc_end
+/def -i -b'^[[5~' = /key_pgup
+/def -i -b'^[^[[5~' = /key_esc_pgup
+/def -i -b'^[[6~' = /key_pgdn
+/def -i -b'^[^[[6~' = /key_esc_pgdn
+/def -i -b'^[[2;5~' = /key_ctrl_insert
+/def -i -b'^[^[[2;5~' = /key_esc_ctrl_insert
+/def -i -b'^[[3;5~' = /key_ctrl_delete
+/def -i -b'^[^[[3;5~' = /key_esc_ctrl_delete
+/def -i -b'^[[1;5~' = /key_ctrl_home
+/def -i -b'^[^[[1;5~' = /key_esc_ctrl_home
+/def -i -b'^[[1;5H' = /key_ctrl_home
+/def -i -b'^[^[[1;5H' = /key_esc_ctrl_home
+/def -i -b'^[[4;5~' = /key_ctrl_end
+/def -i -b'^[^[[4;5~' = /key_esc_ctrl_end
+/def -i -b'^[[1;5F' = /key_ctrl_end
+/def -i -b'^[^[[1;5F' = /key_esc_ctrl_end
+/def -i -b'^[[5;5~' = /key_ctrl_pgup
+/def -i -b'^[^[[5;5~' = /key_esc_ctrl_pgup
+/def -i -b'^[[6;5~' = /key_ctrl_pgdn
+/def -i -b'^[^[[6;5~' = /key_esc_ctrl_pgdn
+/def -i -b'^[[2;3~' = /key_meta_insert
+/def -i -b'^[^[[2;3~' = /key_esc_meta_insert
+/def -i -b'^[[3;3~' = /key_meta_delete
+/def -i -b'^[^[[3;3~' = /key_esc_meta_delete
+/def -i -b'^[[1;3~' = /key_meta_home
+/def -i -b'^[^[[1;3~' = /key_esc_meta_home
+/def -i -b'^[[1;3H' = /key_meta_home
+/def -i -b'^[^[[1;3H' = /key_esc_meta_home
+/def -i -b'^[[4;3~' = /key_meta_end
+/def -i -b'^[^[[4;3~' = /key_esc_meta_end
+/def -i -b'^[[1;3F' = /key_meta_end
+/def -i -b'^[^[[1;3F' = /key_esc_meta_end
+/def -i -b'^[[5;3~' = /key_meta_pgup
+/def -i -b'^[^[[5;3~' = /key_esc_meta_pgup
+/def -i -b'^[[6;3~' = /key_meta_pgdn
+/def -i -b'^[^[[6;3~' = /key_esc_meta_pgdn
+/def -i -b'^[[2;2~' = /key_shift_insert
+/def -i -b'^[^[[2;2~' = /key_esc_shift_insert
+/def -i -b'^[[3;2~' = /key_shift_delete
+/def -i -b'^[^[[3;2~' = /key_esc_shift_delete
+/def -i -b'^[[1;2~' = /key_shift_home
+/def -i -b'^[^[[1;2~' = /key_esc_shift_home
+/def -i -b'^[[1;2H' = /key_shift_home
+/def -i -b'^[^[[1;2H' = /key_esc_shift_home
+/def -i -b'^[[4;2~' = /key_shift_end
+/def -i -b'^[^[[4;2~' = /key_esc_shift_end
+/def -i -b'^[[1;2F' = /key_shift_end
+/def -i -b'^[^[[1;2F' = /key_esc_shift_end
+/def -i -b'^[[5;2~' = /key_shift_pgup
+/def -i -b'^[^[[5;2~' = /key_esc_shift_pgup
+/def -i -b'^[[6;2~' = /key_shift_pgdn
+/def -i -b'^[^[[6;2~' = /key_esc_shift_pgdn
+/def -i -b'^[OI' = /key_nkpTab
+/def -i -b'^[^[OI' = /key_esc_nkpTab
+/def -i -b'^[OM' = /key_nkpEnt
+/def -i -b'^[^[OM' = /key_esc_nkpEnt
+/def -i -b'^[Oj' = /key_nkp*
+/def -i -b'^[^[Oj' = /key_esc_nkp*
+/def -i -b'^[Ok' = /key_nkp+
+/def -i -b'^[^[Ok' = /key_esc_nkp+
+/def -i -b'^[Ol' = /key_nkp,
+/def -i -b'^[^[Ol' = /key_esc_nkp,
+/def -i -b'^[Om' = /key_nkp-
+/def -i -b'^[^[Om' = /key_esc_nkp-
+/def -i -b'^[On' = /key_nkp.
+/def -i -b'^[^[On' = /key_esc_nkp.
+/def -i -b'^[Oo' = /key_nkp/
+/def -i -b'^[^[Oo' = /key_esc_nkp/
+/def -i -b'^[Op' = /key_nkp0
+/def -i -b'^[^[Op' = /key_esc_nkp0
+/def -i -b'^[Oq' = /key_nkp1
+/def -i -b'^[^[Oq' = /key_esc_nkp1
+/def -i -b'^[Or' = /key_nkp2
+/def -i -b'^[^[Or' = /key_esc_nkp2
+/def -i -b'^[Os' = /key_nkp3
+/def -i -b'^[^[Os' = /key_esc_nkp3
+/def -i -b'^[Ot' = /key_nkp4
+/def -i -b'^[^[Ot' = /key_esc_nkp4
+/def -i -b'^[Ou' = /key_nkp5
+/def -i -b'^[^[Ou' = /key_esc_nkp5
+/def -i -b'^[Ov' = /key_nkp6
+/def -i -b'^[^[Ov' = /key_esc_nkp6
+/def -i -b'^[Ow' = /key_nkp7
+/def -i -b'^[^[Ow' = /key_esc_nkp7
+/def -i -b'^[Ox' = /key_nkp8
+/def -i -b'^[^[Ox' = /key_esc_nkp8
+/def -i -b'^[Oy' = /key_nkp9
+/def -i -b'^[^[Oy' = /key_esc_nkp9
+/def -i -b'^[OX' = /key_nkp=
+/def -i -b'^[^[OX' = /key_esc_nkp=
+/def -i -b'^[[11~' = /key_f1
+/def -i -b'^[^[[11~' = /key_esc_f1
+/def -i -b'^[OP' = /key_f1
+/def -i -b'^[^[OP' = /key_esc_f1
+/def -i -b'^[[224z' = /key_f1
+/def -i -b'^[^[[224z' = /key_esc_f1
+/def -i -b'^[[12~' = /key_f2
+/def -i -b'^[^[[12~' = /key_esc_f2
+/def -i -b'^[OQ' = /key_f2
+/def -i -b'^[^[OQ' = /key_esc_f2
+/def -i -b'^[[225z' = /key_f2
+/def -i -b'^[^[[225z' = /key_esc_f2
+/def -i -b'^[[13~' = /key_f3
+/def -i -b'^[^[[13~' = /key_esc_f3
+/def -i -b'^[OR' = /key_f3
+/def -i -b'^[^[OR' = /key_esc_f3
+/def -i -b'^[[226z' = /key_f3
+/def -i -b'^[^[[226z' = /key_esc_f3
+/def -i -b'^[[14~' = /key_f4
+/def -i -b'^[^[[14~' = /key_esc_f4
+/def -i -b'^[OS' = /key_f4
+/def -i -b'^[^[OS' = /key_esc_f4
+/def -i -b'^[[227z' = /key_f4
+/def -i -b'^[^[[227z' = /key_esc_f4
+/def -i -b'^[[15~' = /key_f5
+/def -i -b'^[^[[15~' = /key_esc_f5
+/def -i -b'^[[228z' = /key_f5
+/def -i -b'^[^[[228z' = /key_esc_f5
+/def -i -b'^[[17~' = /key_f6
+/def -i -b'^[^[[17~' = /key_esc_f6
+/def -i -b'^[[229z' = /key_f6
+/def -i -b'^[^[[229z' = /key_esc_f6
+/def -i -b'^[[18~' = /key_f7
+/def -i -b'^[^[[18~' = /key_esc_f7
+/def -i -b'^[[230z' = /key_f7
+/def -i -b'^[^[[230z' = /key_esc_f7
+/def -i -b'^[[19~' = /key_f8
+/def -i -b'^[^[[19~' = /key_esc_f8
+/def -i -b'^[[231z' = /key_f8
+/def -i -b'^[^[[231z' = /key_esc_f8
+/def -i -b'^[[20~' = /key_f9
+/def -i -b'^[^[[20~' = /key_esc_f9
+/def -i -b'^[[232z' = /key_f9
+/def -i -b'^[^[[232z' = /key_esc_f9
+/def -i -b'^[[21~' = /key_f10
+/def -i -b'^[^[[21~' = /key_esc_f10
+/def -i -b'^[[233z' = /key_f10
+/def -i -b'^[^[[233z' = /key_esc_f10
+/def -i -b'^[[23~' = /key_f11
+/def -i -b'^[^[[23~' = /key_esc_f11
+/def -i -b'^[[192z' = /key_f11
+/def -i -b'^[^[[192z' = /key_esc_f11
+/def -i -b'^[[24~' = /key_f12
+/def -i -b'^[^[[24~' = /key_esc_f12
+/def -i -b'^[[193z' = /key_f12
+/def -i -b'^[^[[193z' = /key_esc_f12
+/def -i -b'^[[25~' = /key_f13
+/def -i -b'^[^[[25~' = /key_esc_f13
+/def -i -b'^[[26~' = /key_f14
+/def -i -b'^[^[[26~' = /key_esc_f14
+/def -i -b'^[[28~' = /key_f15
+/def -i -b'^[^[[28~' = /key_esc_f15
+/def -i -b'^[[29~' = /key_f16
+/def -i -b'^[^[[29~' = /key_esc_f16
+/def -i -b'^[[31~' = /key_f17
+/def -i -b'^[^[[31~' = /key_esc_f17
+/def -i -b'^[[32~' = /key_f18
+/def -i -b'^[^[[32~' = /key_esc_f18
+/def -i -b'^[[33~' = /key_f19
+/def -i -b'^[^[[33~' = /key_esc_f19
+/def -i -b'^[[34~' = /key_f20
+/def -i -b'^[^[[34~' = /key_esc_f20
+/def -i -b'^[[11;5~' = /key_ctrl_f1
+/def -i -b'^[^[[11;5~' = /key_esc_ctrl_f1
+/def -i -b'^[O5P' = /key_ctrl_f1
+/def -i -b'^[^[O5P' = /key_esc_ctrl_f1
+/def -i -b'^[[12;5~' = /key_ctrl_f2
+/def -i -b'^[^[[12;5~' = /key_esc_ctrl_f2
+/def -i -b'^[O5Q' = /key_ctrl_f2
+/def -i -b'^[^[O5Q' = /key_esc_ctrl_f2
+/def -i -b'^[[13;5~' = /key_ctrl_f3
+/def -i -b'^[^[[13;5~' = /key_esc_ctrl_f3
+/def -i -b'^[O5R' = /key_ctrl_f3
+/def -i -b'^[^[O5R' = /key_esc_ctrl_f3
+/def -i -b'^[[14;5~' = /key_ctrl_f4
+/def -i -b'^[^[[14;5~' = /key_esc_ctrl_f4
+/def -i -b'^[O5S' = /key_ctrl_f4
+/def -i -b'^[^[O5S' = /key_esc_ctrl_f4
+/def -i -b'^[[15;5~' = /key_ctrl_f5
+/def -i -b'^[^[[15;5~' = /key_esc_ctrl_f5
+/def -i -b'^[[17;5~' = /key_ctrl_f6
+/def -i -b'^[^[[17;5~' = /key_esc_ctrl_f6
+/def -i -b'^[[18;5~' = /key_ctrl_f7
+/def -i -b'^[^[[18;5~' = /key_esc_ctrl_f7
+/def -i -b'^[[19;5~' = /key_ctrl_f8
+/def -i -b'^[^[[19;5~' = /key_esc_ctrl_f8
+/def -i -b'^[[20;5~' = /key_ctrl_f9
+/def -i -b'^[^[[20;5~' = /key_esc_ctrl_f9
+/def -i -b'^[[21;5~' = /key_ctrl_f10
+/def -i -b'^[^[[21;5~' = /key_esc_ctrl_f10
+/def -i -b'^[[23;5~' = /key_ctrl_f11
+/def -i -b'^[^[[23;5~' = /key_esc_ctrl_f11
+/def -i -b'^[[24;5~' = /key_ctrl_f12
+/def -i -b'^[^[[24;5~' = /key_esc_ctrl_f12
+/def -i -b'^[[25;5~' = /key_ctrl_f13
+/def -i -b'^[^[[25;5~' = /key_esc_ctrl_f13
+/def -i -b'^[[26;5~' = /key_ctrl_f14
+/def -i -b'^[^[[26;5~' = /key_esc_ctrl_f14
+/def -i -b'^[[28;5~' = /key_ctrl_f15
+/def -i -b'^[^[[28;5~' = /key_esc_ctrl_f15
+/def -i -b'^[[29;5~' = /key_ctrl_f16
+/def -i -b'^[^[[29;5~' = /key_esc_ctrl_f16
+/def -i -b'^[[31;5~' = /key_ctrl_f17
+/def -i -b'^[^[[31;5~' = /key_esc_ctrl_f17
+/def -i -b'^[[32;5~' = /key_ctrl_f18
+/def -i -b'^[^[[32;5~' = /key_esc_ctrl_f18
+/def -i -b'^[[33;5~' = /key_ctrl_f19
+/def -i -b'^[^[[33;5~' = /key_esc_ctrl_f19
+/def -i -b'^[[34;5~' = /key_ctrl_f20
+/def -i -b'^[^[[34;5~' = /key_esc_ctrl_f20
+/def -i -b'^[[11;3~' = /key_meta_f1
+/def -i -b'^[^[[11;3~' = /key_esc_meta_f1
+/def -i -b'^[O3P' = /key_meta_f1
+/def -i -b'^[^[O3P' = /key_esc_meta_f1
+/def -i -b'^[[12;3~' = /key_meta_f2
+/def -i -b'^[^[[12;3~' = /key_esc_meta_f2
+/def -i -b'^[O3Q' = /key_meta_f2
+/def -i -b'^[^[O3Q' = /key_esc_meta_f2
+/def -i -b'^[[13;3~' = /key_meta_f3
+/def -i -b'^[^[[13;3~' = /key_esc_meta_f3
+/def -i -b'^[O3R' = /key_meta_f3
+/def -i -b'^[^[O3R' = /key_esc_meta_f3
+/def -i -b'^[[14;3~' = /key_meta_f4
+/def -i -b'^[^[[14;3~' = /key_esc_meta_f4
+/def -i -b'^[O3S' = /key_meta_f4
+/def -i -b'^[^[O3S' = /key_esc_meta_f4
+/def -i -b'^[[15;3~' = /key_meta_f5
+/def -i -b'^[^[[15;3~' = /key_esc_meta_f5
+/def -i -b'^[[17;3~' = /key_meta_f6
+/def -i -b'^[^[[17;3~' = /key_esc_meta_f6
+/def -i -b'^[[18;3~' = /key_meta_f7
+/def -i -b'^[^[[18;3~' = /key_esc_meta_f7
+/def -i -b'^[[19;3~' = /key_meta_f8
+/def -i -b'^[^[[19;3~' = /key_esc_meta_f8
+/def -i -b'^[[20;3~' = /key_meta_f9
+/def -i -b'^[^[[20;3~' = /key_esc_meta_f9
+/def -i -b'^[[21;3~' = /key_meta_f10
+/def -i -b'^[^[[21;3~' = /key_esc_meta_f10
+/def -i -b'^[[23;3~' = /key_meta_f11
+/def -i -b'^[^[[23;3~' = /key_esc_meta_f11
+/def -i -b'^[[24;3~' = /key_meta_f12
+/def -i -b'^[^[[24;3~' = /key_esc_meta_f12
+/def -i -b'^[[25;3~' = /key_meta_f13
+/def -i -b'^[^[[25;3~' = /key_esc_meta_f13
+/def -i -b'^[[26;3~' = /key_meta_f14
+/def -i -b'^[^[[26;3~' = /key_esc_meta_f14
+/def -i -b'^[[28;3~' = /key_meta_f15
+/def -i -b'^[^[[28;3~' = /key_esc_meta_f15
+/def -i -b'^[[29;3~' = /key_meta_f16
+/def -i -b'^[^[[29;3~' = /key_esc_meta_f16
+/def -i -b'^[[31;3~' = /key_meta_f17
+/def -i -b'^[^[[31;3~' = /key_esc_meta_f17
+/def -i -b'^[[32;3~' = /key_meta_f18
+/def -i -b'^[^[[32;3~' = /key_esc_meta_f18
+/def -i -b'^[[33;3~' = /key_meta_f19
+/def -i -b'^[^[[33;3~' = /key_esc_meta_f19
+/def -i -b'^[[34;3~' = /key_meta_f20
+/def -i -b'^[^[[34;3~' = /key_esc_meta_f20
+/def -i -b'^[[11;2~' = /key_shift_f1
+/def -i -b'^[^[[11;2~' = /key_esc_shift_f1
+/def -i -b'^[O2P' = /key_shift_f1
+/def -i -b'^[^[O2P' = /key_esc_shift_f1
+/def -i -b'^[[12;2~' = /key_shift_f2
+/def -i -b'^[^[[12;2~' = /key_esc_shift_f2
+/def -i -b'^[O2Q' = /key_shift_f2
+/def -i -b'^[^[O2Q' = /key_esc_shift_f2
+/def -i -b'^[[13;2~' = /key_shift_f3
+/def -i -b'^[^[[13;2~' = /key_esc_shift_f3
+/def -i -b'^[O2R' = /key_shift_f3
+/def -i -b'^[^[O2R' = /key_esc_shift_f3
+/def -i -b'^[[14;2~' = /key_shift_f4
+/def -i -b'^[^[[14;2~' = /key_esc_shift_f4
+/def -i -b'^[O2S' = /key_shift_f4
+/def -i -b'^[^[O2S' = /key_esc_shift_f4
+/def -i -b'^[[15;2~' = /key_shift_f5
+/def -i -b'^[^[[15;2~' = /key_esc_shift_f5
+/def -i -b'^[[17;2~' = /key_shift_f6
+/def -i -b'^[^[[17;2~' = /key_esc_shift_f6
+/def -i -b'^[[18;2~' = /key_shift_f7
+/def -i -b'^[^[[18;2~' = /key_esc_shift_f7
+/def -i -b'^[[19;2~' = /key_shift_f8
+/def -i -b'^[^[[19;2~' = /key_esc_shift_f8
+/def -i -b'^[[20;2~' = /key_shift_f9
+/def -i -b'^[^[[20;2~' = /key_esc_shift_f9
+/def -i -b'^[[21;2~' = /key_shift_f10
+/def -i -b'^[^[[21;2~' = /key_esc_shift_f10
+/def -i -b'^[[23;2~' = /key_shift_f11
+/def -i -b'^[^[[23;2~' = /key_esc_shift_f11
+/def -i -b'^[[24;2~' = /key_shift_f12
+/def -i -b'^[^[[24;2~' = /key_esc_shift_f12
+/def -i -b'^[[25;2~' = /key_shift_f13
+/def -i -b'^[^[[25;2~' = /key_esc_shift_f13
+/def -i -b'^[[26;2~' = /key_shift_f14
+/def -i -b'^[^[[26;2~' = /key_esc_shift_f14
+/def -i -b'^[[28;2~' = /key_shift_f15
+/def -i -b'^[^[[28;2~' = /key_esc_shift_f15
+/def -i -b'^[[29;2~' = /key_shift_f16
+/def -i -b'^[^[[29;2~' = /key_esc_shift_f16
+/def -i -b'^[[31;2~' = /key_shift_f17
+/def -i -b'^[^[[31;2~' = /key_esc_shift_f17
+/def -i -b'^[[32;2~' = /key_shift_f18
+/def -i -b'^[^[[32;2~' = /key_esc_shift_f18
+/def -i -b'^[[33;2~' = /key_shift_f19
+/def -i -b'^[^[[33;2~' = /key_esc_shift_f19
+/def -i -b'^[[34;2~' = /key_shift_f20
+/def -i -b'^[^[[34;2~' = /key_esc_shift_f20
+/def -i -b'^I' = /key_tab
+/def -i -b'^[^I' = /key_esc_tab
+/def -i -b'^[[Z' = /key_shift_tab
+/def -i -b'^[^[[Z' = /key_esc_shift_tab
+/def -i ~keyname = /if (keycode({1}) !~ "") /def -iB'%{1}' = /key_%2%; /endif
+/def -i key_up = /kb_up_or_recallb
+/def -i key_down = /kb_down_or_recallf
+/def -i key_right = /dokey_right
+/def -i key_left = /dokey_left
+/def -i key_ctrl_up = /dokey_recallb
+/def -i key_ctrl_down = /dokey_recallf
+/def -i key_ctrl_right = /dokey_wright
+/def -i key_ctrl_left = /dokey_wleft
+/def -i key_f1 = /help
+/def -i key_insert = /@test insert := !insert
+/def -i key_delete = /dokey_dch
+/def -i key_home = /dokey_home
+/def -i key_end = /dokey_end
+/def -i key_pgup = /dokey_pgup
+/def -i key_pgdn = /dokey_pgdn
+/def -i key_ctrl_home = /dokey_recallbeg
+/def -i key_ctrl_end = /dokey_recallend
+/def -i key_ctrl_pgup = /reserved_for_future_use (scroll to first screenful)
+/def -i key_ctrl_pgdn = /dokey_flush
+/def -i key_bspc = /dokey_bspc
+/def -i key_tab = /dokey page
+/def -i key_esc_left = /dokey_socketb
+/def -i key_esc_right = /dokey_socketf
+/def -i key_esc_delete = /kb_backward_kill_word
+/def -i key_meta_insert = /key_esc_insert
+/def -i key_meta_delete = /key_esc_delete
+/def -i key_meta_home = /key_esc_home
+/def -i key_meta_end = /key_esc_end
+/def -i key_meta_pgup = /key_esc_pgup
+/def -i key_meta_pgdn = /key_esc_pgdn
+/def -i key_meta_up = /key_esc_up
+/def -i key_meta_down = /key_esc_down
+/def -i key_meta_left = /key_esc_left
+/def -i key_meta_right = /key_esc_right
+/def -i key_meta_f1 = /key_esc_f1
+/def -i key_meta_f2 = /key_esc_f2
+/def -i key_meta_f3 = /key_esc_f3
+/def -i key_meta_f4 = /key_esc_f4
+/def -i key_meta_f5 = /key_esc_f5
+/def -i key_meta_f6 = /key_esc_f6
+/def -i key_meta_f7 = /key_esc_f7
+/def -i key_meta_f8 = /key_esc_f8
+/def -i key_meta_f9 = /key_esc_f9
+/def -i key_meta_f10 = /key_esc_f10
+/def -i key_meta_f11 = /key_esc_f11
+/def -i key_meta_f12 = /key_esc_f12
+/def -i -b'^[{' = /dokey_socketb
+/def -i -b'^[}' = /dokey_socketf
+/def -i -b'^[-' = /set kbnum=-
+/def -i -b'^[0' = /set kbnum=+
+/def -i -b'^[1' = /set kbnum=+1
+/def -i -b'^[2' = /set kbnum=+2
+/def -i -b'^[3' = /set kbnum=+3
+/def -i -b'^[4' = /set kbnum=+4
+/def -i -b'^[5' = /set kbnum=+5
+/def -i -b'^[6' = /set kbnum=+6
+/def -i -b'^[7' = /set kbnum=+7
+/def -i -b'^[8' = /set kbnum=+8
+/def -i -b'^[9' = /set kbnum=+9
+/def -i kbwarn = /if /test warn_5keys & !kbwarned_%1%; /then /echo -aW %% Warning: keys have changed in version 5.0 to be more like emacs and many other unix apps. %-1 This warning can be disabled with "/set warn_5keys=off".%; /set kbwarned_%1=1%; /endif
+/def -i -b'^A' = /dokey_home
+/def -i -b'^B' = /kbwarn char ^B/^F now move the cursor by a letter; use ESC b/ESC f to move by a word.%; /dokey_left
+/def -i -b'^D' = /dokey_dch
+/def -i -b'^E' = /dokey_end
+/def -i -b'^F' = /kbwarn char ^B/^F now move the cursor by a letter; use ESC b/ESC f to move by a word.%; /dokey_right
+/def -i -b'^G' = /beep
+/def -i -b'^K' = /dokey_deol
+/def -i -b'^L' = /dokey redraw
+/def -i -b'^N' = /dokey recallf
+/def -i -b'^P' = /dokey recallb
+/def -i -b'^Q' = /dokey lnext
+/def -i -b'^S' = /dokey pause
+/def -i -b'^T' = /kb_transpose_chars
+/def -i -b'^U' = /kb_backward_kill_line
+/def -i -b'^X^R' = /load ~/.tfrc
+/def -i -b'^X^V' = /version
+/def -i -b'^X^?' = /kb_backward_kill_line
+/def -i -b'^X[' = /dokey_hpageback
+/def -i -b'^X]' = /dokey_hpage
+/def -i -b'^X{' = /dokey_pageback
+/def -i -b'^X}' = /dokey_page
+/def -i -b'^[^E' = /kb_expand_line
+/def -i -b'^[^H' = /kb_backward_kill_word
+/def -i -b'^[^L' = /dokey clear
+/def -i -b'^[^N' = /dokey line
+/def -i -b'^[^P' = /dokey lineback
+/def -i -b'^[ ' = /kb_collapse_space
+/def -i -b'^[=' = /kb_goto_match
+/def -i -b'^[.' = /kb_last_argument
+/def -i -b'^[<' = /dokey recallbeg
+/def -i -b'^[>' = /dokey recallend
+/def -i -b'^[J' = /dokey selflush
+/def -i -b'^[L' = /kb_toggle_limit
+/def -i -b'^[_' = /kb_last_argument
+/def -i -b'^[b' = /kbwarn word ESC b/ESC f now move the cursor by a word; use ESC LEFT/ESC RIGHT to switch worlds.%; /dokey_wleft
+/def -i -b'^[c' = /kb_capitalize_word
+/def -i -b'^[d' = /kb_kill_word
+/def -i -b'^[f' = /kbwarn word ESC b/ESC f now move the cursor by a word; use ESC LEFT/ESC RIGHT to switch worlds.%; /dokey_wright
+/def -i -b'^[h' = /dokey_hpage
+/def -i -b'^[j' = /dokey flush
+/def -i -b'^[l' = /kb_downcase_word
+/def -i -b'^[n' = /dokey searchf
+/def -i -b'^[p' = /dokey searchb
+/def -i -b'^[u' = /kb_upcase_word
+/def -i -b'^[v' = /@test insert := !insert
+/def -i -b'^[^?' = /kb_backward_kill_word
+/def -i -b'^]' = /bg
+/def -i -p1 -ag -mregexp -h'NOMACRO ^key_' no_named_key_macro = /echo -p %% The key "@{B}%PR@{n}" is undefined; you may use "@{B}/def key_%PR = <commands>@{n}" to define it. See "@{B}/help keys@{n}".
+/def -i dokey_bspc = /@test kbdel(kbcharback(kbnum?:1))
+/def -i dokey_bword = /@test regmatch("[^ ]* *$$", kbhead()), kbdel(kbpoint() - strlen({P0}))
+/def -i dokey_dch = /@test kbdel(kbcharfwd(kbnum?:1))
+/def -i dokey_deol = /@test kbdel(kblen())
+/def -i dokey_dline = /@test kbgoto(0), kbdel(kblen())
+/def -i dokey_down = /@test kbgoto(kbpoint() + wrapsize * (kbnum?:1))
+/def -i dokey_dword = /kb_kill_word
+/def -i dokey_end = /@test kbgoto(kblen())
+/def -i dokey_home = /@test kbgoto(0)
+/def -i dokey_left = /@test kbgoto(kbcharback(kbnum?:1))
+/def -i dokey_lnext = /dokey lnext
+/def -i dokey_newline = /dokey newline
+/def -i dokey_pause = /dokey pause
+/def -i dokey_recallb = /dokey recallb
+/def -i dokey_recallbeg = /dokey recallbeg
+/def -i dokey_recallend = /dokey recallend
+/def -i dokey_recallf = /dokey recallf
+/def -i dokey_redraw = /dokey redraw
+/def -i dokey_right = /@test kbgoto(kbcharfwd(kbnum?:1))
+/def -i dokey_searchb = /dokey searchb
+/def -i dokey_searchf = /dokey searchf
+/def -i dokey_socketb = /fg -c$[-kbnum?:-1]
+/def -i dokey_socketf = /fg -c$[+kbnum?:1]
+/def -i dokey_up = /@test kbgoto(kbpoint() - wrapsize * (kbnum?:1))
+/def -i dokey_wleft = /test kbgoto(kb_nth_word(-(kbnum?:1)))
+/def -i dokey_wright = /test kbgoto(kb_nth_word(kbnum?:1))
+/def -i dokey_page = /test morescroll(winlines() * (kbnum?:1))
+/def -i dokey_pageback = /test morescroll(-winlines() * (kbnum?:1))
+/def -i dokey_hpage = /test morescroll(winlines() * (kbnum?:1) / 2)
+/def -i dokey_hpageback = /test morescroll(-winlines() * (kbnum?:1) / 2)
+/def -i dokey_line = /test morescroll(kbnum?:1)
+/def -i dokey_lineback = /test morescroll(-(kbnum?:1))
+/def -i dokey_flush = /dokey flush
+/def -i dokey_selflush = /dokey selflush
+/def -i dokey_pgup = /dokey_pageback
+/def -i dokey_pgdn = /dokey_page
+/def -i kb_backward_kill_line = /@test kbdel(0)
+/def -i kb_nth_word = /let _i=%{1-1}%; /let point=$[kbpoint()]%; /while (_i<0) /@test point:=kbwordleft(point), ++_i%; /done%; /while (_i>0) /@test point:=kbwordright(point), --_i%; /done%; /return point
+/def -i kb_kill_word = /@test kbdel(kb_nth_word(kbnum?:1))
+/def -i kb_backward_kill_word = /@test kbdel(kb_nth_word(-(kbnum?:1)))
+/def -i kb_capitalize_word = /let _old_insert=$[+insert]%;/set insert=0%;/repeat -S $[kbnum>0?+kbnum:1] /@test kbgoto(kbwordright()), kbgoto(kbwordleft()) %%;/let end=$$[kbwordright()]%%;/@test input(toupper(substr(kbtail(), 0, 1))) %%;/@test input(tolower(substr(kbtail(), 0, end - kbpoint()))) %;/set insert=%{_old_insert}
+/def -i kb_downcase_word = /let _old_insert=$[+insert]%;/set insert=0%;/repeat -S $[kbnum>0?+kbnum:1] /@test input(tolower(substr(kbtail(), 0, kbwordright() - kbpoint()))) %;/set insert=%{_old_insert}
+/def -i kb_upcase_word = /let _old_insert=$[+insert]%;/set insert=0%;/repeat -S $[kbnum>0?+kbnum:1] /@test input(toupper(substr(kbtail(), 0, kbwordright() - kbpoint()))) %;/set insert=%{_old_insert}
+/def -i kb_transpose_chars = /if ( kbpoint() <= 0 ) /beep 1%; /return 0%; /endif%; /let _old_insert=$[+insert]%;/set insert=0%;/@test kbgoto(kbpoint() - (kbpoint()==kblen()) - 1)%; /@test input(strcat(substr(kbtail(),1,kbnum>0?kbnum:1), substr(kbtail(),0,1)))%; /set insert=%{_old_insert}
+/def -i kb_last_argument = /input $(/last $(/recall -i - -$[1 + (kbnum>0?kbnum:1)]))
+/def -i kb_expand_line = /eval /grab $(/recall -i 1)
+/def -i kb_goto_match = /let _match=$[kbmatch()]%; /@test (_match < 0) ? beep() : kbgoto(_match)
+/def -i kb_collapse_space = /if (regmatch("^ +", kbtail())) /@test kbdel(kbpoint() + strlen({P0}) - 1)%; /endif%; /if (kbtail() =/ " *" & regmatch(" +$", kbhead())) /@test kbdel(kbpoint() - strlen({P0}))%; /endif
+/def -i kb_toggle_limit = /if /limit%; /then /unlimit%; /else /relimit%; /endif
+/def -i kb_up_or_recallb = /if (kbpoint() < wrapsize) /dokey_recallb%; /else /dokey_up%; /endif
+/def -i kb_down_or_recallf = /if (mod(kbpoint(), wrapsize) == mod(kblen(), wrapsize)) /dokey_recallf%; /else /dokey_down%; /endif
+/def -i -p2147483647 -mregexp -h'REDEF macro (dokey|kb)_' ~hook_redef_dokey = /echo -e %% Warning: redefining the %2 macro is not recommended; instead, you should probably redefine the /key_* macro that calls it. See /help keys.
+/def -i car = /result {1}
+/def -i cdr = /result {-1}
+/def -i cadr = /result {2}
+/def -i cddr = /result {-2}
+/def -i caddr = /result {3}
+/def -i cdddr = /result {-3}
+/def -i length = /result {#}
+/def -i reverse = /let _result=%1%;/while (shift(), {#}) /let _result=%1 %_result%;/done%;/result _result
+/def -i mapcar = /let _cmd=%1%; /while (shift(), {#}) /eval %_cmd %%1%; /done
+/def -i maplist = /let _cmd=%1%;/while (shift(), {#}) /eval %_cmd %%*%;/done
+/def -i remove = /let _word=%1%;/let _result=%;/while (shift(), {#}) /if (_word !~ {1}) /let _result=%{_result} %{1}%;/endif%;/done%;/result _result
+/def -i unique = /let _result=%1 $[{#}>1 ? $(/unique $(/remove %1 %-1)) : ""]%; /result _result
+/def -i key_esc_tab = /complete
+/def -i -b'^[;' = /complete user_defined
+/def -i -b'^[i' = /complete input_history
+/def -i -b'^[/' = /complete filename
+/def -i -b'^[@' = /complete hostname
+/def -i -b'^[%' = /complete variable
+/def -i -b'^[$' = /complete macroname
+/def -i -b'^[^W' = /complete worldname
+/def -i complete = /complete_%{1-context} $(/last $[kbhead()])
+/def -i _complete_from_list = /let _prefix=%1%;/shift%;/let _len=$[strlen(_prefix)]%;/let _match=%;/while ({#}) /if (strncmp({1}, _prefix, _len) == 0) /let _match=%{_match} %{1}%;/endif%;/shift%;/done%;/if (_need_unique) /let _match=$(/unique %{_match})%;/endif%;/let _match=$[regmatch('^ *(.*?) *$', _match), {P1}]%;/if (_match =~ "") /beep 1%;/elseif (_match !/ "{*}") /beep 1%;/@test input(substr($$(/common_prefix %%{_len} %%{_match}), _len))%;/if (_match =~ _prev_match) /echo - %{_match}%;/endif%; /set _prev_match=%_match%; /else /@test _match := strcat(_match, _completion_suffix)%;/if (_match =/ "*[A-Za-z0-9_]") /@test _match := strcat(_match, " ")%;/endif%;/@test input(substr(_match, _len))%;/endif%;/unset _completion_suffix%;/unset _need_unique
+/def -i complete_user_defined = /_complete_from_list %1 %completion_list
+/def -i ~input_history_list = /let _input=$(/recall -i #1)%;/recall -i 1-$[substr(_input, 0, strchr(_input, ":")) - 1]
+/def -i complete_input_history = /let _need_unique=1%;/_complete_from_list %1 $(/~input_history_list)
+/def -i complete_dynamic = /let _need_unique=1%;/_complete_from_list %1 %completion_list $(/~input_history_list)
+/def -i complete_filename = /quote -S /_complete_from_list $[filename({1})] !echo `/bin/ls -dq $[filename({1})]* 2>/dev/null | while read f; do \ test -d $$f && echo $$f/ || echo $$f; done`
+/def -i complete_hostname = /let _need_unique=1%;/let _pf=$[substr({1}, strrchr({1}, "@") + 1)]%;/quote -S /_complete_from_list %{_pf} !echo `cat /etc/hosts %HOME/etc/hosts 2>/dev/null | sed -n '/^[^#].*[ ][ ]*\\\\(%{_pf}[^ ]*\\\\).*/s//\\\\1/p'`
+/def -i complete_variable = /let _part=$[substr({1}, strrchr({1}, '%') + 1)]%;/if (strncmp(_part, '{', 1) == 0) /let _part=$[substr(_part, 1)]%;/let _completion_suffix=}%;/endif%;/_complete_from_list %_part $(/@listvar -s)
+/def -i complete_macroname = /let _word=%1%;/let _i=$[strrchr({1}, '$')]%;/if (_i >= 0) /if (substr(_word, _i+1, 1) =~ '{') /@test ++_i%;/let _completion_suffix=}%;/endif%;/let _word=$[substr(_word, _i+1)]%;/elseif (strncmp(_word, '/', 1) == 0) /let _word=$[substr(_word, 1)]%;/endif%;/_complete_from_list %{_word} $(/quote -S /last `/@list -s -i - %{_word}*)
+/def -i complete_worldname = /_complete_from_list %1 $(/@listworlds -s %{1}*)
+/def -i complete_sockname = /_complete_from_list %1 $(/@listsockets -s %{1}*)
+/def -i complete_context = /let _head=$[kbhead()]%;/let _word=%1%;/if (strchr(_word, "@") >= 0) /complete_hostname %1%;/elseif (strchr(_word, "%%") >= 0) /complete_variable %1%;/elseif (strchr(_word, "$$") >= 0) /complete_macroname %1%;/elseif (_head =/ "{/*}") /complete_macroname %1%;/elseif (regmatch("-w(.+)$$", _head)) /complete_worldname %P1%;/elseif (_head =/ "*{/[sl]et|/setenv|/unset|/listvar|/edvar} {*}") /complete_variable %1%;/elseif (_head =/ "*{/load*|/save*|/lcd|/cd|/log} {*}") /complete_filename %1%;/elseif (_head =/ "*{/def|/edit|/edmac|/reedit|/undef|/list} {*}*") /complete_macroname %1%;/elseif (regmatch(`/quote .*'("?)(.+)$$`, _head)) /let _completion_suffix=%P1%;/complete_filename %P2%;/elseif (regmatch('/quote .*`("?)(.+)$$', _head)) /let _completion_suffix=%P1%;/complete_macroname %P2%;/elseif (_head =/ "*{/world|/connect|/edworld} {*}") /complete_worldname %1%;/elseif (_head =/ "*{/fg} {*}") /complete_sockname %1%;/elseif (_head =/ "*{/telnet} {*}") /complete_hostname %1%;/elseif (_head =/ "*/quote *!*") /complete_filename %1%;/elseif (_head =/ "*{/@test|/expr} *") /complete_variable %1%;/elseif (_head =/ "*{*/*|.*|tiny.*}") /complete_filename %1%;/else /complete_dynamic %1%;/endif
+/def -i common_prefix = /let _min=%1%;/shift%;/let _prefix=%1%;/let _len=$[strlen(_prefix)]%;/while /shift%; /@test {#} & _len > _min%; /do /let _i=%_min%;/while (_i < _len & strncmp(_prefix, {1}, _i+1) == 0) /@test ++_i%;/done%;/let _len=%_i%;/done%;/echo - $[substr(_prefix, 0, _len)]
+/def -i push = /@test %{2-stack} := strcat({1}, " ", %{2-stack})
+/def -i pop = /eval /car %%{%{1-stack}}%; /@test %{1-stack} := $$(/cdr %%{%{1-stack}})
+/def -i enqueue = /@test %{2-queue} := strcat(%{2-queue}, " ", {1})
+/def -i dequeue = /pop %1-queue
+/def -i textencode = /let src=%; /let dst=%; /test src:={*}%; /while (regmatch("[^a-zA-Z0-9]", src)) /test dst := strcat(dst, {PL}, '_', ascii({P0}), '_')%; /test src := {PR}%; /done%; /result strcat(dst, src)
+/def -i textdecode = /let src=%; /let dst=%; /test src:={*}%; /while (regmatch("_([0-9]+)_", src)) /test dst := strcat(dst, {PL}, char({P1}))%; /test src := {PR}%; /done%; /result strcat(dst, src)
+/def -i -b'^[w' = /to_active_or_prev_world
+/def -i -Fp1 -hBGTEXT activity_queue_hook = /if /test moresize("", {1}) > 0 & active_worlds !/ "*{%1}*"%; /then /enqueue %1 active_worlds%; /endif
+/def -i -p2 -msimple -h'BGTEXT rwho' activity_rwho_hook
+/def -i -Fp1 -hWORLD prev_world_hook = /if (fg_world !~ "") /if (moresize("", fg_world)) /set active_worlds=%{active_worlds} %{fg_world}%; /else /set prev_worlds=%fg_world $(/remove %fg_world %prev_worlds)%;/endif%; /endif%;/set fg_world=${world_name}%;/if (fg_world !~ "") /set active_worlds=$(/remove %{fg_world} %{active_worlds})%; /endif
+/def -i -p2 -msimple -h'WORLD rwho' prev_rwho_hook
+/def -i to_active_world = /if ( active_worlds =~ "" ) /echo -e %% No active worlds.%;/else /fg $(/dequeue active_worlds)%;/endif
+/def -i to_active_or_prev_world = /if ( active_worlds !~ "" ) /fg $(/dequeue active_worlds)%;/else /while ( prev_worlds !~ "" ) /if /fg -s $(/dequeue prev_worlds)%; /then /return 1%; /endif%;/done%;/endif
+/def -i list_active_worlds = /if ( active_worlds =~ "" ) /echo -e %% No active worlds.%;/else /echo -e %% Active worlds: %{active_worlds}%;/endif
+/def -i color_on = /load -q %TFLIBDIR/color.tf%; /dokey redraw
+/def -i color_off = /quote -S /unset `/@listvar -s start_color_*%; /unset end_color%; /dokey redraw
+/def -i changes = /let _ver=%{*-$(/ver)}%; /let _pat=%{_ver} *%; /let _name=%TFLIBDIR/CHANGES%; /let _fd=$[tfopen(_name, "r")]%; /let _line=%; /while (1) /while (1) /if (tfread(_fd, _line) < 0) /break 2%; /endif%; /if (_line =~ _ver | _line =/ _pat) /break 1%; /endif%; /done%; /test echo(_line)%; /while (1) /if (tfread(_fd, _line) < 0) /break 2%; /endif%; /test echo(_line)%; /if (_line =~ "") /break 1%; /endif%; /done%; /done%; /test tfclose(_fd)
+/def -i at = /if (!getopts("v", "")) /return 0%; /endif%; /let warn=%warn_curly_re%; /set warn_curly_re=off%; /if (regmatch("^(?:(\\d{2})(\\d{2})?-)?(\\d{1,2})[-/](\\d{1,2})$", {1})) /let explicityear=$[!!{P2}]%; /let explicitday=1%; /let year=%{P1-$[ftime("%Y")/100]}%{P2-$[ftime("%y")]}%; /let mon=%P3%; /let day=%P4%; /shift%; /else /let explicityear=0%; /let explicitday=0%; /let year=$[ftime("%Y")]%; /let mon=$[ftime("%m")]%; /let day=$[ftime("%d")]%; /endif%; /if (!regmatch("^(\\d{1,2}):(\\d{2})(?::(\\d{2}(?:\\.(\\d{0,6}))?))?$", {1})) /echo -e %% Usage: /%0 [-v] [[yyyy-]mm-dd] hh:mm[:ss[.uuuuuu]] command%; /set warn_curly_re=%warn%; /return 0%; /endif%; /set warn_curly_re=%warn%; /shift%; /let usec=$[substr(strcat({P4}, "000000"), 0, 6)]%; /let t=$[mktime(year, mon, day, {P1}, {P2}, {P3}, usec)]%; /if (t <= time()) /if (!explicitday) /test t += 24:00:00%; /elseif (!explicityear) /let t=$[mktime(year+1, mon, day, {P1}, {P2}, {P3}, usec)]%; /else /echo -e %% /%0: date and time must be in the future.%; /return 0%; /endif%; /endif%; /if (opt_v) /echo -e %% /%0: $[ftime("%F %T.%.", t)]%; /endif%; /repeat -$[t-time()] 1 %*
+/def -i -Fp1 -mglob -h'SEND help' -q send_help = /if (${world_name} =~ "") /echo -e %% You are not connected to a world.%; /echo -e %% Use "/help" to get help on TinyFugue.%; /endif
