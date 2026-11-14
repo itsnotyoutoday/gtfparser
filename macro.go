@@ -107,13 +107,13 @@ func (m *Macro) TriggerText() string {
 func (in *Interp) cmdErr(cmd string, opt byte, f string, a ...any) {
 	old := in.curCmd
 	defer func() { in.curCmd = old }()
-	switch {
-	case cmd == "":
-		in.curCmd = ""
-	case opt != 0:
-		in.curCmd = fmt.Sprintf("%s -%c", cmd, opt)
-	default:
+	// the command name shown is the one running (a builtin called as a
+	// function has none); cmd is used only when nothing is running (host API)
+	if in.curCmd == "" || in.nest == 0 && in.curCmd == "" {
 		in.curCmd = cmd
+	}
+	if opt != 0 && in.curCmd != "" {
+		in.curCmd = fmt.Sprintf("%s -%c", in.curCmd, opt)
 	}
 	in.warn("%s", fmt.Sprintf(f, a...))
 }

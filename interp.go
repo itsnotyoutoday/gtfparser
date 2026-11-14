@@ -1034,11 +1034,8 @@ func (in *Interp) execWhile(stmts []string, i int) (Value, int) {
 	}
 run:
 	res := Int(0)
-	maxIter := int(in.globals["max_iter"].Int())
-	for n := 0; ; n++ {
-		if maxIter > 0 && n >= maxIter {
-			break
-		}
+	// %max_iter is documented but unused in tf; runaway loops end at max_instr
+	for {
 		var ok bool
 		if isExpr {
 			ok = in.condition(cond)
@@ -1246,7 +1243,10 @@ func (in *Interp) callFunc(name string, args []Value) (Value, error) {
 			if len(args) > 0 {
 				arg = args[0].String()
 			}
-			return in.runBuiltin(ln, arg), nil
+			if in.disabled["/"+ln] {
+				return in.runBuiltin(ln, arg), nil
+			}
+			return in.cmds[ln](in, arg), nil // no command name in diagnostics: tf only sets it for a command line
 		}
 	}
 	if m, ok := in.findMacro(name); ok {

@@ -13,9 +13,16 @@ import (
 	"github.com/itsnotyoutoday/gtfparser"
 )
 
-type stdHost struct{ w *bufio.Writer }
+type stdHost struct {
+	w  *bufio.Writer
+	in *gtfparser.Interp
+}
 
 func (h *stdHost) Echo(s string)         { fmt.Fprintln(h.w, s) }
+// WorldInfoHost: worlds are the ones the script defined (/addworld); none is current.
+func (h *stdHost) CurrentWorld() string      { return "" }
+func (h *stdHost) WorldType(w string) string { return "" }
+func (h *stdHost) WorldExists(w string) bool { _, ok := h.in.World(w); return ok }
 func (h *stdHost) Send(w, s string) bool { fmt.Fprintln(h.w, "[send] "+s); return false }
 
 // IsTTY: the reference tf the differential tests compare with runs on a terminal.
@@ -36,9 +43,10 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	h := &stdHost{bufio.NewWriter(os.Stdout)}
+	h := &stdHost{w: bufio.NewWriter(os.Stdout)}
 	defer h.w.Flush()
 	in := gtfparser.New(h)
+	h.in = in
 	in.SetFeature("256colors", true)
 	in.Warn = func(m string) { fmt.Fprintln(os.Stderr, "% "+m) }
 	if *lib != "" {
