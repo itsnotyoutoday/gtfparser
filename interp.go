@@ -575,6 +575,7 @@ func (in *Interp) runSub(kind byte, arg string) string {
 		in.subFail = true
 		return ""
 	}
+	arg = in.expand(arg) // the name may itself contain substitutions: ${%{L}}
 	if b, ok := in.WorldMacroBody(arg); ok { // ${world_name} and friends read the current world
 		return b
 	}

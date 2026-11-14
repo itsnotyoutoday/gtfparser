@@ -216,7 +216,7 @@ func (in *Interp) quoteLine(p *Proc, l string) {
 	case 'e':
 		in.echo(text)
 	case 'x':
-		in.ExecFull(text)
+		in.Exec(text) // a quoted line runs like a typed one: no macro substitution
 	default:
 		in.Host.Send(p.World, text)
 	}
