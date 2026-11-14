@@ -298,8 +298,7 @@ counter is 2
   was substituted *before* the expression ran; if `x` is empty you get `$[ +
   1]`. Prefer the bare name.
 * **`1 ? 2:3`**: a digit directly before the colon makes `2:3` a time literal,
-  and the reference client reports a syntax error (this engine quietly yields
-  `0`; see [FINDINGS](FINDINGS.md)). Write `1 ? 2 : 3`.
+  and tf reports a syntax error. Write `1 ? 2 : 3`.
 * **Negative floats**: a negative whole-number float may print differently from
   the reference client (with or without the trailing dot); see
   [FINDINGS](FINDINGS.md).

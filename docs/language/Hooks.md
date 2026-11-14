@@ -5,7 +5,7 @@ than when a line arrives: a connection opens, a file is loaded, a prompt
 appears, an unknown command is typed. Hooks are to events what
 [triggers](Triggers.md) are to text.
 
-```tf-noverify
+```tf
 /def -hCONNECT greet = /echo connected to %1
 /trigger -hCONNECT mymud
 ```
@@ -25,7 +25,7 @@ When an event fires it supplies **arguments**: the words your macro sees as
 against the argument text (glob by default; `-m` and `%matching` apply as for
 triggers).
 
-```tf-noverify
+```tf
 /def -hCONNECT hc = /echo CONNECT hook: world=%1 args=[%*] n=%#
 /trigger -hCONNECT mymud
 /trigger -hCONNECT mymud extra words
@@ -44,7 +44,7 @@ nothing ran.
 
 A hook can listen to several events at once by separating them with `|`:
 
-```tf-noverify
+```tf
 /def -h'ACTIVITY|BGTEXT' hb = /echo multi: %*
 /trigger -hACTIVITY w1
 /trigger -hBGTEXT w2
@@ -82,14 +82,14 @@ The core set. "Args" is what `%1`, `%2`... will hold.
 | `SIGHUP`, `SIGTERM`, `SIGUSR1`, `SIGUSR2` | | the signal arrived |
 
 (There are a few more for mail, `--More--`, proxies and the like; the
-engine reference (`docs/engine/hooks.md`) has the complete table with default messages.)
+engine reference (`docs/engine/hooks.md` and `docs/engine/triggers-hooks.md`) has the complete table with default messages.)
 
 Several events have a **default message** the client would print, such as
 `% Connected to mymud.`. A hook with the gag attribute (`-ag`) suppresses
 it, and other attributes style it. The message is shown *before* the hook
 bodies run.
 
-```tf-noverify
+```tf
 /def -hNOMACRO nm = /echo no such macro: %1
 /trigger -hNOMACRO frobnicate
 ```
@@ -105,7 +105,7 @@ hook runs instead. It is a way to rewrite everything you type: the hook
 decides what, if anything, is sent. Be careful: a `SEND` hook that sends text
 can trigger itself.
 
-```tf-noverify
+```tf
 /def -hSEND sendh = /echo SEND hook saw: %*
 /trigger -hSEND say hi there
 ```
@@ -119,7 +119,7 @@ Prompts (lines without a newline, such as `login:`) never match triggers. They
 reach macros through the `PROMPT` hook with the prompt text as the argument. A
 `PROMPT` hook defined with `-q` does not consume the text.
 
-```tf-noverify
+```tf
 /def -n1 -hPROMPT hp = /echo prompt hook once: %*
 /trigger -hPROMPT login:
 /trigger -hPROMPT login:
@@ -135,7 +135,7 @@ among the non-fall-through macros at the first priority that has one, a single
 one is chosen at random; `-n` limits the number of runs. See
 [Triggers](Triggers.md#priority-and-fall-through).
 
-```tf-noverify
+```tf
 /def -hRESIZE -p2 r2 = /echo high
 /def -hRESIZE -p1 r1 = /echo low
 /trigger -hRESIZE 80 24
@@ -151,7 +151,7 @@ second
 
 Hooks can use a regexp pattern too:
 
-```tf-noverify
+```tf
 /def -mregexp -h'DISCONNECT ^(\w+) (.*)$' dc = /echo dc: [%P1] [%P2]
 /trigger -hDISCONNECT mymud closed
 ```
@@ -164,14 +164,16 @@ The `%hook` variable turns all hooks off when set to `off`.
 ## How a program fires hooks
 
 Your program decides when events happen. It tells the interpreter with
-`Hook(event, args)`:
+`FireHook(event, args)` (or `FireHookArgs(event, args...)`, which returns the full
+`*HookResult`; see `docs/engine/hooks.md`):
 
 ```go
-in.Hook("CONNECT", "mymud")                  // %1 is "mymud"
-in.Hook("DISCONNECT", "mymud connection lost")
+ran := in.FireHook("CONNECT", "mymud")       // %1 is "mymud"; ran is the []*Macro that ran
+in.FireHook("DISCONNECT", "mymud connection lost")
 ```
 
-The arguments are one string, split into words for `%1`, `%2`... and matched
+The default message (here `% Connected to mymud.`) is echoed first, unless a
+hook gags it. The arguments are one string, split into words for `%1`, `%2`... and matched
 against the macro's pattern. Fire an event even when you expect no scripts to
 care; a macro defined later may. The interpreter itself raises the events that come from running scripts
 (`LOAD`, `REDEF`, `NOMACRO`, `PROCESS`, `KILL`...); see the engine reference for
@@ -180,7 +182,7 @@ exactly which.
 ## Pitfalls
 
 * **Expecting hooks to fire for events the host never reports.** `CONNECT` only
-  runs if the program calls `Hook("CONNECT", ...)` (or the client's own
+  runs if the program calls `FireHook("CONNECT", ...)` (or the client's own
   `/connect` support does).
 * **Name confusion.** `ACTIVITY` is the first text in a background world, not
   "any text".

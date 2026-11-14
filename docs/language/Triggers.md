@@ -90,7 +90,7 @@ high priority
 
 A fall-through macro runs and lets the search go on:
 
-```tf-noverify
+```tf
 /def -p3 -F -t'baz*' fa = /echo fa (fall-through)
 /def -p2 -F -t'baz*' fb = /echo fb (fall-through)
 /def -p1 -t'baz*' fc = /echo fc (last)
@@ -150,7 +150,7 @@ macros, since it is not a match at all.
 `-c100` always; a negative value means "not given" (100). The macro still counts
 as a match for priority purposes even when it does not run.
 
-```tf-noverify
+```tf
 /def -c0 -t'never*' p0 = /echo never
 /def -c100 -t'always*' p100 = /echo always
 /trigger never x

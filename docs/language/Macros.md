@@ -37,7 +37,7 @@ a name too, so you can refer to it later, but it does not have to.
 * A macro defined **without a body** is useful for options-only effects, such
   as a gag trigger: `/def -ag -t'*spam*'`.
 
-```tf-noverify
+```tf
 /def Foo = /echo FooBody
 /foo
 /FOO
@@ -94,7 +94,7 @@ backslash, escape it with a backslash.
 | `/list [options] [name]` | show macros (`-s` short form, `-t pattern`, `-h`...) |
 | `/purge [options] [name]` | remove all macros matching the same filters |
 
-```tf-noverify
+```tf
 /def pa1 = /echo pa1
 /def pa2 = /echo pa2
 /def keep = /echo keep
