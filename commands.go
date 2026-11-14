@@ -195,7 +195,9 @@ func cmdEval(in *Interp, args string) Value {
 	in.pushFrame(in.fr.name, in.fr.text)
 	in.fr.words, in.fr.offs, in.fr.regs = in.fr.parent.words, in.fr.parent.offs, in.fr.parent.regs
 	in.fr.asFunc = in.fr.parent.asFunc
+	in.inEval++
 	res := in.execText(args)
+	in.inEval--
 	in.popFrame()
 	return res
 }

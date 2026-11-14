@@ -29,7 +29,7 @@ func compileRegexp(pat string) (*rx, error) {
 	re, err := pcre.CompileTF(pat)
 	if err != nil {
 		if pe, ok := err.(*pcre.Error); ok {
-			return nil, fmt.Errorf("regexp error at character %d: %s", pe.Offset, pe.Msg)
+			return nil, fmt.Errorf("regexp error: character %d: %s", pe.Offset, pe.Msg)
 		}
 		return nil, err
 	}

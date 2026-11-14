@@ -72,6 +72,7 @@ type Interp struct {
 	asFuncCmd   int    // >0 while a builtin command runs as a function
 	exitReq     bool   // /exit ran: the enclosing /load stops (see LoadFile)
 	curCmd      string // name of the running macro, builtin command or function (diagnostics)
+	inEval      int    // depth of /eval (see warnEval)
 	quietLoad   int    // depth of /load -q (suppresses 'Loading commands from')
 	loadName    string // file being loaded, and the lines of the logical line being run
 	loadStart   int
@@ -172,6 +173,17 @@ func (e *cmdErr) Unwrap() error { return e.err }
 // while loading, then the name of the command, macro or function that is
 // running ("/cmd: " at the start of the message names a builtin command and
 // is shown as tf shows it, upper case), then the message.
+// warnEval is warn for diagnostics of the substitution/compile phase of a
+// line: while /eval runs, tf shows EVAL as the command for these (but not for
+// errors raised later, when the evaluated text runs).
+func (in *Interp) warnEval(f string, a ...any) {
+	if in.curCmd == "" && in.inEval > 0 {
+		in.curCmd = "EVAL"
+		defer func() { in.curCmd = "" }()
+	}
+	in.warn(f, a...)
+}
+
 func (in *Interp) warn(f string, a ...any) {
 	cmd := in.curCmd
 	for _, x := range a {
@@ -579,14 +591,18 @@ func (in *Interp) runSub(kind byte, arg string) string {
 	case subExpr:
 		v, err := in.evalExpr(arg)
 		if err != nil {
-			in.warn("%v", err)
+			if se, ok := err.(*syntaxError); ok {
+				in.warnEval("%s", strings.Replace(se.msg, "expected end of expression", "expected operator or ']'", 1))
+			} else {
+				in.warn("%v", err)
+			}
 			in.subFail = true
 		}
 		return v.String()
 	case subCmd:
 		return in.captureCmd(arg)
 	case subErr:
-		in.warn("%s", arg)
+		in.warnEval("%s", arg)
 		in.subFail = true
 		return ""
 	}
@@ -1148,6 +1164,9 @@ func (in *Interp) execOne(st string) Value {
 		if ln != "set" && ln != "let" {
 			in.userRes = res
 		}
+	} else if forceBuiltin {
+		in.warnEval("%s: not a builtin command", nm)
+		res = in.leaf(Int(0))
 	} else {
 		in.noMacro(nm)
 		res = in.leaf(Int(0))
@@ -1207,7 +1226,7 @@ func (in *Interp) callMacroArgs(m *Macro, args []string) Value {
 // callMacro runs a macro body in a new scope with the given arguments.
 func (in *Interp) callMacro(m *Macro, args string, asFunc bool) Value {
 	if in.depth >= in.maxRecur() {
-		in.warn("%s: too many nested calls", m.Name)
+		in.warn("recursion count exceeded %%max_recur (%d)", in.maxRecur())
 		return Int(0)
 	}
 	in.noteCall(m)
@@ -1375,7 +1394,7 @@ func validBraceSel(sel string) bool {
 }
 
 func braceSelError(sel string) string {
-	if strings.HasPrefix(sel, "-0") {
+	if strings.HasPrefix(sel, "-0") || (strings.HasPrefix(sel, "-") && (len(sel) == 1 || !(sel[1] >= '1' && sel[1] <= '9' || sel[1] == 'L'))) {
 		return "illegal character '-' in substitution"
 	}
 	i := 0

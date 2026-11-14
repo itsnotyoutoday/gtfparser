@@ -20,6 +20,16 @@ type exprParser struct {
 	kind string // "expression" (default) or "condition": the noun in syntax errors
 }
 
+// syntaxError is a compile-time (parse) error of an expression.
+type syntaxError struct{ msg string }
+
+func (e *syntaxError) Error() string { return e.msg }
+
+// overflowError is a floating-point overflow in an arithmetic operator.
+type overflowError struct{ label string }
+
+func (e *overflowError) Error() string { return e.label + " operator: arithmetic overflow" }
+
 type exprEntry struct {
 	f   eval
 	err error
@@ -119,6 +129,9 @@ func (p *exprParser) parseAssign() (eval, error) {
 						cur, _ := p.in.lookup(id)
 						r, err = arith(op[:1], cur, r)
 						if err != nil {
+							if oe, ok := err.(*overflowError); ok {
+								err = &overflowError{map[string]string{"+": "ADDA", "-": "SUBA", "*": "MULA", "/": "DIVA"}[oe.label]}
+							}
 							return Int(0), err
 						}
 					}
@@ -129,7 +142,16 @@ func (p *exprParser) parseAssign() (eval, error) {
 		}
 	}
 	p.pos = start
-	return p.parseTernary()
+	t, err := p.parseTernary()
+	if err == nil {
+		p.ws()
+		for _, op := range assignOps {
+			if p.peek(op) {
+				return nil, errors.New("illegal object of assignment")
+			}
+		}
+	}
+	return t, err
 }
 
 func (p *exprParser) parseTernary() (eval, error) {
@@ -388,6 +410,17 @@ func (p *exprParser) ident() (string, bool) {
 }
 
 func (p *exprParser) parsePrimary() (eval, error) {
+	e, err := p.parsePrimary0()
+	if err == nil {
+		p.ws()
+		if p.pos < len(p.s) && p.s[p.pos] == '(' {
+			return nil, errors.New("function name must be an identifier.")
+		}
+	}
+	return e, err
+}
+
+func (p *exprParser) parsePrimary0() (eval, error) {
 	p.ws()
 	if p.pos >= len(p.s) {
 		return nil, p.syntaxErr("operand")
@@ -461,7 +494,7 @@ func (p *exprParser) syntaxErr(expect string) error {
 	if kind == "" {
 		kind = "expression"
 	}
-	return fmt.Errorf("%s syntax error: expected %s, found %s.", kind, expect, found)
+	return &syntaxError{fmt.Sprintf("%s syntax error: expected %s, found %s.", kind, expect, found)}
 }
 
 func (p *exprParser) number() (eval, error) {
@@ -580,8 +613,11 @@ func (p *exprParser) call(name string) (eval, error) {
 		}
 	} else if _, isFn := p.in.funcs[name]; !isFn && len(args) > 1 {
 		if _, isCmd := p.in.cmds[strings.ToLower(name)]; isCmd && p.in.isTfCommand(name) {
-			return nil, fmt.Errorf("%s: command called as function must have 0 or 1 argument", name)
+			return nil, fmt.Errorf("%s: command called as function must have 0 or 1 argument", strings.ToUpper(name))
 		}
+	}
+	if _, isFn := p.in.funcs[name]; !isFn && strings.EqualFold(name, "exit") {
+		return nil, errors.New("EXIT: not a function")
 	}
 	_, isTfFunc := funcArity[name]
 	return func() (Value, error) {
@@ -823,7 +859,7 @@ func reduce(op string, a, b Value, binary bool) (Value, error) {
 		return Int(0), fmt.Errorf("expression: bad operator %s", op)
 	}
 	if math.IsInf(r, 0) {
-		return Int(0), fmt.Errorf("%s operator: arithmetic overflow", op)
+		return Int(0), &overflowError{op}
 	}
 	return Real(r), nil
 }
