@@ -86,7 +86,7 @@ tests the return value of a command and uses `/do` to start the loop body.
 A runaway loop is cut off by the interpreter: real tf aborts a macro that runs
 more than `max_instr` instructions (default 1,000,000) with an
 "instruction count exceeded" error. The documented `max_iter` variable is not
-honoured by the reference build (see FINDINGS C2).
+honoured by the reference build (this engine does honour it: FINDINGS C2, still open at v0.0.5).
 
 **Status:** see [Status](Status.md)
 
@@ -258,8 +258,8 @@ does **not** quit tf (that is `/quit`).
 /set loaded_mymud=1
 ```
 
-**Gotchas.** The engine currently keeps reading the file after an `/exit`
-inside a macro called from it; see FINDINGS (C1).
+**Gotchas.** Known difference: this engine keeps reading the file after an `/exit`
+inside a macro called from it (FINDINGS C1, still open at v0.0.5).
 
 **Status:** see [Status](Status.md)
 

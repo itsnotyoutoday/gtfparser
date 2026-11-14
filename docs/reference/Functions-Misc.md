@@ -157,7 +157,7 @@ int decimal string id:
 
 **Syntax:** `nlog()` returns an integer.
 
-```tf-noverify
+```tf
 /echo $[nlog()]
 ```
 ```output

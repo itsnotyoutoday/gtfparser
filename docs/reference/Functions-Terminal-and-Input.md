@@ -2,7 +2,7 @@
 
 These functions look at, and edit, the things a full-screen client owns: the size of the screen, the text currently typed on the input line, the "more" pager and the status bar. They are what keybinding macros (see the `kb-*.tf` libraries shipped with tf) are built from.
 
-Most of them only make sense when a real terminal front end is attached. An embedding program tells the engine about its screen through the optional `TermHost` interface (screen size), `KeyHost` (terminal key sequences) and, for the pager, status bar and input line, the `Notifier`/input facilities described in `host.go`. Without them the engine falls back to documented defaults, noted per entry.
+The engine keeps this state itself: an input buffer you can fill with `/input` (or that a client fills as the user types), the status-bar layout, and per-world pager counters. A client draws from that state. Only a few things need the embedding program: `TermHost` (screen size), `KeyHost` (terminal key sequences), and the optional `MoreHost`, `WindowHost`, `StatusHost` and `PromptHost` overrides that let a client that owns the screen answer the pager and status questions itself. Without them the engine uses the documented defaults noted per entry. The example blocks here run in a bare interpreter (80x24, empty input line), so they type text with `/input` first. See `docs/engine/terminal-builtins.md` for the client side.
 
 ## columns()
 
@@ -46,15 +46,15 @@ screen height: 24
 
 **Syntax:** `winlines()` returns an integer.
 
-```tf-noverify
-/echo page size: $[winlines() - 1]
+```tf
+/echo screen $[lines()], window $[winlines()], page $[winlines() - 1]
 ```
 ```output
-page size: 21
+screen 24, window 23, page 22
 ```
-(on a 24-line terminal with a one-line status bar and one-line input window)
+In the default (non-visual) layout the window is one line shorter than the screen (the input line); in visual mode it also loses `%isize` input lines and `%status_height` status rows.
 
-**Status:** see [Status](Status.md) (host capability: TermHost)
+**Status:** see [Status](Status.md) (host capability: WindowHost, optional: the core answers from the screen size)
 
 ## keycode(name)
 
@@ -81,13 +81,17 @@ page size: 21
 
 **Syntax:** `kblen()` returns the number of bytes in the input buffer.
 
-```tf-noverify
+```tf
+/input look at (the) dragon
 /echo input is $[kblen()] characters long
+```
+```output
+input is 20 characters long
 ```
 
 **Gotchas:** Input-line functions are only meaningful while the user is at the keyboard (from a key binding, a `/dokey` macro, or a command typed on the line); from a trigger they see whatever is half-typed. The unit is bytes, not display columns.
 
-**Status:** see [Status](Status.md) (host capability: TermHost)
+**Status:** see [Status](Status.md) (host capability: none needed: the core owns the input buffer and the client feeds it)
 
 ## kbpoint()
 
@@ -95,11 +99,16 @@ page size: 21
 
 **Syntax:** `kbpoint()` returns the cursor position, counting from 0.
 
-```tf-noverify
+```tf
+/input hello world
+/test kbgoto(5)
 /echo cursor at $[kbpoint()] of $[kblen()]
 ```
+```output
+cursor at 5 of 11
+```
 
-**Status:** see [Status](Status.md) (host capability: TermHost)
+**Status:** see [Status](Status.md) (host capability: none needed: the core owns the input buffer and the client feeds it)
 
 ## kbhead()
 
@@ -107,11 +116,16 @@ page size: 21
 
 **Syntax:** `kbhead()` returns a string: the input line up to (not including) the cursor.
 
-```tf-noverify
-/def -b'^[?' help_here = /echo you typed "$[kbhead()]" so far
+```tf
+/input look at the dragon
+/test kbgoto(8)
+/echo typed so far: "$[kbhead()]"
+```
+```output
+typed so far: "look at "
 ```
 
-**Status:** see [Status](Status.md) (host capability: TermHost)
+**Status:** see [Status](Status.md) (host capability: none needed: the core owns the input buffer and the client feeds it)
 
 ## kbtail()
 
@@ -119,11 +133,16 @@ page size: 21
 
 **Syntax:** `kbtail()` returns a string.
 
-```tf-noverify
+```tf
+/input look at the dragon
+/test kbgoto(8)
 /echo before=[$[kbhead()]] after=[$[kbtail()]]
 ```
+```output
+before=[look at ] after=[the dragon]
+```
 
-**Status:** see [Status](Status.md) (host capability: TermHost)
+**Status:** see [Status](Status.md) (host capability: none needed: the core owns the input buffer and the client feeds it)
 
 ## kbgoto(position)
 
@@ -131,13 +150,17 @@ page size: 21
 
 **Syntax:** `kbgoto(i)` returns the new position, which differs from `i` if `i` was outside the buffer (it is clamped).
 
-```tf-noverify
-/test kbgoto(0)
+```tf
+/input abc
+/echo $[kbgoto(1)] $[kbgoto(99)] $[kbgoto(0)]
+```
+```output
+1 3 0
 ```
 
 **Gotchas:** Use `/test kbgoto(...)` to call it for its side effect and ignore the result.
 
-**Status:** see [Status](Status.md) (host capability: TermHost)
+**Status:** see [Status](Status.md) (host capability: none needed: the core owns the input buffer and the client feeds it)
 
 ## kbdel(position)
 
@@ -145,13 +168,20 @@ page size: 21
 
 **Syntax:** `kbdel(i)` deletes the text between the cursor and position `i` (in either direction) and returns the new cursor position.
 
-```tf-noverify
-/def -b'^W' kill_word = /test kbdel(kbwordleft())
+```tf
+/input look at the dragon
+/test kbdel(kbwordleft())
+/echo [$[kbhead()]] cursor $[kbpoint()]
 ```
+```output
+[look at the ] cursor 12
+```
+
+The stock `^W` binding is built from exactly this pair.
 
 **Gotchas:** A position outside the buffer deletes nothing.
 
-**Status:** see [Status](Status.md) (host capability: TermHost)
+**Status:** see [Status](Status.md) (host capability: none needed: the core owns the input buffer and the client feeds it)
 
 ## kbmatch([position])
 
@@ -159,11 +189,15 @@ page size: 21
 
 **Syntax:** `kbmatch()` or `kbmatch(i)`: looks from `i` (default: the cursor) rightwards for one of `(){}[]` and returns the position of its mate, or `-1` if there is none.
 
-```tf-noverify
-/def -b'^]' jump_match = /test kbgoto(kbmatch())
+```tf
+/input say (hi there) now
+/echo $[kbmatch(4)] $[kbmatch(14)] $[kbmatch(0)] $[kbmatch(17)]
+```
+```output
+13 -1 13 -1
 ```
 
-**Status:** see [Status](Status.md) (host capability: TermHost)
+**Status:** see [Status](Status.md) (host capability: none needed: the core owns the input buffer and the client feeds it)
 
 ## kbwordleft([position]) and kbwordright([position])
 
@@ -171,24 +205,39 @@ page size: 21
 
 **Syntax:** `kbwordleft(i)` is the position of the start of the word at or left of `i`; `kbwordright(i)` the position just past the end of the word right of `i`. `i` defaults to the cursor.
 
-```tf-noverify
-/def -b'^[b' back_word = /test kbgoto(kbwordleft())
-/def -b'^[f' fwd_word = /test kbgoto(kbwordright())
+```tf
+/input one two  three
+/test kbgoto(6)
+/echo $[kbwordleft()] $[kbwordright()] $[kbwordleft(0)] $[kbwordright(13)]
+```
+```output
+4 7 0 14
 ```
 
-**Status:** see [Status](Status.md) (host capability: TermHost)
+Bound to keys with `/def -b'^[b' = /test kbgoto(kbwordleft())` and `/def -b'^[f' = /test kbgoto(kbwordright())`.
 
-## kbcharback([n]) and kbcharfwd([n])
+**Status:** see [Status](Status.md) (host capability: none needed: the core owns the input buffer and the client feeds it)
+
+## kbcharback(n) and kbcharfwd(n)
 
 **What they are for:** character-wise cursor arithmetic that respects multibyte (UTF-8) characters.
 
-**Syntax:** `kbcharback(n)` returns the byte position `n` characters before the cursor (default 1; never below 0); `kbcharfwd(n)` the position `n` characters after (never beyond the end). They only *compute* a position; combine with `kbgoto()` to move.
+**Syntax:** `kbcharback(n)` returns the byte position `n` characters before the cursor (never below 0); `kbcharfwd(n)` the position `n` characters after (never beyond the end); the argument is required. They only *compute* a position; combine with `kbgoto()` to move.
 
-```tf-noverify
-/def -b'^B' left = /test kbgoto(kbcharback())
+```tf
+/input héllo
+/echo $[kblen()] $[kbcharback(1)] $[kbcharback(2)]
+/test kbgoto(1)
+/echo $[kbcharfwd(1)] $[kbcharfwd(9)]
+```
+```output
+6 5 4
+3 6
 ```
 
-**Status:** see [Status](Status.md) (host capability: TermHost)
+The input is 6 bytes (`é` takes two), so one character back from the end is byte 5 and two back is byte 4 (the `é` is not split). `kbcharfwd` never goes past the end. Both functions require their argument in this engine as in tf's function table, even though the manual shows it optional.
+
+**Status:** see [Status](Status.md) (host capability: none needed: the core owns the input buffer and the client feeds it)
 
 ## morepaused([world])
 
@@ -196,11 +245,14 @@ page size: 21
 
 **Syntax:** `morepaused()` or `morepaused(world)`; returns `1` if that world's output is paused by `/more` or by `/dokey pause`, else `0`.
 
-```tf-noverify
-/if (morepaused()) /echo -e reading backlog%; /endif
+```tf
+/echo paused: $[morepaused()]
+```
+```output
+paused: 0
 ```
 
-**Status:** see [Status](Status.md) (host capability: Notifier)
+**Status:** see [Status](Status.md) (host capability: MoreHost, optional: the core keeps per-world counters)
 
 ## moresize([flags [, world]])
 
@@ -208,16 +260,16 @@ page size: 21
 
 **Syntax:** `moresize()` returns the physical lines (after wrapping) below the bottom of the output window. Flags: `n` count only lines never seen, `l` count only lines matching the current `/limit`, `a` also count lines with the "A" (noactivity) attribute. Flags may be combined (`"nl"`). An unknown flag prints `moresize: illegal flag 'x'`.
 
-```tf-noverify
-/echo $[moresize()] queued, $[moresize("n")] never seen
+```tf
+/echo $[moresize()] queued, $[moresize("n")] never seen, $[moresize("nl")] unseen and matching /limit
 ```
 ```output
-0 queued, 0 never seen
+0 queued, 0 never seen, 0 unseen and matching /limit
 ```
 
 **Gotchas:** `0` does not mean output is not paused: use `morepaused()` for that.
 
-**Status:** see [Status](Status.md) (host capability: Notifier)
+**Status:** see [Status](Status.md) (host capability: MoreHost, optional: the core keeps per-world counters)
 
 ## morescroll(n)
 
@@ -225,11 +277,16 @@ page size: 21
 
 **Syntax:** `morescroll(n)`: if `n` is positive, scroll `n` lines forward (revealing queued text); if negative, scroll `abs(n)` lines back into scrollback. Returns the number of lines actually scrolled (`0` when there is nothing to scroll).
 
-```tf-noverify
-/def -b'^[v' page_up = /test morescroll(-(winlines() - 1))
+```tf
+/echo scrolled: $[morescroll(-(winlines() - 1))]
+```
+```output
+scrolled: 0
 ```
 
-**Status:** see [Status](Status.md) (host capability: Notifier)
+A page-up key binding is `/def -b'^[v' = /test morescroll(-(winlines() - 1))`.
+
+**Status:** see [Status](Status.md) (host capability: MoreHost, optional: the core keeps per-world counters)
 
 ## status_fields([row])
 
@@ -237,17 +294,19 @@ page size: 21
 
 **Syntax:** `status_fields()` or `status_fields(row)` returns the space-separated field list of that status row (row 0 by default), in `/status_add` syntax: `name[:width[:attributes]]`.
 
-```tf-noverify
+```tf
 /echo $[status_fields(0)]
+/echo [$[status_fields(1)]]
 ```
 ```output
 @more:8:rB :1 @world :1 @read:6 :1 @active:11 :1 @log:5 :1 @mail:6 :1 insert:6 :1 kbnum:4 :1 @clock:5
+[]
 ```
-(the default row of real tf)
+(the default row of real tf; row 1 is empty until you `/status_add -r1`)
 
 **Gotchas:** A row that does not exist yields an empty string.
 
-**Status:** see [Status](Status.md) (host capability: Notifier)
+**Status:** see [Status](Status.md) (host capability: StatusHost, optional: the core owns the layout)
 
 ## status_width(fieldname)
 
@@ -255,13 +314,16 @@ page size: 21
 
 **Syntax:** `status_width(name)` returns an integer. It takes exactly one argument; calling it with none is a usage error.
 
-```tf-noverify
+```tf
 /echo clock field is $[status_width("@clock")] columns wide
 ```
+```output
+clock field is 5 columns wide
+```
 
-**Gotchas:** A name that is not a field of the status bar returns `0` or fails, depending on version; real tf 5 can misbehave here, so check with `status_fields()` first.
+**Gotchas:** A name that is not a field of the status bar warns and returns `0` here; the reference tf build dereferences a null pointer and aborts, so check with `status_fields()` first if you also run on real tf.
 
-**Status:** see [Status](Status.md) (host capability: TermHost)
+**Status:** see [Status](Status.md) (host capability: StatusHost, optional: the core owns the layout)
 
 ## isatty()
 

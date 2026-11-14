@@ -49,7 +49,7 @@ once more
 
 **Syntax:** `/ps [-srq] [-wworld] [pid]`
 
-**Arguments/Returns:** lists all `/repeat` and `/quote` processes, or just `pid`. `-s` prints bare pids, one per line, for use in macros (the engine matches real tf); `-r` only repeats, `-q` only quotes (this engine does not yet filter, see FINDINGS), `-w` only those for a world. The full table has the columns PID, NEXT (time to the next run, or `pending` when waiting for a shell command), T (`r` repeat, `q` quote), D (quote disposition `e`cho, `s`end, e`x`ec), WORLD, PTIME (the delay), COUNT (runs left) and COMMAND.
+**Arguments/Returns:** lists all `/repeat` and `/quote` processes, or just `pid`. `-s` prints bare pids, one per line, for use in macros (the engine matches real tf); `-r` only repeats, `-q` only quotes (the engine does not yet filter, still open at v0.0.5, see FINDINGS), `-w` only those for a world. The full table has the columns PID, NEXT (time to the next run, or `pending` when waiting for a shell command), T (`r` repeat, `q` quote), D (quote disposition `e`cho, `s`end, e`x`ec), WORLD, PTIME (the delay), COUNT (runs left) and COMMAND.
 
 ```tf
 /repeat -3600 i /echo hourly report
@@ -74,10 +74,24 @@ once more
 
 **Syntax:** `/kill pid...` terminates each listed process. Get pids from the return value of `/repeat` and `/quote`, from `/ps`, or from a `PROCESS` hook. A non-numeric or unknown pid prints an error and is skipped.
 
-```tf-noverify
+```tf
 /repeat -60 i /echo heartbeat
-/ps -s
+/repeat -90 i /echo second
+/eval /echo A[$(/ps -s)]
 /kill 1
+/eval /echo B[$(/ps -s)]
+/kill 2
+/eval /echo C[$(/ps -s)]
+```
+```output
+A[1 2]
+B[2]
+C[]
+```
+`/ps` without `-s` prints the table; real tf shows, for one `/repeat -300 i /send look`:
+```tf-noverify
+  PID     NEXT T D WORLD       PTIME COUNT COMMAND
+    3  0:04:59 r             0:05:00     i /send look
 ```
 
 **Gotchas:** Killing a `/quote !command` that is waiting on a slow shell command blocks until the shell command exits (a documented bug in tf); interrupt with ^C.
@@ -110,11 +124,11 @@ once more
 
 ```tf-noverify
 /require quoter.tf
+/def greet = /echo Hello, %1!
 /qdef greet
 ```
-```output
-[send] :| /def greet = /echo Hello, %1!
-```
+Each line of the definition is sent to the game, so a connected world receives
+`:| /def greet = /echo Hello, %1!` (the `%1` stays literal in real tf).
 
 **Status:** see [Status](Status.md)
 

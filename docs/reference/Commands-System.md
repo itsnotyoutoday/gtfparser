@@ -108,7 +108,7 @@ when possible. (y/N)`. An extra argument is an error. Unix builds only.
 **Gotchas.** This is a feature of the squat-patched tf. An embedding program
 has to supply its own restart mechanism; without one the command fails loudly.
 
-**Status:** see [Status](Status.md). Capability: Notifier.
+**Status:** see [Status](Status.md). Capability: RebootHost.
 
 ---
 
@@ -146,13 +146,20 @@ real command needs *both* numbers: `/watchdog 3` fails with `invalid or missing
 numeric argument`. A bare `/watchdog` only reports the state. The guard
 applies only to lines subject to gagging (it does nothing when `%gag` is off).
 
-```tf-noverify
+```tf
 /watchdog 3 6
+/watchdog
 /watchdog off
 ```
+```output
+% watchdog enabled, searching for 3 out of 6 lines
+% watchdog enabled.
+% watchdog disabled.
+```
 
-**Status:** see [Status](Status.md). Capability: WorldHost (it works on each
-world's incoming text).
+**Status:** see [Status](Status.md). The core keeps the state; the front end
+must call `CheckWatch(world, line)` for each received line (before recording
+it) and drop the line when it returns true.
 
 ---
 
@@ -172,7 +179,17 @@ the two-argument form (`/watchname 2` fails).
 **Gotchas.** The created gag is an ordinary macro with priority from `%gpri`; list
 or remove it with `/listdef -mglob`/`/undef`.
 
-**Status:** see [Status](Status.md). Capability: WorldHost.
+```tf
+/watchname 2 5
+/watchname
+```
+```output
+% watchname enabled, searching for 2 out of 5 lines
+% watchname enabled.
+```
+
+**Status:** see [Status](Status.md). Same arrangement as `/watchdog`
+(`CheckWatch`); the gag it defines is an ordinary macro.
 
 ---
 
@@ -190,12 +207,16 @@ Features: `256colors`, `core`, `float`, `ftime`, `history`, `IPv6`, `locale`,
 
 Real tf (one build) prints:
 
-```tf-noverify
+```tf
 /features
 ```
 ```output
-+256colors -core +float +ftime +history -IPv6 +locale +MCCPv1 +MCCPv2 +process -SOCKS -ssl +subsecond +TZ
+-256colors -core +float +ftime +history -IPv6 +locale -MCCPv1 -MCCPv2 +process -SOCKS -ssl +subsecond +TZ
 ```
+(A stock tf prints `+MCCPv1 +MCCPv2` and so on; this engine provides
+float, ftime, history, locale, process, subsecond and TZ itself, and the
+embedding program declares 256colors, IPv6, MCCP, ssl, SOCKS and core with
+`SetFeature`.)
 and as a function: `/if (!features("ssl")) /echo -e warning: not secure%; /endif`.
 
 **Gotchas.** The answer describes this build, so an embedding program reports

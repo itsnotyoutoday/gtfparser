@@ -56,7 +56,7 @@ are divided by `--`. A `#` just before the range numbers the lines.
 
 **Return value:** the number of lines recalled.
 
-```tf-noverify
+```tf
 /recordline -l first line
 /recordline -l second line with spam
 /recordline -l third
@@ -64,8 +64,7 @@ are divided by `--`. A `#` just before the range numbers the lines.
 /recall -l 3
 /recall -l -q /2 *spam*
 ```
-Real tf prints, for the two commands:
-```tf-noverify
+```output
 ================ Recall start ================
 second line with spam
 third
@@ -85,8 +84,7 @@ fourth spam
   time tf resumed, not the arrival time.
 - The `#` (line numbers) must come last, after the other options: `/recall -l -q # 1-2`.
 
-**Status:** see [Status](Status.md). Capability: Notifier (the host owns the
-history buffers and the display).
+**Status:** see [Status](Status.md). No host capability needed: the core keeps the history buffers (a front end feeds lines in with `RecordInput` / `RecordLocalLine` / `RecordWorldLine`).
 
 ---
 
@@ -109,13 +107,17 @@ out-of-order buffer and odd `/recall` results. Combined with `/quote` it reads a
 file back: `/quote -S -dexec /recordline -i - 'input.log` restores a
 previous session's input history (see [`/loadhist`](#history-library-loadhist-and-savehisttf)).
 
-```tf-noverify
+```tf
 /recordline -i /connect Cave
-/recall -i -q 1
+/recall -i -q 2
 ```
-Real tf prints `/connect Cave`.
+```output
+/connect Cave
+```
+(The input history always ends with a blank slot for the line being typed,
+so `/recall -i -q 1` alone prints that blank line.)
 
-**Status:** see [Status](Status.md). Capability: Notifier.
+**Status:** see [Status](Status.md). No host capability needed.
 
 ---
 
@@ -133,17 +135,26 @@ nothing). The return value is 0 on failure and otherwise the (new) size.
 Defaults: 1000 lines per world and for global, 100 for local and input. The
 variable `%histsize` sets the default for world histories created later.
 
-```tf-noverify
-/histsize -l
-/histsize -l 50
+```tf
+/histsize -i 3
+/recordline -i one
+/recordline -i two
+/recordline -i three
+/recordline -i four
+/eval /echo [$(/recall -i -q 9)]
 ```
-Real tf prints `% local history capacity is 100 lines.` and then
-`% local history capacity changed to 50 lines.`.
+```output
+% input history capacity changed to 3 lines.
+[three four ]
+```
+Only the newest lines survive (the capacity counts the blank slot for the line
+being typed). `/histsize -l` alone prints `% local history capacity is 100
+lines.`; with a number it prints `% local history capacity changed to 50 lines.`.
 
 **Gotchas.** Real tf rejects `-q` as an invalid option here (options are
 `-lgi -w<string>`).
 
-**Status:** see [Status](Status.md). Capability: Notifier.
+**Status:** see [Status](Status.md). No host capability needed.
 
 ---
 
@@ -177,8 +188,11 @@ Scrolling past the bottom changes the prompt to `LIMIT ON`. By default the
 **Gotchas.** `/limit -q` is an invalid option in real tf (options are `-av`
 and `-m`).
 
-**Status:** see [Status](Status.md). Capability: Notifier (the display is the
-host's). A builtin command may be called as a function, so `limit()` (as in the default `@more` status definition) is the same test.
+**Status:** see [Status](Status.md). Capability: LimitHost (the host re-renders
+its screen under the filter; without one every `/limit` finds no lines, as tf
+in batch mode does and prints `% No lines matched criteria.`). A builtin command
+may be called as a function in real tf, so `limit()` (as in the default `@more`
+status definition) is the same test.
 
 ---
 
@@ -191,7 +205,7 @@ from a key binding).
 
 With nothing to repeat, real tf prints `% No previous limit.`
 
-**Status:** see [Status](Status.md). Capability: Notifier.
+**Status:** see [Status](Status.md). Capability: LimitHost.
 
 ---
 
@@ -203,7 +217,7 @@ With nothing to repeat, real tf prints `% No previous limit.`
 
 See `/limit` for how the window is repositioned.
 
-**Status:** see [Status](Status.md). Capability: Notifier.
+**Status:** see [Status](Status.md). Capability: LimitHost.
 
 ---
 
@@ -227,17 +241,34 @@ right-justifies; one field may have width 0 to take up the slack. Attributes
 combine with `%status_attr_int_<name>` / `%status_attr_var_<name>`; padding is
 drawn with `%status_pad`.
 
-```tf-noverify
-/set hp=100
-/status_add -A@world hp:4
+```tf
+/set status_height=2
+/status_add -r1 foo:5 bar:3
+/status_add -r1 -Afoo hp:4
+/echo $[status_fields(1)]
+/status_edit -r1 hp:6
+/echo $[status_fields(1)]
+/status_rm hp
+/echo $[status_fields(1)]
+/status_clear -r1
+/echo [$[status_fields(1)]]
 ```
-Several fields can be given at once, but padding is not inserted for you:
-`/status_add -Aclock foo:4 :1 bar:4`.
+```output
+foo:5 :1 hp:4 bar:3
+foo:5 :1 hp:6 bar:3
+foo:5 :1 bar:3
+[]
+```
+Several fields can be given at once, but padding is not inserted for you
+(`/status_add -Aclock foo:4 :1 bar:4`); adding a field next to others inserts a
+one-column `:1` spacer, and `/status_rm` leaves it behind. In the default
+layout (library `tfstatus.tf`) use `-A@world` and friends to place a field
+after a stock one. Only one variable-width field (no `:n`) may exist per row.
 
 **Gotchas.** Row 0's list is also reachable through the deprecated variable
 `%status_fields`; prefer these commands.
 
-**Status:** see [Status](Status.md). Capability: Notifier.
+**Status:** see [Status](Status.md). No host capability needed to keep the fields; a front end draws the bar from `StatusRows` and redraws on `status` Notifier events (optionally `StatusHost` supplies field values).
 
 ---
 
@@ -251,7 +282,7 @@ field if padding sits on both sides.
 
 Real tf says `STATUS_RM: hp: no such field` when it is absent.
 
-**Status:** see [Status](Status.md). Capability: Notifier.
+**Status:** see [Status](Status.md). No host capability needed to keep the fields; a front end draws the bar from `StatusRows` and redraws on `status` Notifier events (optionally `StatusHost` supplies field values).
 
 ---
 
@@ -263,7 +294,7 @@ Real tf says `STATUS_RM: hp: no such field` when it is absent.
 **Syntax:** `/status_edit [-rN] name[:width[:attrs]]`. Only the first matching
 field is edited; `-r` restricts the search to one row.
 
-**Status:** see [Status](Status.md). Capability: Notifier.
+**Status:** see [Status](Status.md). No host capability needed to keep the fields; a front end draws the bar from `StatusRows` and redraws on `status` Notifier events (optionally `StatusHost` supplies field values).
 
 ---
 
@@ -274,7 +305,7 @@ field is edited; `-r` restricts the search to one row.
 **Syntax:** `/status_clear -rN`. Real tf requires `-r`; without it the command
 returns 0 and does nothing. Returns 1 on success.
 
-**Status:** see [Status](Status.md). Capability: Notifier.
+**Status:** see [Status](Status.md). No host capability needed to keep the fields; a front end draws the bar from `StatusRows` and redraws on `status` Notifier events (optionally `StatusHost` supplies field values).
 
 ---
 
@@ -399,11 +430,17 @@ builtins above to do anything visible.
 - `status_int_more()` - the macro behind the `@more` field text (`LIMIT ON`,
   `More 12`, `L 15+  3`).
 
-```tf-noverify
-/clock %I:%M
+```tf
+/require tfstatus.tf
 /status_save mine
-/status_defaults
+/clock %I:%M
+/echo clock=$[status_fields(0)]
 /status_restore mine
+/echo restored=$[status_fields(0)]
+```
+```output
+clock=@more:8:rB :1 @world :1 @read:6 :1 @active:11 :1 @log:5 :1 @mail:6 :1 insert:6 :1 kbnum:4 :1 @clock:1
+restored=@more:8:rB :1 @world :1 @read:6 :1 @active:11 :1 @log:5 :1 @mail:6 :1 insert:6 :1 kbnum:4 :1 @clock:5
 ```
 
 **Status:** library macros; see [Status](Status.md) for `/status_*`.

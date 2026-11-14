@@ -123,7 +123,7 @@ Fri Mar (100%)
 
 **Syntax:** `sidle()` for the current world, `sidle(s)` for world `s`; -1 on error.
 
-```tf-noverify
+```tf
 /def keepalive = /if (sidle() > 240) /send look%; /endif
 /echo $[sidle() >= 0]
 ```

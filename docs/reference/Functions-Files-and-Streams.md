@@ -228,17 +228,24 @@ untouched: /var/tmp/x
 
 **Syntax:** `nlog()` returns an integer.
 
-```tf-noverify
-/log /tmp/session.log
+```tf
 /echo logs open: $[nlog()]
+/log /tmp/gtf-ex-session.log
+/echo logs open: $[nlog()]
+/log off
+/echo logs open: $[nlog()]
+/sh rm -f /tmp/gtf-ex-session.log
 ```
 ```output
+logs open: 0
+% Logging to file /tmp/gtf-ex-session.log
 logs open: 1
+logs open: 0
 ```
 
 **Gotchas:** Several `/log` commands that write to the same file still count as separate logs.
 
-**Status:** see [Status](Status.md) (host capability: Notifier)
+**Status:** see [Status](Status.md) (no host capability needed: the core counts its own logs)
 
 ## Related
 

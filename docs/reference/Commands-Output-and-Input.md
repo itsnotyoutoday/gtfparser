@@ -190,9 +190,17 @@ strip a decoration or rewrite a line.
 
 **Syntax:** `/substitute [-aattrs] [-p] text`
 
-```tf-noverify
-/def -ah -t'##page> *' hilite_mufpage = /substitute %-1
+```tf
+/def -F -p5 -t'hello*' sub1 = /substitute -- HI %-1
+/def -p1 -t'HI*' second = /echo second saw: %*
+/trigger hello world
 ```
+```output
+second saw: HI world
+```
+
+The fall-through trigger rewrites the line; the lower-priority trigger then matches
+and sees the new text.
 
 **Gotchas**
 

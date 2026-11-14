@@ -34,11 +34,11 @@ key binding, or any combination.
 | `-mstyle` | pattern style for `-t`, `-h`, `-T`: `simple`, `glob` (default, `%{matching}`) or `regexp` |
 | `-h'EVENT [pattern]'` | hook: run when client event EVENT (optionally with matching arguments) happens; `A\|B` lists events |
 | `-b'keys'` | key binding (`^X` forms; see `/bind`); `-Bname` binds a termcap key name (deprecated) |
-| `-ppri` | priority of the trigger/hook (default 1; a number or an expression, evaluated once) |
+| `-ppri` | priority of the trigger/hook (default 1; a number or an expression, evaluated once). A negative value counts as "not given" and gives the default |
 | `-F` | fall-thru: lower-priority matches may also run |
-| `-nN` | shots: delete the macro after it has fired N times as a trigger/hook (0 = forever) |
+| `-nN` | shots: delete the macro after it has fired N times as a trigger/hook (0 = forever; negative = not given) |
 | `-1` | same as `-n1` |
-| `-cN` | percent chance (default 100) that a match runs its body |
+| `-cN` | percent chance (default 100) that a match runs its body (negative = not given) |
 | `-E'expr'` | only consider this macro when the expression is true (evaluated for every line, keep it cheap) |
 | `-wworld`, `-Ttype` | limit to a world, or to worlds of a type |
 | `-a[ngGLAurBbhC]` | display attributes for the matched line: `g` gag, `G` no-history, `L` no-log, `A` no-activity, `u` underline, `r` reverse, `B` bold, `b` bell, `h` hilite, `n` normal, `C`+colour (`Cred`) |
@@ -50,7 +50,7 @@ key binding, or any combination.
 when the macro is called, with the arguments as `%1`, `%{-1}`, `%*`...; a
 definition on one line may use `%;` between commands.
 
-**Return value:** the number of the new macro, or 0 on failure.
+**Return value:** the number of the new macro, or 0 on failure. Redefining a macro identically changes nothing and returns the existing number. Macro names are case-insensitive: `/def Hello` and `/def HELLO` are the same macro, and `/hello` calls it.
 
 ```tf
 /def -t'You hit *' hit = /echo Hit! (%*)
@@ -67,7 +67,10 @@ Zed leaves (2 words)
 ```
 
 Priorities and fall-through: of all matching triggers only the highest-priority
-one runs unless it is marked `-F`.
+one runs unless it is marked `-F`. Fall-through (`-F`) macros all run, newest
+first, and the search continues below them. Among the *non*-fall-through macros
+of the winning priority exactly **one** is chosen, at random: equal-priority
+macros do not all run, unlike what you might expect.
 
 ```tf
 /def -t'bar' -p3 low = /echo low
@@ -105,6 +108,53 @@ RUN!
 42
 ```
 
+A random pick among equals, and fall-through macros that always run (forty
+lines, so the counts are certain):
+
+```tf
+/set na=0
+/set nb=0
+/set nf=0
+/def -t'ping' -p3 pa = /set na=$[na+1]
+/def -t'ping' -p3 pb = /set nb=$[nb+1]
+/def -t'ping' -p3 -F pf = /set nf=$[nf+1]
+/def go = /let i=0%; /while (i < 40) /trigger ping%; /test ++i%; /done
+/go
+/echo fall-through ran %nf times; one of pa/pb each time: $[na+nb]; both got picked: $[na > 0 & nb > 0]
+```
+```output
+fall-through ran 40 times; one of pa/pb each time: 40; both got picked: 1
+```
+
+Case-insensitive names, negative numbers meaning "not given", the macro number
+that `/def` returns, and `-n` shots on a trigger:
+
+```tf
+/def Hello = /echo hi
+/HELLO
+/def HELLO = /echo hello again
+/hello
+/def -p-5 -n-1 -c-1 -t'neg' neg1 = /echo neg
+/trigger neg
+/trigger neg
+/eval /def made1 = x%; /echo got a number: $[%? > 0]
+/def -n2 -t'shot' shotty = /echo shot
+/trigger shot
+/trigger shot
+/trigger shot
+/echo shotty is gone: $[!ismacro("shotty")]
+```
+```output
+hi
+hello again
+neg
+neg
+got a number: 1
+shot
+shot
+shotty is gone: 1
+```
+
 **Gotchas**
 
 - `/def` body text is substituted **when the macro runs**, not when defined, but
@@ -115,9 +165,11 @@ RUN!
 - A macro called as a *command* ignores `-n`: shots only count trigger/hook firings.
 - `-p` accepts a variable (`-pmaxpri`): the value is read once, at definition.
 - A glob pattern with `{a|b}` alternation and `[a-c]` classes is available in `-t`.
-- Real tf accepts `-1` as a one-shot; the engine does not yet (FINDINGS C3).
-  Hooks fired by `Interp.Hook(event, args)` from Go; `/trigger -h` does not (C5).
-  Fall-through to a *lower* priority than the `-F` macro does not run it yet (C15); equal priorities work.
+- `-1` is a one-shot (same as `-n1`).
+- With `-w world` the engine validates the world name only when the host reports
+  worlds (`WorldInfoHost`); without it an unknown world is accepted silently (FINDINGS C4).
+- `%max_trig` limits how often triggers may run (a burst beyond it turns `%borg` off and
+  warns); `%max_hook` does the same for hooks.
 
 **Status:** see [Status](Status.md)
 
@@ -142,9 +194,18 @@ stop the rest.
 gone, but tmp2 stays: 1
 ```
 
-**Gotchas.** Multi-name removal returns the count in real tf (2 for two names);
-the engine returns 1 (FINDINGS C8). To remove by *trigger text* use `/untrig`; by
-number, `/undefn`.
+```tf
+/def u1 = x
+/def u2 = y
+/eval /undef u1 u2 nosuch%; /echo removed %?
+```
+```output
+removed 2
+```
+
+**Gotchas.** An unknown name prints `% UNDEF: Macro "nosuch" was not defined.` and
+does not stop the rest. Names are case-insensitive. To remove by *trigger text*
+use `/untrig`; by number, `/undefn`.
 
 **Status:** see [Status](Status.md)
 
@@ -155,12 +216,16 @@ useful for macros with no name (a bare trigger).
 
 **Syntax:** `/undefn number [number ...]`
 
-```tf-noverify
-/def -t'spam*' -ag
+```tf
+/eval /def -t'spam*' -ag%; /undefn %?
 /list -s -t'spam*'
-% 751: (trig) 'spam*'
-/undefn 751
+/echo nothing listed
 ```
+```output
+nothing listed
+```
+
+The `/eval` line defines the nameless gag trigger and removes it by the number `/def` returned.
 
 **Status:** see [Status](Status.md)
 
@@ -205,9 +270,16 @@ your own definitions: not `/purge` alone. The name is ONE pattern, using `%{matc
 hilites, key bindings, hooks, and "trigger-only" macros respectively.
 `/purgeworld` (a synonym for `/unworld`) is covered under worlds.
 
-```tf-noverify
-/gag *spam*
-/purgegag *spam*
+```tf
+/gag *spamx*
+/list -s -ag
+/purgegag *spamx*
+/echo after purge
+/list -s -ag
+```
+```output
+% 751: (gag) '*spamx*'
+after purge
 ```
 
 **Status:** see [Status](Status.md)
@@ -228,13 +300,23 @@ do not.
 
 **Return value:** the number of the last macro listed, or 0.
 
-```tf-noverify
+```tf
 /def -t'You hit *' hit = /echo Hit!
 /list hit
-% 751: /def -p1 -mglob -t'You hit *' hit = /echo Hit!
-/list -s -t
-% 751: (trig) 'You hit *' hit
+/list -s -t'You hit*'
+/def -t'smile' -p4 -c25 -n3 -F joke = /echo :grins
+/list joke
 ```
+```output
+% 751: /def -p1 -mglob -t'You hit *' hit = /echo Hit!
+% 751: (trig) 'You hit *' hit
+% 752: /def -Fp4 -c25 -n3 -mglob -t'smile' joke = /echo :grins
+```
+
+**Formats.** The full form is a `/def` line that would recreate the macro
+(options in `/list`'s canonical order, `-F` folded into the `-p` flags); `-s`
+gives `(kind) 'pattern' name`. `-u` adds usage counts. Hooks list as
+`(hook) EVENT name`, gags and hilites as `(gag)`/`(hilite)`.
 
 **Gotchas.** Macro numbers depend on how many library macros are loaded, so do not
 hard-code them. Listing goes to the screen, not through `/echo`.
@@ -248,11 +330,16 @@ hard-code them. Listing goes to the screen, not through `/echo`.
 hilites, key bindings, hooks. The argument is a glob on the trigger text (the key
 for `/listbind`, the event for `/listhook`).
 
-```tf-noverify
-/gag *spam*
+```tf
+/gag *spamy*
 /listgag
-% 752: /def -p0 -ag -mglob -t'*spam*'
 ```
+```output
+% 751: /def -p0 -ag -mglob -t'*spamy*'
+```
+
+**Gotchas.** In real tf's library `/listpartial` (and so `/listhilite`) fails with
+`LIST -P: "-P" requires "-mregexp -t<pattern>"`; this engine reproduces that message.
 
 **Status:** see [Status](Status.md)
 
@@ -263,16 +350,24 @@ mention: `/edit -t'new pattern' hit` alters the trigger of `hit` only.
 
 **Syntax:** `/edit [options] name [= body]`
 
-```tf-noverify
-/def hit = /echo ouch
-/edit -t'You are hit*' hit
+```tf
+/def hit2 = /echo ouch
+/edit -t'You are hit*' hit2
+/list hit2
+/edit hit2 = /echo ow
+/list hit2
+```
+```output
+% 751: /def -p1 -mglob -t'You are hit*' hit2 = /echo ouch
+% 751: /def -p1 -mglob -t'You are hit*' hit2 = /echo ow
 ```
 
-**Gotchas.** The macro is found by name (or `#number`); options replace the old
-ones, the body only changes when `= body` is given. Reads from or writes to the
-input line in some versions (`/edit` after `/grab` is the editing workflow).
+**Gotchas.** The macro is found by name (or `#number`) and edited in place: it
+keeps its number and its place in the list. Options replace the old ones, the
+body only changes when `= body` is given. (The `/grab` workflow puts an
+`/edit` line on the input line for you to finish by hand.)
 
-**Status:** see [Status](Status.md). Needs the host's input line for the interactive form.
+**Status:** see [Status](Status.md).
 
 ## /redef, /ismacro, /isvar
 
@@ -315,7 +410,8 @@ without a connection, and to make one script feed another.
 
 **Options.** `-hevent` matches **hooks** on that event whose argument pattern
 matches `text` (without it, triggers are matched); `-n` only *lists* what would
-run; `-l` lists it in full; `-g` / `-w[world]` restrict to global / world macros.
+run; `-l` lists it in full; `-g` / `-w[world]` restrict to global / world macros
+(`-w` needs a world to be current).
 
 **Return value:** the number of (non-quiet) macros that ran.
 
@@ -328,9 +424,33 @@ run; `-l` lists it in full; `-g` / `-w[world]` restrict to global / world macros
 reply to Bob
 ```
 
-**Gotchas.** Echoed text (from `/echo`) is never matched against triggers. In this
-engine `/trigger` currently ignores its options (FINDINGS C5); to fire a hook
-from Go use `Interp.Hook(event, args)`.
+Dry runs with `-n` and `-l` (the macro that would be applied is the highest
+priority one; the others are listed as not applied):
+
+```tf
+/def -t'You hit *' -p1 hit = /echo Hit!
+/def -t'You hit *' -p4 hit3 = /echo Big
+/trigger -n You hit the orc
+/trigger -l You hit the orc
+/hook CONNECT = /echo Connected
+/trigger -hCONNECT
+```
+```output
+% One of the following macros would be applied:
+%            4 hit3
+% The following matching macros would not be applied:
+%            1 hit
+% Text would have triggered 1 macro.
+% One of the following macros would be applied:
+/def -p4 -mglob -t'You hit *' hit3 = /echo Big
+% The following matching macros would not be applied:
+/def -p1 -mglob -t'You hit *' hit = /echo Hit!
+% Text would have triggered 1 macro.
+Connected
+```
+
+**Gotchas.** Echoed text (from `/echo`) is never matched against triggers. A
+quiet (`-q`) macro runs but is not counted in the return value.
 
 **Status:** see [Status](Status.md)
 
@@ -347,9 +467,15 @@ optional probability (`trigc`), priority (`trigp`) or both (`trigpc`).
     /trigpc priority chance pattern = body      (the builtin the others call)
     /act pattern = body             old name for /trig
 
-```tf-noverify
+```tf
 /trigp 5 You are hungry = eat bread
 /trigc 25 *smiles* = smile
+/list -s -t'You are hungry'
+/list -t*smiles*
+```
+```output
+% 751: (trig) 'You are hungry'
+% 752: /def -p0 -c25 -mglob -t'*smiles*' = smile
 ```
 
 **Gotchas.** The pattern follows `%{matching}`; give a body whose first word is a
@@ -373,9 +499,16 @@ game sends text. `/hook` is the short form of `/def -h`.
 `SEND`, `PROMPT`, `ACTIVITY`, `RESIZE`, `WORLD`, `LOAD`, `ICONFAIL`, `BACKGROUND`.
 Each `/hook` adds another macro on the event; they run by priority.
 
-```tf-noverify
-/hook CONNECT = /echo Connected to ${world_name}
+```tf
+/hook CONNECT = /echo Connected
 /def -h'SEND {k|K}*' -F -q log_k = /echo sent a k-line
+/list -s -h
+/trigger -hCONNECT
+```
+```output
+% 751: (hook) CONNECT
+% 752: (hook) SEND log_k
+Connected
 ```
 
 **Return value:** the new macro's number, or 0. **Gotchas.** The pattern's match
@@ -395,14 +528,19 @@ style (`%{matching}`) is read when the hook is *defined*.
 **Library.** Removes triggers (any macro with a `-t` pattern equal, literally, to
 `pattern`), including its gag/hilite attributes; warns "No trigger on ..." if none.
 
-```tf-noverify
-/def -t'You are hungry' hungry = eat bread
-/untrig You are hungry
+```tf
+/def -t'ant*' ant1 = /echo ant
+/untrig ant*
+/trigger ant
+/echo done
+```
+```output
+done
 ```
 
-**Gotchas.** The match is on the pattern *text*, so quoting is: `/untrig You are
-hungry`, not a glob of it. With glob characters in the pattern the engine
-currently fails to match (FINDINGS C11).
+**Gotchas.** The match is on the pattern *text*, taken literally (a `*` in
+the argument matches a `*` in the trigger). A pattern nothing matches warns
+`No trigger on ...`.
 
 **Status:** see [Status](Status.md)
 
@@ -418,14 +556,22 @@ repeated combat messages, other players' pages).
 flag (gagging enabled). `%gag` off disables all gags at once (`/nogag` with no
 argument).
 
-```tf-noverify
-/gag *'s rowdy friends*
+```tf
+/set gpri=2
+/gag *rowdy friends*
 /gag You hear a distant howl
+/list -s -ag
+/list -t'You hear*'
+```
+```output
+% 751: (gag) '*rowdy friends*'
+% 752: (gag) 'You hear a distant howl'
+% 752: /def -p2 -ag -mglob -t'You hear a distant howl'
 ```
 
 **Gotchas.** A gagged line is still *matched* by other triggers of lower priority
 unless the gag trigger has higher priority and is not `-F`. A gag defined with
-`/gag` uses priority `%gpri` (0 by default; see `/gpri`).
+`/gag` uses priority `%gpri` (0 by default; see `/gpri`), as `/hilite` uses `%hpri`.
 
 **Status:** see [Status](Status.md)
 
@@ -446,9 +592,16 @@ with no argument it turns gagging off globally by setting `gag=0`.
 Equivalent to `/def -ah -t'pattern'`. For other looks use `/def -aBCred -t'...'`
 (bold red) or `-au`, `-aCgreen`. No argument reports the `%hilite` flag.
 
-```tf-noverify
+```tf
+/set hpri=3
 /hilite {*} tells you: *
 /def -aBCred -t'*** WARNING*' warn
+/list -t'{*} tells*'
+/list warn
+```
+```output
+% 751: /def -p3 -ah -mglob -t'{*} tells you: *'
+% 752: /def -p1 -aBCred -mglob -t'*** WARNING*' warn
 ```
 
 **Status:** see [Status](Status.md)
@@ -465,8 +618,12 @@ hiliting off (`hilite=0`) with no argument.
 **Library.** Hilites only the part of the line the regexp matches
 (`/def -F -p%{hpri} -Ph -t"regexp"`), leaving the rest alone. Needs a regexp.
 
-```tf-noverify
-/partial \bdragon\b
+```tf
+/partial dragon
+/list -t'dragon'
+```
+```output
+% 751: /def -Fp0 -P0h -t'dragon'
 ```
 
 **Status:** see [Status](Status.md)
@@ -489,9 +646,16 @@ The `nohilite_` forms purge them.
 `/bind` is `/def -b'sequence' = command`. In real tf a sequence that is a prefix
 of an existing binding is refused.
 
-```tf-noverify
+```tf
 /bind ^[oj = /input OliverJones
+/listbind
 /unbind ^[oj
+/echo unbound
+/listbind
+```
+```output
+% 751: /def -b'^[oj' = /input OliverJones
+unbound
 ```
 
 **Gotchas.** Whether the key is delivered at all depends on the front end's
@@ -610,8 +774,7 @@ hi there
 Arcadia
 ```
 
-**Gotchas.** Locals cannot be exported. Afterwards `/listvar -x` shows it as
-`/setenv name=value` in real tf (the engine prints `/set`; FINDINGS C6).
+**Gotchas.** Locals cannot be exported. Afterwards `/listvar -x` lists it.
 
 **Status:** see [Status](Status.md)
 
@@ -637,7 +800,7 @@ exists: 0
 sorted by name.
 
 **Options:** `-g` only global, un-exported; `-x` only exported; `-s` names only;
-`-v` values only (documented; both real tf and the engine print the full `/set` form in current builds); `-m` match style for the patterns.
+`-v` values only (documented; real tf and the engine both print the full `/set` form in current builds); `-m` match style for the patterns.
 
 **Return value:** how many were listed.
 
@@ -680,7 +843,8 @@ gamma
 a\*b\?c
 ```
 
-**Gotchas.** `/nth` and `/split` do not work in the engine yet (FINDINGS C9, C10).
+**Gotchas.** `/split` sets `%P1` and `%P2` through a regexp match inside the macro; in this build
+the caller does not see them (FINDINGS C10, still open at v0.0.5).
 
 **Status:** see [Status](Status.md)
 
@@ -694,11 +858,17 @@ a\*b\?c
 back. They call `/save` and `/load`, which are described with the file commands.
 **/loadhist file** loads a history file with `/recordline`.
 
-```tf-noverify
-/gag *spam*
-/savegag ~/.tf-gags
-; later, in another session:
-/loadgag ~/.tf-gags
+```tf
+/gag *tmpspam*
+/savegag /tmp/gtf-ref-gags.tf
+/purgegag *tmpspam*
+/loadgag /tmp/gtf-ref-gags.tf
+/list -s -ag
+/sh rm -f /tmp/gtf-ref-gags.tf
+```
+```output
+% Writing macros to /tmp/gtf-ref-gags.tf
+% 752: (gag) '*tmpspam*'
 ```
 
 **Status:** see [Status](Status.md). Needs `/save`.

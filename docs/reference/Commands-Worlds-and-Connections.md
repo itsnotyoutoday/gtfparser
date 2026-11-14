@@ -2,7 +2,7 @@
 
 A *world* is a saved definition (name, host, port, character, password, type); a *socket* is an open connection to one. At any moment at most one socket is in the *foreground*, its text is on screen and your typing goes to it; others run in the *background* and queue their output. These commands define worlds, connect and disconnect, and switch between sockets.
 
-Connections belong to the embedding program: tf itself does not open network sockets. Everything here that touches a socket needs the `WorldHost` capability (`host.go`); the status table says what this build provides. Entries marked *Library* are macros from tf's `stdlib.tf`.
+The world database is kept by the engine, so defining, listing, renaming and removing worlds works in any embedding. Connections belong to the embedding program, which supplies them through `WorldHost` (`/connect`, `/dc`, `/fg`) and the optional `ConnectHost`, `FgHost` and `SocketHost` (options and the socket list); see `docs/engine/state-builtins.md`. With no socket support the commands report that there are no sockets, and `/connect` itself says it is not supported by this client. The examples below run in a bare interpreter, so they cover the database and the no-socket answers. Entries marked *Library* are macros from tf's `stdlib.tf`.
 
 ## /addworld [-pxe] [-Ttype] [-ssrchost] name [char pass] host port [file]  *(Library)*
 
@@ -16,19 +16,21 @@ Connections belong to the embedding program: tf itself does not open network soc
 
 **Arguments/Returns:** `name` has no spaces and (for a new world) does not begin with `(`. `type` is any label; the library's login hooks recognise `tiny` (`connect char pass`), `lp`/`diku`/`aber` (name and password on separate lines, `lp` on), `lpp`, and `telnet` (answers `login:`/`password:` prompts), each also as a prefix `type.something`. `-p` ignore `%proxy_host`; `-x` use SSL; `-e` echo sent text back as if received (handy for connectionless worlds); `-ssrchost` the local address to bind. A world called `DEFAULT` supplies the character, password, type and file for worlds that leave them out. The command is a library macro that calls the [`addworld()`](Functions-World-and-Connection.md#addworldname-type-host-port-char-pass-file-flags-srchost) function.
 
-```tf-noverify
+```tf
 /addworld -Ttiny Cave cave.example.org 4201
 /addworld -Ttiny Hub bob swordfish hub.example.org 4000
 /addworld Scratch
 /listworlds -s
 ```
 ```output
-Cave Hub Scratch
+Cave
+Hub
+Scratch
 ```
 
 **Gotchas:** Redefining a world replaces all of its fields (`% addworld: Redefined world Cave`). Types are matched by glob, so choose `tiny.muck.` style names with a trailing dot if you want `-T'tiny.muck.*'` triggers and the stock `tiny*` hooks to both fire. Passwords in a file readable by others earn a warning.
 
-**Status:** see [Status](Status.md) (host capability: WorldHost)
+**Status:** see [Status](Status.md) (no host capability needed)
 
 ## /addtiny, /addlp, /addlpp, /adddiku, /addtelnet  *(Library)*
 
@@ -36,7 +38,7 @@ Cave Hub Scratch
 
 **Syntax:** the same arguments as `/addworld`, e.g. `/addtiny Cave bob swordfish cave.example.org 4201`.
 
-```tf-noverify
+```tf
 /addtelnet Library library.example.org 23
 /echo $[world_info("Library", "type")]
 ```
@@ -44,7 +46,7 @@ Cave Hub Scratch
 telnet
 ```
 
-**Status:** see [Status](Status.md) (host capability: WorldHost)
+**Status:** see [Status](Status.md) (no host capability needed: the engine keeps the world database)
 
 ## /unworld name...  (and /purgeworld)
 
@@ -54,12 +56,20 @@ telnet
 
 **Arguments/Returns:** returns the number of worlds removed. An unknown name prints `UNWORLD: No world name` and is skipped. The removed world's history is deleted (lines may survive in the global history).
 
-```tf-noverify
+```tf
+/addworld Scratch
+/addworld Tmp1
+/addworld Tmp2
 /unworld Scratch
 /purgeworld Tmp*
+/listworlds -s
+/echo [$[world_info("Tmp1", "host")]]
+```
+```output
+[]
 ```
 
-**Status:** see [Status](Status.md) (host capability: WorldHost)
+**Status:** see [Status](Status.md) (no host capability needed: the engine keeps the world database)
 
 ## /renameworld old new
 
@@ -67,14 +77,17 @@ telnet
 
 **Syntax:** `/renameworld old new`; prints `% World renamed.` on success.
 
-```tf-noverify
+```tf
+/addworld Hub hub.example.org 4000
 /renameworld Hub Hub2
+/listworlds -s
 ```
 ```output
 % World renamed.
+Hub2
 ```
 
-**Status:** see [Status](Status.md) (host capability: WorldHost)
+**Status:** see [Status](Status.md) (no host capability needed: the engine keeps the world database)
 
 ## /listworlds [-cus] [-mstyle] [-Sfield] [-Ttype] [name]
 
@@ -84,20 +97,24 @@ telnet
 
 **Arguments/Returns:** with no options it prints a table (passwords hidden). `-s` prints names only; `-c` prints the commands that would recreate each world (passwords included); `-u` also lists unnamed temporary worlds (`(unnamed1)`). `-Sfield` sorts by `name` (default), `type`, `character`, `host`, `port`, or `-` for no sorting (first letter is enough). `-Ttype` and `name` are patterns (style from `-m`, default `%matching`). Returns the number of worlds listed.
 
-```tf-noverify
+```tf
 /addworld -Ttiny Cave cave.example.org 4201
 /addworld -Ttelnet Library library.example.org 23
 /listworlds -s -Ttiny
 /listworlds -c Cave
+/listworlds
 ```
 ```output
 Cave
 /test addworld("Cave", "tiny", "cave.example.org", "4201")
+NAME             TYPE        HOST                                           PORT
+Cave             tiny        cave.example.org                               4201
+Library          telnet      library.example.org                              23
 ```
 
 **Gotchas:** `DEFAULT` shows up in the list like any world. `-c` output is what `/saveworld` writes. Used by the library: `/world` with no argument connects the first world returned by `/listworlds -s`.
 
-**Status:** see [Status](Status.md) (host capability: WorldHost)
+**Status:** see [Status](Status.md) (no host capability needed: the engine keeps the world database)
 
 ## /connect [-lqxbf] [world]  and  /connect host port
 
@@ -118,7 +135,7 @@ After a successful connection tf loads the world's file (if any), runs the `CONN
 % Connected to Cave.
 ```
 
-**Gotchas:** A socket opened in the background does not jump to the foreground when it connects; define a `CONNECT` hook running `/fg %{1}` if you want that. `/connect` to an already open world is an error. Related variables: `%gethostbyname`, `%connect` (blocking or nonblocking). When the embedding program owns the network, this command only asks it (via `WorldHost.Connect`) to connect.
+**Gotchas:** A socket opened in the background does not jump to the foreground when it connects; define a `CONNECT` hook running `/fg %{1}` if you want that. `/connect` to an already open world is an error. Related variables: `%gethostbyname`, `%connect` (blocking or nonblocking). The embedding program owns the network: this command defines the temporary world if needed and asks the host to connect (`WorldHost.Connect`; `ConnectHost.ConnectWith` for the options). With no `WorldHost` it prints `/connect: not supported by this client`.
 
 **Status:** see [Status](Status.md) (host capability: WorldHost)
 
@@ -135,7 +152,9 @@ After a successful connection tf loads the world's file (if any), runs the `CONN
 /dc -all
 ```
 
-**Status:** see [Status](Status.md) (host capability: WorldHost)
+With no sockets, `/dc` complains that there is no current socket, and `/dc Cave` says `Not connected to Cave`.
+
+**Status:** see [Status](Status.md) (host capability: WorldHost; `SocketHost` for `-all`)
 
 ## /fg [-nsq<>l] [-cN] [world]  and  /bg
 
@@ -156,9 +175,9 @@ Cave
 []
 ```
 
-**Gotchas:** `/bg` is bound to `^]` by default. `/fg` on an unconnected world fails; use `/world` to connect-or-switch.
+**Gotchas:** `/bg` is bound to `^]` by default. `/fg` on an unconnected world fails; use `/world` to connect-or-switch (`no socket named 'Cave'` is what a host without sockets reports).
 
-**Status:** see [Status](Status.md) (host capability: WorldHost)
+**Status:** see [Status](Status.md) (host capability: WorldHost; `FgHost` for `-q`, `SocketHost` for `-<`/`->`)
 
 ## /world [-lqnxfb] [world]  and  /world host port  *(Library)*
 
@@ -192,9 +211,9 @@ Cave
  ?       0  15s tiny      SlowMUD         slow.machine.com           4201
 ```
 
-`*` marks the current socket. The next column is the state: `!` dead, `?` connecting, `C` connected, `S` in telnet subnegotiation, `X` SSL, `O` connectionless (lower case when MCCP compression is on); a `P` after it means the connection is proxied. LINES is old+new unseen lines for background sockets, or `foregnd`. Returns the number of sockets listed.
+`*` marks the current socket. The next column is the state: `!` dead, `?` connecting, `C` connected, `S` in telnet subnegotiation, `X` SSL, `O` connectionless (lower case when MCCP compression is on); a `P` after it means the connection is proxied. LINES is old+new unseen lines for background sockets, or `foregnd`. Returns the number of sockets listed. With no sockets it prints `Not connected to any sockets.`
 
-**Status:** see [Status](Status.md) (host capability: WorldHost)
+**Status:** see [Status](Status.md) (host capability: SocketHost)
 
 ## /telnet host [port]  *(Library)*
 
@@ -224,37 +243,41 @@ Cave
 
 **Status:** see [Status](Status.md) (host capability: WorldHost)
 
-## /watchdog [OFF|ON] and /watchdog n1 [n2]
+## /watchdog [OFF|ON] and /watchdog n1 n2
 
 **What it is for:** suppressing spam: a line repeated `n1` times in the last `n2` lines is gagged.
 
-**Syntax:** `/watchdog on|off`, `/watchdog n1 [n2]` (defaults 2 of 5). Sets the flag variable `%watchdog` (off by default).
+**Syntax:** `/watchdog on|off`, `/watchdog n1 n2` (both numbers are required in real tf and here, despite the manual's stated defaults). Sets the flag variable `%watchdog` (off by default; it reads back as `on` or `off`).
 
-```tf-noverify
+```tf
 /watchdog 3 6
+/echo flag is $[watchdog]
 ```
 ```output
 % watchdog enabled, searching for 3 out of 6 lines
+flag is on
 ```
 
 **Gotchas:** Its counts are independent of `/watchname`'s. Plain `/watchdog` reports `% watchdog disabled.` when off.
 
-**Status:** see [Status](Status.md) (host capability: WorldHost)
+**Status:** see [Status](Status.md) (the counters are kept by the engine; the host feeds each received line through `CheckWatch`)
 
-## /watchname [OFF|ON] and /watchname n1 [n2]
+## /watchname [OFF|ON] and /watchname n1 n2
 
 **What it is for:** muting a player who floods you: a name that starts `n1` of the last `n2` lines is gagged (with a message).
 
-**Syntax:** `/watchname on|off`, `/watchname n1 [n2]` (defaults 4 of 5). Sets `%watchname`.
+**Syntax:** `/watchname on|off`, `/watchname n1 n2` (both required, as for `/watchdog`). Sets `%watchname`.
 
-```tf-noverify
+```tf
 /watchname on
+/echo flag is $[watchname]
 ```
 ```output
 % watchname enabled, searching for 4 out of 5 lines
+flag is on
 ```
 
-**Status:** see [Status](Status.md) (host capability: WorldHost)
+**Status:** see [Status](Status.md) (the counters are kept by the engine; the host feeds each received line through `CheckWatch`)
 
 ## Related
 

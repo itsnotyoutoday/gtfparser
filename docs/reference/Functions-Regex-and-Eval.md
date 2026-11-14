@@ -60,7 +60,7 @@ Bob was told: come here
 %name stays literal
 ```
 
-**Gotchas:** the doubled `%%name` in a macro body survives the first substitution (at `/def` run time) and is expanded by `eval`. Never `eval` text that came from another player without `-s0` or sanitising: a hostile line could carry commands, as with any trigger that runs `%*`. When `text` is plain words with no leading `/`, it is sent to the world just as if typed, so an `eval` of ordinary text depends on a connection. A `/return` inside the evaluated text ends the evaluated code only. Typed at the command line the value of a `/result` is not printed in real tf (the engine currently prints it; see FINDINGS.md), so print results yourself with `/echo`.
+**Gotchas:** the doubled `%%name` in a macro body survives the first substitution (at `/def` run time) and is expanded by `eval`. Never `eval` text that came from another player without `-s0` or sanitising: a hostile line could carry commands, as with any trigger that runs `%*`. When `text` is plain words with no leading `/`, it is sent to the world just as if typed, so an `eval` of ordinary text depends on a connection. A `/return` inside the evaluated text ends the evaluated code only. A `/result` value is not printed when typed at the command line, in real tf or in this engine, so print results yourself with `/echo`.
 
 **Status:** see [Status](Status.md).
 
