@@ -14,6 +14,9 @@ type Runner struct {
 	ch   chan func(*Interp)
 	done chan struct{}
 	once sync.Once
+
+	mu     sync.RWMutex // guards closed and every send on ch against close(ch)
+	closed bool
 }
 
 // NewRunner starts the goroutine that owns in. Do not touch in directly
@@ -55,12 +58,28 @@ func (r *Runner) loop() {
 }
 
 // Post queues fn to run on the interpreter's goroutine and returns at once.
-func (r *Runner) Post(fn func(*Interp)) { r.ch <- fn }
+// After Close it does nothing (the work is dropped), so a late caller, such as
+// a socket reader racing teardown, never sends on a closed channel.
+func (r *Runner) Post(fn func(*Interp)) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.closed {
+		return
+	}
+	r.ch <- fn
+}
 
-// Do runs fn on the interpreter's goroutine and waits for it.
+// Do runs fn on the interpreter's goroutine and waits for it. After Close it
+// returns at once without running fn.
 func (r *Runner) Do(fn func(*Interp)) {
 	d := make(chan struct{})
+	r.mu.RLock()
+	if r.closed {
+		r.mu.RUnlock()
+		return
+	}
 	r.ch <- func(in *Interp) { fn(in); close(d) }
+	r.mu.RUnlock()
 	<-d
 }
 
@@ -69,6 +88,11 @@ func (r *Runner) Interrupt() { r.in.Interrupt() }
 
 // Close stops the goroutine after queued work has run.
 func (r *Runner) Close() {
-	r.once.Do(func() { close(r.ch) })
+	r.once.Do(func() {
+		r.mu.Lock()
+		r.closed = true
+		close(r.ch)
+		r.mu.Unlock()
+	})
 	<-r.done
 }
