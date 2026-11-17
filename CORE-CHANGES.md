@@ -9,6 +9,14 @@ mid-task.
 Format: `## vX.Y.Z (date) — summary`, then `Added` / `Changed` / `Fixed` /
 `Breaking` (and what a client must do).
 
+## v0.0.13 (2026-11-17) — /version no longer prints TinyFugue's copyright
+
+### Changed
+- `/version`'s second line is now `% Copyright (C) 2026 Rick Bird.` instead of TinyFugue's
+  copyright line: gtfparser is an independent implementation and contains no TinyFugue code.
+  The two-line shape is unchanged, so the library's `/ver` still works. A host that wants its own
+  identity overrides `version` with an extension command.
+
 ## v0.0.11 (2026-11-14) — restriction by origin, world database API with revisions and change events
 
 ### Part 1: restriction by origin

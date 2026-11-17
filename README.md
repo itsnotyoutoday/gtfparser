@@ -191,8 +191,8 @@ changing the engine.
 Copyright (C) 2026 Rick Bird. Licensed under the **GNU General Public License, version 3 or later**
 (see [LICENSE](LICENSE)). SPDX: `GPL-3.0-or-later`.
 
-GoTinyFugue is inspired by, and designed to be compatible with, **TinyFugue** by Ken Keys
-(Copyright (C) 1993-2007 Ken Keys, GPL-2.0-or-later). The engine does not contain TinyFugue's library:
+GoTinyFugue is inspired by, and designed to be compatible with, **TinyFugue** by Ken Keys.
+The engine does not contain TinyFugue's library:
 its tests compare behavior against a real TinyFugue build and its standard library (`TFREF_DIR`,
 `GTF_TF_LIB`), and clients that want the library ship it themselves. The regexp engine in `pcre/` follows
 the semantics of PCRE2 (Philip Hazel and contributors, University of Cambridge).

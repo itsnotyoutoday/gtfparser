@@ -40,7 +40,7 @@ func cmdListvar(in *Interp, args string) Value {
 // library's /ver (which cuts the version out of the first two lines) works.
 func cmdVersion(in *Interp, args string) Value {
 	in.echo("% " + in.globals["version"].String() + ".")
-	in.echo("% Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2002, 2003, 2004, 2005, 2006-2007 Ken Keys (kenkeys@users.sourceforge.net).")
+	in.echo("% Copyright (C) 2026 Rick Bird.")
 	return Int(1)
 }
 
